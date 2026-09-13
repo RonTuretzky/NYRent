@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Rent Ledger · Archive parsing</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      main {
+        max-width: 1240px;
+      }
+      .archive-intro {
+        padding: 60px 0 32px;
+        max-width: 860px;
+      }
+      .archive-intro h1 {
+        font-size: clamp(38px, 5vw, 68px);
+        line-height: 1.05;
+        margin: 12px 0 24px;
+      }
+      .archive-intro p {
+        font-size: 18px;
+        line-height: 1.6;
+      }
+      .archive-summary {
+        display: flex;
+        gap: 36px;
+        border-top: 1px solid var(--line, #ccd2c9);
+        padding: 24px 0;
+      }
+      .archive-summary strong {
+        font-size: 36px;
+        display: block;
+      }
+      .archive-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 48px;
+        margin: 42px 0;
+      }
+      textarea {
+        width: 100%;
+        min-height: 210px;
+        resize: vertical;
+        padding: 14px;
+        font: 15px/1.6 monospace;
+        background: #fff;
+        border: 1px solid #adb9af;
+        color: #152f27;
+      }
+      select,
+      input[type="date"] {
+        padding: 10px;
+        width: 100%;
+        margin: 6px 0 16px;
+        font: inherit;
+      }
+      .archive-grid label {
+        display: block;
+        font-size: 14px;
+      }
+      .archive-result {
+        min-height: 98px;
+        border-left: 3px solid #658228;
+        padding: 12px 18px;
+        background: #e7eadf;
+        margin: 20px 0;
+        white-space: pre-wrap;
+      }
+      .archive-result.error {
+        border-color: #a44e3c;
+        background: #f8e8e0;
+      }
+      .archive-table {
+        overflow: auto;
+      }
+      .archive-table table {
+        min-width: 780px;
+      }
+      .archive-table td {
+        font-size: 14px;
+        vertical-align: top;
+      }
+      .archive-table td small {
+        display: block;
+        margin-top: 5px;
+        color: #526458;
+      }
+      .archive-table button {
+        padding: 7px 12px;
+        font-size: 13px;
+      }
+      .archive-harness {
+        padding: 32px 0;
+        border-top: 1px solid #adb9af;
+      }
+      .archive-harness h2 {
+        font-size: 30px;
+      }
+      .archive-harness .actions {
+        margin: 18px 0;
+        flex-wrap: wrap;
+      }
+      .archive-note {
+        padding: 15px 0;
+        font-size: 14px;
+        line-height: 1.65;
+        max-width: 880px;
+      }
+      .archive-status {
+        font-size: 18px;
+        line-height: 1.6;
+      }
+      .archive-links {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+      .archive-code {
+        word-break: break-all;
+        font: 12px/1.6 monospace;
+      }
+      .archive-harness pre {
+        max-height: 190px;
+        overflow: auto;
+        white-space: pre-wrap;
+      }
+      .archive-log {
+        font: 13px/1.5 monospace;
+        overflow-wrap: anywhere;
+      }
+      @media (max-width: 800px) {
+        .archive-grid {
+          grid-template-columns: 1fr;
+          gap: 24px;
+        }
+        .archive-summary {
+          gap: 22px;
+        }
+        .archive-summary strong {
+          font-size: 28px;
+        }
+        header nav {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a href="/" class="wordmark">RENT / LEDGER</a>
+      <nav>
+        <a href="#baseline">Archive baseline</a
+        ><a href="#parser">Try the parser</a
+        ><a href="#pinned">Pinned-key flow</a
+        ><a href="/">Earlier DNSSEC demo ↗</a>
+      </nav>
+    </header>
+    <div class="environment">
+      Real archive wording · Solidity parsing · original signed publisher emails
+      still pending
+    </div>
+    <main>
+      <section class="archive-intro">
+        <p class="eyebrow">The evidence we actually have</p>
+        <h1>Parse the published<br />rent figures.</h1>
+        <p>
+          Fourteen archived editions, seven publications. This baseline checks
+          the visible wording against fixed Solidity rules for
+          <strong>Manhattan median monthly rent</strong>. Mean rents, other
+          boroughs and ambiguous periods are rejected.
+        </p>
+        <p class="archive-note">
+          These are curated excerpts from newsletter web versions and sent-email
+          archives. Headings are retained where needed; intervening content is
+          omitted. They are not original email files. Parsing an archive does
+          not authenticate its publisher.
+        </p>
+      </section>
+      <section id="baseline">
+        <div class="section-line">
+          <h2>Archive baseline</h2>
+          <button id="run-all">Run all 14 on contract</button>
+        </div>
+        <div class="archive-summary">
+          <div><strong id="parsed-count">—</strong>excerpts parsed</div>
+          <div><strong id="rejected-count">—</strong>excerpts rejected</div>
+          <div><strong>0</strong>original signed emails</div>
+        </div>
+        <p id="baseline-status" role="status">
+          Connecting to the local parser…
+        </p>
+        <div class="archive-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Publication / edition</th>
+                <th>Contract result</th>
+                <th>Evidence</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="baseline-rows"></tbody>
+          </table>
+        </div>
+        <p class="archive-note">
+          Two historical matches: Pinpointe and The Bigger Apple report January
+          2026 at $4,695; Pinpointe and Hemlane report May 2025 at $4,571.
+          Different publishers count separately even when they repeat a common
+          dataset. Matching numbers alone do not establish identical sampling
+          methods.
+        </p>
+      </section>
+      <section id="parser" class="archive-grid">
+        <div>
+          <p class="eyebrow">Fixed grammar, editable test input</p>
+          <h2>Try an archived excerpt</h2>
+          <label for="publication"
+            >Publication grammar<select id="publication"></select></label
+          ><label for="issued-date"
+            >Publication date for this unverified test<input
+              id="issued-date"
+              type="date"
+          /></label>
+          <p class="archive-note">
+            The date supplies the year for named months and resolves “last
+            month.” In the signed feed, this comes from the verified DKIM
+            timestamp; the uploader cannot choose it independently.
+          </p>
+          <p id="excerpt-provenance" class="fine"></p>
+        </div>
+        <div>
+          <label for="excerpt"
+            >Visible wording<textarea
+              id="excerpt"
+              spellcheck="false"
+            ></textarea></label
+          ><button id="parse-excerpt">Run Solidity parser</button>
+          <div id="parse-result" class="archive-result" role="status">
+            Choose an archive row.
+          </div>
+          <p class="fine">
+            No rent extraction runs in JavaScript. This button calls the
+            deployed Solidity parser. Unrecognized wording and conflicting
+            matches fail closed.
+          </p>
+        </div>
+      </section>
+      <section id="pinned" class="archive-harness">
+        <p class="eyebrow">
+          Assume verified publisher public keys will be supplied
+        </p>
+        <h2>Signed submission with a pinned key</h2>
+        <p class="archive-note">
+          This separate local feed fixes the public keys, sender identities and
+          parser profiles at deployment. It needs no DNSSEC upload. The two
+          samples below put the real January archive wording into
+          <strong>clearly synthetic signed envelopes</strong>. They test the
+          integration; they do not authenticate Pinpointe or The Bigger Apple.
+        </p>
+        <div class="actions">
+          <button data-archive-email="0">
+            Load Pinpointe wording · test signature</button
+          ><button data-archive-email="1" class="secondary">
+            Load Bigger Apple wording · test signature
+          </button>
+        </div>
+        <label for="pinned-file"
+          >Or choose an original .eml (configured test identities only)<input
+            type="file"
+            id="pinned-file"
+            accept=".eml,message/rfc822"
+        /></label>
+        <label for="pinned-signature" id="pinned-signature-label" hidden
+          >DKIM signature<select id="pinned-signature"></select
+        ></label>
+        <p id="loaded-email" class="fine">No signed envelope loaded.</p>
+        <div class="actions">
+          <button id="verify-pinned" disabled>
+            Verify pinned key and parse</button
+          ><button id="submit-pinned" class="secondary" disabled>
+            Submit verified email
+          </button>
+        </div>
+        <div id="pinned-result" class="archive-result" role="status">
+          The configured keys are test keys. Real publisher key configuration
+          remains pending.
+        </div>
+        <details>
+          <summary>Inspect the supplied signed body</summary>
+          <pre id="pinned-body"></pre>
+        </details>
+        <div class="archive-summary">
+          <div><strong id="month-rate">—</strong>January 2026</div>
+          <div><strong id="month-sources">0 / 2</strong>publications</div>
+        </div>
+        <p id="month-status" class="archive-status"></p>
+        <div class="actions">
+          <button id="advance-pinned" class="secondary">
+            Advance local clock to deadline</button
+          ><button id="finalize-pinned" disabled>Finalize January</button
+          ><button id="refresh-pinned" class="quiet">Refresh state</button>
+        </div>
+        <p class="archive-note">
+          The new feed allows submissions for 90 days after month end, covering
+          the delay observed in Hemlane’s archive. It requires exact agreement,
+          prevents duplicate publication votes, and blocks conflicting months.
+          No administrator can change a key or price. Key rotation and
+          revocation require a separately defined policy or a new deployment.
+        </p>
+        <p class="archive-note">
+          Verifying sends the signed headers and body to the RPC. Submitting
+          publishes those bytes as transaction data. Test samples contain no
+          personal data.
+        </p>
+        <details>
+          <summary>Deployment and evidence details</summary>
+          <p id="archive-contracts" class="archive-code"></p>
+          <div class="archive-links">
+            <a href="archive/corpus.json">Archive fixtures</a
+            ><a href="archive/results.json">Recorded parser results</a
+            ><a href="archive/config.json">Test deployment</a>
+          </div>
+        </details>
+        <ol id="pinned-log" class="archive-log"></ol>
+      </section>
+    </main>
+    <footer>
+      <span>Rent Ledger · Archive-derived parser v1</span
+      ><a href="/">Earlier synthetic-template demo ↗</a>
+    </footer>
+    <script type="module" src="archives.mjs"></script>
+  </body>
+</html>

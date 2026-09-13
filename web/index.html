@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rent Ledger · Signed email feed</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="wordmark" href="/">RENT / LEDGER</a>
+      <nav>
+        <a href="archives.html">Archive parser ↗</a>
+        <a href="#submit">Submit email</a><a href="#rules">Feed rules</a
+        ><a href="slideshow.html">Presentation ↗</a
+        ><button id="connect" class="secondary">Connect wallet</button>
+      </nav>
+    </header>
+    <div class="environment">
+      <span class="dot"></span> Local test chain · synthetic publishers · actual
+      DNSSEC and DKIM contract verification
+      <span id="network-state">Connecting…</span>
+    </div>
+    <main>
+      <section class="intro">
+        <div>
+          <p class="eyebrow">Monthly rent from signed publications</p>
+          <h1>Every number<br />has a signed source.</h1>
+          <p class="intro-copy">
+            Submit an original email. The contract verifies its signing key,
+            checks the email signature and extracts the rent figure. Matching
+            publications build agreement for the month.
+          </p>
+        </div>
+        <div class="series">
+          <p class="eyebrow">Configured series</p>
+          <h2>Manhattan<br />One-bedroom average</h2>
+          <p>USD per month · Corcoran sample</p>
+          <p class="fine">
+            Demonstration values only. These three test publications are not the
+            real newsletters in the research corpus.
+          </p>
+        </div>
+      </section>
+      <section class="ledger">
+        <div class="section-line">
+          <h2>Monthly record</h2>
+          <div>
+            <label for="month">Observation month</label
+            ><input
+              type="month"
+              id="month"
+              value="2026-08"
+              min="2020-01"
+              max="2099-12"
+            /><button id="refresh" class="quiet">Refresh ↻</button>
+          </div>
+        </div>
+        <div class="record">
+          <div>
+            <p class="eyebrow" id="rate-label">Finalized rate</p>
+            <div class="rate" id="rate">—</div>
+            <p id="rate-help">No finalized observation for this month.</p>
+          </div>
+          <div class="agreement">
+            <p class="eyebrow">Publisher agreement</p>
+            <div class="agreement-value">
+              <strong id="agreement">0</strong><span>/ 3 sources</span>
+            </div>
+            <p id="status">At least two matching sources are required.</p>
+            <div id="agreement-bar" class="agreement-bar"></div>
+          </div>
+          <div class="deadline">
+            <p class="eyebrow">Submission deadline</p>
+            <strong id="deadline">—</strong>
+            <p id="chain-clock"></p>
+            <button id="finalize" disabled>Finalize month</button
+            ><button id="advance" class="text-button">
+              Advance local test clock to deadline
+            </button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Publication</th>
+              <th>Reported rent</th>
+              <th>Receipt</th>
+              <th>Evidence commitment</th>
+            </tr>
+          </thead>
+          <tbody id="receipts"></tbody>
+        </table>
+        <p class="fine">
+          Each configured publication counts once. Shared underlying data is
+          allowed. Every submitted price must agree exactly; disagreement blocks
+          finalization.
+        </p>
+      </section>
+      <section id="submit" class="submission">
+        <div class="submit-heading">
+          <p class="eyebrow">Permissionless submission</p>
+          <h2>An email in.<br />A verifiable receipt out.</h2>
+          <p>
+            Your browser prepares the signed bytes. Price extraction happens
+            inside the Solidity contract.
+          </p>
+          <details>
+            <summary>What is disclosed when submitting?</summary>
+            <p>
+              This direct-verification implementation sends the signed headers
+              and complete signed body as public transaction data. They may
+              contain your address or unsubscribe tokens. The local test samples
+              contain no personal data. A ZK implementation would be needed to
+              hide private email contents.
+            </p>
+          </details>
+        </div>
+        <div class="workspace">
+          <div class="step-title">
+            <span>01</span>
+            <h3>Choose an original email</h3>
+          </div>
+          <label class="file-input" for="email-file"
+            ><strong id="file-label">Choose a .eml file</strong
+            ><span>Original headers and body · maximum 100 KB input</span
+            ><input id="email-file" type="file" accept=".eml,message/rfc822"
+          /></label>
+          <div class="samples">
+            <span>Test email for the selected month</span
+            ><button data-sample="alpha">Publication A</button
+            ><button data-sample="beta">Publication B</button
+            ><button data-sample="gamma">Publication C</button>
+          </div>
+          <p class="fine">
+            Samples: August–October 2026. September emails become valid on the
+            local chain after October 10.
+          </p>
+          <div id="email-summary" class="email-summary" hidden></div>
+          <label id="signature-label" hidden
+            >DKIM signature<select id="signature-index"></select
+          ></label>
+          <div class="step-title">
+            <span>02</span>
+            <h3>Supply the DNSSEC proof</h3>
+          </div>
+          <label class="file-input compact" for="proof-file"
+            ><strong id="proof-label">Choose a proof-chain JSON file</strong
+            ><span>Authenticated DNS records for the DKIM selector</span
+            ><input id="proof-file" type="file" accept=".json,application/json"
+          /></label>
+          <p class="fine" id="proof-help">
+            Test samples include their proof chain. Real publishers require a
+            complete, currently valid DNSSEC chain.
+          </p>
+          <div class="step-title">
+            <span>03</span>
+            <h3>Verify, then submit</h3>
+          </div>
+          <div class="actions">
+            <button id="verify" disabled>Verify email on contract</button
+            ><button id="submit-email" class="secondary" disabled>
+              Submit verified email
+            </button>
+          </div>
+          <p class="fine" style="margin-top: 14px">
+            Verification sends signed bytes to your RPC. Submitting publishes
+            those bytes on the selected chain. Test samples contain no personal
+            data.
+          </p>
+          <div id="verification" class="verification" aria-live="polite">
+            <p>Choose an email to begin.</p>
+          </div>
+          <details>
+            <summary>Inspect the signed body</summary>
+            <pre id="body-preview">No email loaded.</pre>
+          </details>
+        </div>
+      </section>
+      <section id="rules" class="rules">
+        <p class="eyebrow">Published rules, fixed at deployment</p>
+        <h2>Agreement without a price setter</h2>
+        <div class="rule-grid">
+          <div>
+            <span>01</span>
+            <h3>Anyone can submit</h3>
+            <p>
+              No reporter allowlist or privileged transaction sender. Each
+              newsletter’s authenticated identity is fixed in the source policy.
+            </p>
+          </div>
+          <div>
+            <span>02</span>
+            <h3>Exact matching</h3>
+            <p>
+              Two of three publications must report the same month and exact
+              amount. Additional submissions must agree too. Duplicate emails
+              cannot add votes.
+            </p>
+          </div>
+          <div>
+            <span>03</span>
+            <h3>A fixed closing time</h3>
+            <p>
+              Submissions remain open for 45 days after month end. Anyone can
+              finalize afterward. A missing quorum or any conflict leaves the
+              month unfinalized.
+            </p>
+          </div>
+          <div>
+            <span>04</span>
+            <h3>Visible dependencies</h3>
+            <p>
+              Cryptography authenticates the publication, not economic truth.
+              Publishers, signing services, DNSSEC’s root and the chain remain
+              dependencies.
+            </p>
+          </div>
+        </div>
+        <details>
+          <summary>Contract and policy details</summary>
+          <dl id="contract-details"></dl>
+          <p>
+            No upgrade, owner, manual price setter or key override exists in
+            this deployment. The DNSSEC verifier’s configuration is permanently
+            frozen. A production deployment needs genuine source identities,
+            validated templates and the public DNS root anchor.
+          </p>
+        </details>
+        <details>
+          <summary>Supported email formats and limits</summary>
+          <p>
+            RSA-SHA256 (2048–4096 bits, exponent 65537), relaxed/relaxed DKIM
+            with signed timestamp and signed From, Content-Type and
+            Content-Transfer-Encoding. Full body coverage only. Text/plain,
+            text/html, quoted-printable, base64 and bounded multipart messages.
+            Unsupported encodings, duplicate records and ambiguous matches are
+            rejected. Fixed templates currently apply to the three synthetic
+            publications.
+          </p>
+        </details>
+      </section>
+      <section class="activity">
+        <div class="section-line">
+          <h2>Activity</h2>
+          <button id="clear-log" class="quiet">Clear local log</button>
+        </div>
+        <ol id="activity">
+          <li>No transactions submitted from this browser session.</li>
+        </ol>
+      </section>
+    </main>
+    <footer>
+      <span>Rent Ledger · Local implementation</span
+      ><span>Permissionless verification · explicitly scoped data</span
+      ><a href="slideshow.html">View presentation ↗</a>
+    </footer>
+    <div id="toast" role="status" hidden></div>
+    <script type="module" src="app.mjs"></script>
+  </body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "network": "local Anvil",
+  "chainId": 31338,
+  "testDeployment": true,
+  "feed": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
+  "month": 202608,
+  "valueCents": "540800",
+  "sourceCount": 3,
+  "finalized": true,
+  "finalizationTx": "0x8a448cd7cd70d6046cb8c44aa201c047f13959eff457bb6ecab713b04f8f8b5b",
+  "policyHash": "0xc812acc42510fe37299f3b82795ac3826b27f6e6a3c984db4c2a4ce053a567bd",
+  "anchorHash": "0xdc96e99cdd9b8f7b1fc62c7186c3519239b3fabe9485ba464e5ef336beb72b09",
+  "events": [
+    {
+      "event": "EmailAccepted",
+      "transaction": "0xc7266fb983964b71ae4a3dcec083fa53fdf972c25b89d407905b69dee5735faa",
+      "gasUsed": "4732509",
+      "month": "202608",
+      "value": "540800"
+    },
+    {
+      "event": "EmailAccepted",
+      "transaction": "0x7eed049e1dc36ca83d4dc1d8e5e4b25626e27265b959a6435545a4dbbf41f8a5",
+      "gasUsed": "4618748",
+      "month": "202608",
+      "value": "540800"
+    },
+    {
+      "event": "EmailAccepted",
+      "transaction": "0xf3ce11fd2a56a24dc952294c4eec9da8327549a42012a51070e32c8f1f8151df",
+      "gasUsed": "5232822",
+      "month": "202608",
+      "value": "540800"
+    },
+    {
+      "event": "MonthFinalized",
+      "transaction": "0x8a448cd7cd70d6046cb8c44aa201c047f13959eff457bb6ecab713b04f8f8b5b",
+      "gasUsed": "67036",
+      "month": "202608",
+      "value": "540800"
+    }
+  ]
+}

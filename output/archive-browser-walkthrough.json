@@ -1,0 +1,45 @@
+{
+  "network": "local Anvil",
+  "chainId": 31339,
+  "feed": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+  "month": 202601,
+  "cents": "469500",
+  "sources": 2,
+  "finalized": true,
+  "publisherAuthentication": false,
+  "signatureKind": "synthetic test signatures over real curated archive wording",
+  "events": [
+    {
+      "event": "Accepted",
+      "transaction": "0x44522d6952554575d1d0427b9b63caf7e3629bf222e3d68f68aeb6b8677bcba5",
+      "gasUsed": "2575495",
+      "args": [
+        "202601",
+        "0",
+        "469500",
+        "0xf493671cb026095fc9e828b5b5cfad75844942683c2012bd68ee9e0bc3061490"
+      ]
+    },
+    {
+      "event": "Accepted",
+      "transaction": "0x4286880ca80b7b1c52baf61d68dab7a8da806082dc96bf67e5858701abf89822",
+      "gasUsed": "2256790",
+      "args": [
+        "202601",
+        "1",
+        "469500",
+        "0xf9bcc04fe980acd9be77b8d56a9921cf56ad605c2d5173706c255d368ed9012e"
+      ]
+    },
+    {
+      "event": "Finalized",
+      "transaction": "0xfe2621827314da957afb7e7b4479a56f4b892601616fda307a1509f452663fb4",
+      "gasUsed": "68529",
+      "args": [
+        "202601",
+        "469500",
+        "2"
+      ]
+    }
+  ]
+}

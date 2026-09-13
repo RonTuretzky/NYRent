@@ -1,0 +1,14 @@
+{
+  "productionEnabled": false,
+  "publicNetworkDeployment": null,
+  "realPublisherKeysConfigured": 0,
+  "originalSignedNewsletterEmailsCollected": 0,
+  "reasons": [
+    "The historical corpus contains web excerpts, not original signed .eml messages.",
+    "Actual DKIM domains, selectors, signed identities and verified publisher public keys have not been established. The new pinned-key mode assumes they will be supplied later and does not require DNSSEC.",
+    "New immutable archive grammars are validated against curated real public-archive excerpts, not untouched publisher email histories or original MIME.",
+    "No chain or funded deployment account has been selected for a public deployment."
+  ],
+  "keyMode": "Pinned keys are supported at deployment; verified real publisher keys will be supplied later. Existing deployed keys are test keys.",
+  "noFallback": "A submission cannot choose its own RSA key or parser profile. A reporter committee and an admin price setter are not accepted."
+}

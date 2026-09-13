@@ -1,0 +1,11 @@
+From: Rent Bulletin <rent@beta.rent.test>
+To: subscriber@example.invalid
+Subject: Synthetic beta rental bulletin — 2026-10
+Date: Tue, 10 Nov 2026 12:00:00 GMT
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Message-ID: <test-beta-2026-10-540800@beta.rent.test>
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=beta.rent.test; s=rent; t=1794312000; h=from:to:subject:date:mime-version:content-type:content-transfer-encoding:message-id; bh=77jngrEyjRbYuxRk8XsShkEnIaNsLORouMKWdi4VhcE=; b=IqsCcO5/VLZwNU3XPBc2RopJW7MruPr5HVDkPgKTd7T4+KSiJXkyUflHeNS1P6zwEljhcFKOpbjyNsrax3jkY+pH+pjosGMgtZ0PWgEn6AO4iRH3kGHgUOAeUz3ZBxh6ql4rmKPQY4mruQaFA4N6f0KZhMqpaPSSZ470BRevACRGG6YKOsn3+W0ojjYLMmNrk5SxiMP/3/yJMxYROsDBrkUhKX88JF5NF5FSym1DJ+zjnbq4iDr51h3qMZkkHB973h30WULjZp6NmSMLPageibgAo8xbfRVsusOT4CkwFgq+BbyEGRYkH0oab2KRqj4ZGtj2HObFhstAIRcDveKSMQ==
+
+<html><body><p>SYNTHETIC TEST EMAIL</p><p>Corcoran Manhattan one-bedroom mean, 2026-10: $5,408.00/month.</p><p>Test data only.</p></body></html>

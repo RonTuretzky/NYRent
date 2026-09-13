@@ -1,0 +1,165 @@
+{
+  "fixtureType": "curated public archive excerpts",
+  "originalSignedEmails": 0,
+  "parserVersion": "archive-grammar-v1",
+  "archiveCases": [
+    {
+      "id": "pinpointe-2025-05",
+      "status": "rejected",
+      "reason": "NoMatchingMedian"
+    },
+    {
+      "id": "pinpointe-2025-06",
+      "status": "parsed",
+      "month": 202505,
+      "cents": 457100,
+      "rule": 1,
+      "authenticated": false
+    },
+    {
+      "id": "pinpointe-2025-07",
+      "status": "rejected",
+      "reason": "StaleSection"
+    },
+    {
+      "id": "pinpointe-2026-02",
+      "status": "parsed",
+      "month": 202601,
+      "cents": 469500,
+      "rule": 2,
+      "authenticated": false
+    },
+    {
+      "id": "pinpointe-2026-04",
+      "status": "parsed",
+      "month": 202603,
+      "cents": 500000,
+      "rule": 3,
+      "authenticated": false
+    },
+    {
+      "id": "pinpointe-2026-05",
+      "status": "parsed",
+      "month": 202604,
+      "cents": 509900,
+      "rule": 4,
+      "authenticated": false
+    },
+    {
+      "id": "cre-2026-03",
+      "status": "rejected",
+      "reason": "NoMatchingMedian"
+    },
+    {
+      "id": "cre-2026-08",
+      "status": "parsed",
+      "month": 202607,
+      "cents": 500000,
+      "rule": 7,
+      "authenticated": false
+    },
+    {
+      "id": "bigger-2026-02",
+      "status": "parsed",
+      "month": 202601,
+      "cents": 469500,
+      "rule": 5,
+      "authenticated": false
+    },
+    {
+      "id": "bigger-2026-03",
+      "status": "rejected",
+      "reason": "NoMatchingMedian"
+    },
+    {
+      "id": "hallmark-2026-07",
+      "status": "rejected",
+      "reason": "UnsupportedPublication"
+    },
+    {
+      "id": "finding-2025-04",
+      "status": "parsed",
+      "month": 202502,
+      "cents": 450000,
+      "rule": 8,
+      "authenticated": false
+    },
+    {
+      "id": "hemlane-2025-07",
+      "status": "parsed",
+      "month": 202505,
+      "cents": 457100,
+      "rule": 6,
+      "authenticated": false
+    },
+    {
+      "id": "broadsheet-2024-09",
+      "status": "rejected",
+      "reason": "UnsupportedPublication"
+    }
+  ],
+  "integrationHarness": [
+    {
+      "kind": "test-signature-harness",
+      "publication": 0,
+      "gasUsed": "2575495"
+    },
+    {
+      "kind": "test-signature-harness",
+      "publication": 1,
+      "gasUsed": "2256790"
+    }
+  ],
+  "browserWalkthrough": {
+    "network": "local Anvil",
+    "chainId": 31339,
+    "feed": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+    "month": 202601,
+    "cents": "469500",
+    "sources": 2,
+    "finalized": true,
+    "publisherAuthentication": false,
+    "signatureKind": "synthetic test signatures over real curated archive wording",
+    "events": [
+      {
+        "event": "Accepted",
+        "transaction": "0x44522d6952554575d1d0427b9b63caf7e3629bf222e3d68f68aeb6b8677bcba5",
+        "gasUsed": "2575495",
+        "args": [
+          "202601",
+          "0",
+          "469500",
+          "0xf493671cb026095fc9e828b5b5cfad75844942683c2012bd68ee9e0bc3061490"
+        ]
+      },
+      {
+        "event": "Accepted",
+        "transaction": "0x4286880ca80b7b1c52baf61d68dab7a8da806082dc96bf67e5858701abf89822",
+        "gasUsed": "2256790",
+        "args": [
+          "202601",
+          "1",
+          "469500",
+          "0xf9bcc04fe980acd9be77b8d56a9921cf56ad605c2d5173706c255d368ed9012e"
+        ]
+      },
+      {
+        "event": "Finalized",
+        "transaction": "0xfe2621827314da957afb7e7b4479a56f4b892601616fda307a1509f452663fb4",
+        "gasUsed": "68529",
+        "args": [
+          "202601",
+          "469500",
+          "2"
+        ]
+      }
+    ]
+  },
+  "validation": {
+    "integrationTestsPassed": 111,
+    "solidityTestsPassed": 6,
+    "fuzzCases": 1280,
+    "nativeFileChooserAutomated": false,
+    "browserTest": "Archive decisions, excerpt selection, parsing, test-signed submission and finalization"
+  }
+}

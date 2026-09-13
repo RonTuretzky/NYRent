@@ -1,0 +1,11 @@
+From: Rent Bulletin <rent@beta.rent.test>
+To: subscriber@example.invalid
+Subject: Synthetic beta rental bulletin — 2026-09
+Date: Sat, 10 Oct 2026 12:00:00 GMT
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Message-ID: <test-beta-2026-09-540800@beta.rent.test>
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=beta.rent.test; s=rent; t=1791633600; h=from:to:subject:date:mime-version:content-type:content-transfer-encoding:message-id; bh=Y6Z05WjpK6oxAyAU1eYdrc+UWHB7jSaqsUuCghbdgJg=; b=K9W2ph5I8lGBMRcFTHTpf+cTbOSBY6vJvoPHYYOvBGmImNF0YRDGcb2N+rlC7Dm2WAe1ubLmeWuGHNdZhDCU/3F+v7r7lwRNn91v3skHS1xV5sizwjzUPDGKnpK9J2yccKT/QDv0wF2iKgEiWHH53EorjSU2CGJTZPCwzC6TdL05EpCzrn44xjTSI7nTSLLWZqM93JdgdmPRWgg2SkOXuveZRG7R0znGxpC0T93aIyxDRWsk21G7c3EJ5ZvVQkrhtb1zRlV28wm6t67Z0RFYbDyG3BVpGcSpN4tD91D1ErlOziXm8un1vZdJLy8h03lhkqFFHK6hU3pZs5HQgsPdGg==
+
+<html><body><p>SYNTHETIC TEST EMAIL</p><p>Corcoran Manhattan one-bedroom mean, 2026-09: $5,408.00/month.</p><p>Test data only.</p></body></html>

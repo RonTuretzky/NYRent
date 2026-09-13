@@ -1,0 +1,13 @@
+From: Rent Bulletin <rent@beta.rent.test>
+To: subscriber@example.invalid
+Subject: Synthetic beta rental bulletin — 2026-01
+Date: Fri, 13 Feb 2026 12:00:00 GMT
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Message-ID: <test-beta-2026-01-469500@beta.rent.test>
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=beta.rent.test; s=rent; t=1770984000; h=from:to:subject:date:mime-version:content-type:content-transfer-encoding:message-id; bh=IKh0mKTDNEJtHjXlv/FPHVsf+adLITIVNCoBjhtNB7g=; b=dywYwPbhP3odU5s602ZA9CexFaYTArHbwmVFKm9ALL93pv9JIaSDmRkAOasB4GGK6bkYBQjkhpN72OLBQDq61RxaImkk+7WHpWOvwS/bDUcJn5njQ9RDIJKuB7yL69/trwzA0tju5EEoG9ScvIkmU0diu+zQfo35ZNUsmnJ4CVkAvnqi7kyFKELcfVIoUzk0GzHlbQ2Og7aVR4sABhjC0zrFOJfkkf2jQVKQL0ZXqFJINxu33ckp7GGYK+kptEiaj7P6HjHMuM3kxN4VioNysv2RIXOgWcY+XGEoSJPJ8C4IGcna1c9TPuyttJrnUqE4FiemPsFwGBbNYZJKqAr5tA==
+
+ARCHIVE WORDING IN A SYNTHETIC SIGNED ENVELOPE. NOT A PUBLISHER EMAIL.
+
+The median rent in Manhattan was $4,695 last month.

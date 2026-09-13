@@ -1,0 +1,122 @@
+[
+  {
+    "id": "pinpointe-2025-05", "source": "pinpointe", "published_at": "2025-05-13",
+    "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-1665998f412718e0",
+    "evidence_kind": "newsletter_web_version", "location": "Market Pulse: April 2025 / Rental Rundown",
+    "text": "Manhattan rents hit a new average of $4,908",
+    "context": {"period": "2025-04", "scope_reviewed": true},
+    "expected": [["manhattan", "mean", "all", 490800, "2025-04", "extracted"]]
+  },
+  {
+    "id": "pinpointe-2025-06", "source": "pinpointe", "published_at": "2025-06-17",
+    "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-96b26dd99d98b18f",
+    "evidence_kind": "newsletter_web_version", "location": "Market Pulse: May 2025 / Rental Rundown",
+    "text": "Manhattan: Median rent hit $4,571",
+    "context": {"period": "2025-05", "scope_reviewed": true},
+    "expected": [["manhattan", "median", "all", 457100, "2025-05", "extracted"]]
+  },
+  {
+    "id": "pinpointe-2025-07", "source": "pinpointe", "published_at": "2025-07-15",
+    "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-2c850f5bdeded31c",
+    "evidence_kind": "newsletter_web_version", "location": "Market Pulse and later rent-news summary disagree about period/unit",
+    "text": "Market Pulse: April 2025\nManhattan: Median rent climbed to $4,625\nRecord-high June rents ($4,625 median for a Manhattan one-bed)",
+    "context": {"period": "2025-04", "scope_reviewed": true, "review_flags": ["conflicting_period_and_unit_elsewhere_in_issue"]},
+    "expected": [["manhattan", "median", "all", 462500, "2025-04", "review"]]
+  },
+  {
+    "id": "pinpointe-2026-02", "source": "pinpointe", "published_at": "2026-02-17",
+    "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-c440aefcabbd2af9",
+    "evidence_kind": "newsletter_web_version", "location": "Market Pulse: January 2026 / Rental Rundown",
+    "text": "Manhattan rents climbed to a median of $4,695",
+    "context": {"period": "2026-01", "scope_reviewed": true},
+    "expected": [["manhattan", "median", "all", 469500, "2026-01", "extracted"]]
+  },
+  {
+    "id": "pinpointe-2026-04", "source": "pinpointe", "published_at": "2026-04-21",
+    "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-ccef858c5887a89f",
+    "evidence_kind": "newsletter_web_version", "location": "Market Pulse: March 2026 / Rental Rundown, Manhattan bullet; two short fragments",
+    "text": "Manhattan median rent hit $5,000/month\nAverage one-bedrooms are at a new high of $5,206.",
+    "context": {"period": "2026-03", "geography": "Manhattan", "scope_reviewed": true, "dataset_family": "corcoran", "rent_basis": "publisher_reported", "population": "publisher_sample"},
+    "lineage_note": "Amounts corroborated in Corcoran's March report; not counted as independent data from Corcoran.",
+    "lineage_url": "https://inhabit.corcoran.com/nyc-residential-rental-market-report-march-2026/",
+    "expected": [["manhattan", "median", "all", 500000, "2026-03", "extracted"], ["manhattan", "mean", "1br", 520600, "2026-03", "extracted"]]
+  },
+  {
+    "id": "pinpointe-2026-05", "source": "pinpointe", "published_at": "2026-05-26",
+    "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-3e4d1c4f070ddd42",
+    "evidence_kind": "newsletter_web_version", "location": "News You Can Use, rental headline; reviewed using live browser",
+    "text": "Manhattan Hits All-Time Rental High: $5,099 Median in April",
+    "context": {"period": "2026-04", "scope_reviewed": true, "dataset_family": "corcoran", "rent_basis": "publisher_reported", "population": "publisher_sample"},
+    "lineage_note": "Adjacent paragraph explicitly attributes the April figures to Corcoran via Brick Underground.",
+    "expected": [["manhattan", "median", "all", 509900, "2026-04", "extracted"]]
+  },
+  {
+    "id": "cre-2026-03", "source": "cre_daily_ny", "published_at": "2026-03-18",
+    "url": "https://www.credaily.com/newsletters/new-york/issue/manhattan-inventory-slide-extends-record-streak-as-nyc-rents-climb/",
+    "evidence_kind": "newsletter_web_version", "location": "Supply Squeeze / By the numbers",
+    "text": "median rent rose 8.2% to $3,950.",
+    "context": {"period": "2026-02", "geography": "NYC", "scope_reviewed": true, "dataset_family": "streeteasy", "rent_basis": "asking", "population": "listed_apartments"},
+    "lineage_url": "https://streeteasy.com/blog/manhattan-rental-inventory-falls-24th-consecutive-month/",
+    "expected": [["nyc", "median", "all", 395000, "2026-02", "extracted"]]
+  },
+  {
+    "id": "cre-2026-08", "source": "cre_daily_ny", "published_at": "2026-08-18",
+    "url": "https://www.credaily.com/newsletters/new-york/issue/manhattan-rents-hit-5k-as-apartment-listings-plunge-39/",
+    "evidence_kind": "newsletter_web_version", "location": "Rental Crunch / By the numbers",
+    "text": "Median Manhattan rent reached $5,000 in July",
+    "context": {"scope_reviewed": true, "dataset_family": "miller_samuel_trd", "rent_basis": "publisher_reported", "population": "publisher_sample"},
+    "lineage_note": "The same paragraph explicitly attributes the statistic to Miller Samuel and The Real Deal.",
+    "expected": [["manhattan", "median", "all", 500000, "2026-07", "extracted"]]
+  },
+  {
+    "id": "bigger-2026-02", "source": "bigger_apple", "published_at": "2026-02-13",
+    "url": "https://thebiggerapple.manhattan.institute/p/friday-newsletter-how-rich-do-you",
+    "evidence_kind": "newsletter_web_version", "location": "Opening paragraph",
+    "text": "The median rent in Manhattan was $4,695 last month.",
+    "context": {"scope_reviewed": true},
+    "expected": [["manhattan", "median", "all", 469500, "2026-01", "extracted"]]
+  },
+  {
+    "id": "bigger-2026-03", "source": "bigger_apple", "published_at": "2026-03-20",
+    "url": "https://thebiggerapple.manhattan.institute/p/friday-newsletter-its-getting-expensive",
+    "evidence_kind": "newsletter_web_version", "location": "Mamdani Watch / fourth bullet",
+    "text": "median rent in Brooklyn also reached an all-time high of $4,296 per month in February",
+    "context": {"scope_reviewed": true, "dataset_family": "corcoran", "rent_basis": "publisher_reported", "population": "publisher_sample"},
+    "lineage_note": "The bullet attributes the rent figures to Corcoran. Its separate Manhattan dollar amount omits the statistic label, so this fixture selects the explicit Brooklyn median.",
+    "expected": [["brooklyn", "median", "all", 429600, "2026-02", "extracted"]]
+  },
+  {
+    "id": "hallmark-2026-07", "source": "hallmark", "published_at": "2026-07-13",
+    "url": "https://hallmarkabsservice.substack.com/p/nyc-livingrecord-rents-while-theft",
+    "evidence_kind": "newsletter_web_version", "location": "Rent By The Numbers",
+    "text": "Studio and one-bedroom apartments each hit new average rent records, reaching $4,014 and $5,408, respectively.",
+    "context": {"period": "2026-06", "geography": "Manhattan", "scope_reviewed": true, "dataset_family": "corcoran", "rent_basis": "publisher_reported", "population": "publisher_sample"},
+    "lineage_note": "The immediately preceding paragraph specifies Manhattan and Corcoran's June 2026 report.",
+    "expected": [["manhattan", "mean", "studio", 401400, "2026-06", "extracted"], ["manhattan", "mean", "1br", 540800, "2026-06", "extracted"]]
+  },
+  {
+    "id": "finding-2025-04", "source": "finding_space", "published_at": "2025-04-23",
+    "url": "https://jyarton.substack.com/p/nyc-rental-market-breakdown",
+    "evidence_kind": "newsletter_web_version", "location": "Early body, paragraph discussing February demand",
+    "text": "In February, renters in Manhattan met record-highs with a median rent of $4,500",
+    "context": {"scope_reviewed": true},
+    "expected": [["manhattan", "median", "all", 450000, "2025-02", "extracted"]]
+  },
+  {
+    "id": "hemlane-2025-07", "source": "hemlane", "published_at": "2025-07-18",
+    "url": "https://milled.com/hemlane.com/policy-shockwaves-why-housing-feels-harder-this-summer-aWb8aOP9WiHWX8Qo",
+    "evidence_kind": "sent_email_web_archive", "location": "Rent-freeze article, housing-cost paragraph",
+    "text": "median rent price in Manhattan hitting a record of $4,571 in May.",
+    "context": {"scope_reviewed": true},
+    "lineage_note": "Cites New York Focus, not independently verified here back to an original rent dataset. Do not count as independent corroboration of the identical Pinpointe May value.",
+    "expected": [["manhattan", "median", "all", 457100, "2025-05", "extracted"]]
+  },
+  {
+    "id": "broadsheet-2024-09", "source": "broadsheet", "published_at": "2024-09-30",
+    "publication_date_precision": "month_only_upper_bound", "url": "https://myemail-api.constantcontact.com/Chronic-Instability.html?aid=qRI3u58YAKI&soid=1101992539878",
+    "evidence_kind": "sent_email_web_archive", "location": "Chronic Instability / landlord-upside paragraph",
+    "text": "the average rent for market-rate apartments in Manhattan is currently $4,939.",
+    "context": {"scope_reviewed": true, "population": "market_rate", "review_flags": ["publication_date_not_exact"]},
+    "expected": [["manhattan", "mean", "all", 493900, null, "review"]]
+  }
+]

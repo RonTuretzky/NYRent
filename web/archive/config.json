@@ -1,0 +1,41 @@
+{
+  "rpc": "http://127.0.0.1:18547",
+  "chainId": 31339,
+  "testDeployment": true,
+  "parser": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+  "feed": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+  "dkim": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+  "policyHash": "0xe57c2a178230734994f2b0346ecde3337e1734f4396f92782b95060ee300e144",
+  "month": 202601,
+  "warning": "Real archive wording; synthetic signing keys and envelopes. No real publisher key has been configured.",
+  "sources": [
+    {
+      "id": "alpha",
+      "name": "Test publication A",
+      "domain": "alpha.rent.test",
+      "from": "Rent Bulletin <rent@alpha.rent.test>",
+      "listId": "",
+      "template": {
+        "beforeMonth": "Manhattan rental report for ",
+        "beforePrice": ". Corcoran one-bedroom average rent: $",
+        "afterPrice": " per month."
+      },
+      "publication": 0,
+      "archiveId": "pinpointe-2026-02"
+    },
+    {
+      "id": "beta",
+      "name": "Test publication B",
+      "domain": "beta.rent.test",
+      "from": "Rent Bulletin <rent@beta.rent.test>",
+      "listId": "",
+      "template": {
+        "beforeMonth": "Corcoran Manhattan one-bedroom mean, ",
+        "beforePrice": ": $",
+        "afterPrice": "/month."
+      },
+      "publication": 1,
+      "archiveId": "bigger-2026-02"
+    }
+  ]
+}

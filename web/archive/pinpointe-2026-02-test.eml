@@ -1,0 +1,15 @@
+From: Rent Bulletin <rent@alpha.rent.test>
+To: subscriber@example.invalid
+Subject: Synthetic alpha rental bulletin — 2026-01
+Date: Tue, 17 Feb 2026 12:00:00 GMT
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Message-ID: <test-alpha-2026-01-469500@alpha.rent.test>
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=alpha.rent.test; s=rent; t=1771329600; h=from:to:subject:date:mime-version:content-type:content-transfer-encoding:message-id; bh=kgDFQFAwLWr4OIlqsHBmwdWqW1yHyn29oG0QW4M0gHE=; b=c88Kd65ihYub3Jq8bRUQ4IUjMSPV52ayV/5oiyBBbpsJdFAYZD1uXGo1KXa1IR3+rgj25GLe19XuvzWcE7oQSUXj+8IyN/F+/lLx9LhWnxcxX7cvTwZvjcpi6PH74ohXXMqybXxVGuGm2vHNM5Mv3pxbOwpVzohN6QT3cVQxYTiRO8h7v6XzoWqvKxUcB9gTMCTGBJWFrQ9FnCpOULGOSjyG7FMfnQ/nXDIsIo8Uh70Mv/LTQv1hPr9lqVerVTmojI2rVmZ/pS+sUiztKGb4p2jU629iJPuwxhGfb/Atw5jNS2N3V9OTzgy1/KY58/TkwRdqS3bkvbXi8bXpcllujg==
+
+ARCHIVE WORDING IN A SYNTHETIC SIGNED ENVELOPE. NOT A PUBLISHER EMAIL.
+
+Market Pulse: January 2026
+Rental Rundown
+Manhattan rents climbed to a median of $4,695

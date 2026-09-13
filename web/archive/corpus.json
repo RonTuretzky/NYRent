@@ -1,0 +1,420 @@
+[
+  {
+    "id": "pinpointe-2025-05",
+    "publication": 0,
+    "source": "pinpointe",
+    "publishedAt": "2025-05-13",
+    "issuedAt": 1747137600,
+    "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-1665998f412718e0",
+    "evidenceKind": "newsletter_web_version",
+    "location": "Market Pulse: April 2025 / Rental Rundown",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "Market Pulse: April 2025\nRental Rundown\nManhattan rents hit a new average of $4,908",
+    "segments": [
+      {
+        "kind": "observed_section_heading",
+        "text": "Market Pulse: April 2025"
+      },
+      {
+        "kind": "observed_section_heading",
+        "text": "Rental Rundown"
+      },
+      {
+        "kind": "quoted_excerpt",
+        "text": "Manhattan rents hit a new average of $4,908"
+      }
+    ],
+    "sha256": "23fd4a5bb8d58c308f9b3f419cdf89f13d04fb093001c73b79894776b8e8c5a0",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "error": "NoMatchingMedian"
+    }
+  },
+  {
+    "id": "pinpointe-2025-06",
+    "publication": 0,
+    "source": "pinpointe",
+    "publishedAt": "2025-06-17",
+    "issuedAt": 1750161600,
+    "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-96b26dd99d98b18f",
+    "evidenceKind": "newsletter_web_version",
+    "location": "Market Pulse: May 2025 / Rental Rundown",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "Market Pulse: May 2025\nRental Rundown\nManhattan: Median rent hit $4,571",
+    "segments": [
+      {
+        "kind": "observed_section_heading",
+        "text": "Market Pulse: May 2025"
+      },
+      {
+        "kind": "observed_section_heading",
+        "text": "Rental Rundown"
+      },
+      {
+        "kind": "quoted_excerpt",
+        "text": "Manhattan: Median rent hit $4,571"
+      }
+    ],
+    "sha256": "55a00e33a7afa5d7147cb99e4524c238c7c3bf21f45a20c1d58c6d19956e622e",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "month": 202505,
+      "cents": 457100
+    }
+  },
+  {
+    "id": "pinpointe-2025-07",
+    "publication": 0,
+    "source": "pinpointe",
+    "publishedAt": "2025-07-15",
+    "issuedAt": 1752580800,
+    "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-2c850f5bdeded31c",
+    "evidenceKind": "newsletter_web_version",
+    "location": "Market Pulse and later rent-news summary disagree about period/unit",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "Market Pulse: April 2025\nManhattan: Median rent climbed to $4,625\nRecord-high June rents ($4,625 median for a Manhattan one-bed)",
+    "segments": [
+      {
+        "kind": "quoted_excerpt",
+        "text": "Market Pulse: April 2025\nManhattan: Median rent climbed to $4,625\nRecord-high June rents ($4,625 median for a Manhattan one-bed)"
+      }
+    ],
+    "sha256": "bf3a2af16b24554739b495385a11a482e8e75276870b54463798b8e78d1872e9",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "error": "StaleSection"
+    }
+  },
+  {
+    "id": "pinpointe-2026-02",
+    "publication": 0,
+    "source": "pinpointe",
+    "publishedAt": "2026-02-17",
+    "issuedAt": 1771329600,
+    "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-c440aefcabbd2af9",
+    "evidenceKind": "newsletter_web_version",
+    "location": "Market Pulse: January 2026 / Rental Rundown",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "Market Pulse: January 2026\nRental Rundown\nManhattan rents climbed to a median of $4,695",
+    "segments": [
+      {
+        "kind": "observed_section_heading",
+        "text": "Market Pulse: January 2026"
+      },
+      {
+        "kind": "observed_section_heading",
+        "text": "Rental Rundown"
+      },
+      {
+        "kind": "quoted_excerpt",
+        "text": "Manhattan rents climbed to a median of $4,695"
+      }
+    ],
+    "sha256": "da4fbcc0910dd78b5f2f1520c7f9169b68bb4b90b601b7c43862a00ffcb25d01",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "month": 202601,
+      "cents": 469500
+    }
+  },
+  {
+    "id": "pinpointe-2026-04",
+    "publication": 0,
+    "source": "pinpointe",
+    "publishedAt": "2026-04-21",
+    "issuedAt": 1776772800,
+    "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-ccef858c5887a89f",
+    "evidenceKind": "newsletter_web_version",
+    "location": "Market Pulse: March 2026 / Rental Rundown, Manhattan bullet; two short fragments",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "Market Pulse: March 2026\nRental Rundown\nManhattan median rent hit $5,000/month\nAverage one-bedrooms are at a new high of $5,206.",
+    "segments": [
+      {
+        "kind": "observed_section_heading",
+        "text": "Market Pulse: March 2026"
+      },
+      {
+        "kind": "observed_section_heading",
+        "text": "Rental Rundown"
+      },
+      {
+        "kind": "quoted_excerpt",
+        "text": "Manhattan median rent hit $5,000/month\nAverage one-bedrooms are at a new high of $5,206."
+      }
+    ],
+    "sha256": "a9407faf59d2d575f560f27c0f7785cb521a6a9cb8a5fb0311537f76425af0f6",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "month": 202603,
+      "cents": 500000
+    }
+  },
+  {
+    "id": "pinpointe-2026-05",
+    "publication": 0,
+    "source": "pinpointe",
+    "publishedAt": "2026-05-26",
+    "issuedAt": 1779796800,
+    "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-3e4d1c4f070ddd42",
+    "evidenceKind": "newsletter_web_version",
+    "location": "News You Can Use, rental headline; reviewed using live browser",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "Manhattan Hits All-Time Rental High: $5,099 Median in April",
+    "segments": [
+      {
+        "kind": "quoted_excerpt",
+        "text": "Manhattan Hits All-Time Rental High: $5,099 Median in April"
+      }
+    ],
+    "sha256": "8f16c2c9654d92e18d4eb77d9fc26ee059021f37ddbe917969ff7df4f3dd5864",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "month": 202604,
+      "cents": 509900
+    }
+  },
+  {
+    "id": "cre-2026-03",
+    "publication": 3,
+    "source": "cre_daily_ny",
+    "publishedAt": "2026-03-18",
+    "issuedAt": 1773835200,
+    "url": "https://www.credaily.com/newsletters/new-york/issue/manhattan-inventory-slide-extends-record-streak-as-nyc-rents-climb/",
+    "evidenceKind": "newsletter_web_version",
+    "location": "Supply Squeeze / By the numbers",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "median rent rose 8.2% to $3,950.",
+    "segments": [
+      {
+        "kind": "quoted_excerpt",
+        "text": "median rent rose 8.2% to $3,950."
+      }
+    ],
+    "sha256": "e2d874dd31640954f9fd60d4bd32ba445e0b10f7cf8946a68a8073bcf2bec816",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "error": "NoMatchingMedian"
+    }
+  },
+  {
+    "id": "cre-2026-08",
+    "publication": 3,
+    "source": "cre_daily_ny",
+    "publishedAt": "2026-08-18",
+    "issuedAt": 1787054400,
+    "url": "https://www.credaily.com/newsletters/new-york/issue/manhattan-rents-hit-5k-as-apartment-listings-plunge-39/",
+    "evidenceKind": "newsletter_web_version",
+    "location": "Rental Crunch / By the numbers",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "Median Manhattan rent reached $5,000 in July",
+    "segments": [
+      {
+        "kind": "quoted_excerpt",
+        "text": "Median Manhattan rent reached $5,000 in July"
+      }
+    ],
+    "sha256": "af8fdb71062cafcdf558819b809219de7d9fdd2c27790d35d84f3ce5871205a9",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "month": 202607,
+      "cents": 500000
+    }
+  },
+  {
+    "id": "bigger-2026-02",
+    "publication": 1,
+    "source": "bigger_apple",
+    "publishedAt": "2026-02-13",
+    "issuedAt": 1770984000,
+    "url": "https://thebiggerapple.manhattan.institute/p/friday-newsletter-how-rich-do-you",
+    "evidenceKind": "newsletter_web_version",
+    "location": "Opening paragraph",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "The median rent in Manhattan was $4,695 last month.",
+    "segments": [
+      {
+        "kind": "quoted_excerpt",
+        "text": "The median rent in Manhattan was $4,695 last month."
+      }
+    ],
+    "sha256": "41d64ce8a432da02f45bf05c7c461741063abc7378d4845d548720e2ae4dceaa",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "month": 202601,
+      "cents": 469500
+    }
+  },
+  {
+    "id": "bigger-2026-03",
+    "publication": 1,
+    "source": "bigger_apple",
+    "publishedAt": "2026-03-20",
+    "issuedAt": 1774008000,
+    "url": "https://thebiggerapple.manhattan.institute/p/friday-newsletter-its-getting-expensive",
+    "evidenceKind": "newsletter_web_version",
+    "location": "Mamdani Watch / fourth bullet",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "median rent in Brooklyn also reached an all-time high of $4,296 per month in February",
+    "segments": [
+      {
+        "kind": "quoted_excerpt",
+        "text": "median rent in Brooklyn also reached an all-time high of $4,296 per month in February"
+      }
+    ],
+    "sha256": "6e03b7df9725a6947cc19e23ec3b8759d2a662c9ad99e158123f299418bf220e",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "error": "NoMatchingMedian"
+    }
+  },
+  {
+    "id": "hallmark-2026-07",
+    "publication": 5,
+    "source": "hallmark",
+    "publishedAt": "2026-07-13",
+    "issuedAt": 1783944000,
+    "url": "https://hallmarkabsservice.substack.com/p/nyc-livingrecord-rents-while-theft",
+    "evidenceKind": "newsletter_web_version",
+    "location": "Rent By The Numbers",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "Studio and one-bedroom apartments each hit new average rent records, reaching $4,014 and $5,408, respectively.",
+    "segments": [
+      {
+        "kind": "quoted_excerpt",
+        "text": "Studio and one-bedroom apartments each hit new average rent records, reaching $4,014 and $5,408, respectively."
+      }
+    ],
+    "sha256": "3e5d4f9e782a83fa17154fa57f2ceb5ff615adf852e643d2fcc558242589f532",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "error": "UnsupportedPublication"
+    }
+  },
+  {
+    "id": "finding-2025-04",
+    "publication": 4,
+    "source": "finding_space",
+    "publishedAt": "2025-04-23",
+    "issuedAt": 1745409600,
+    "url": "https://jyarton.substack.com/p/nyc-rental-market-breakdown",
+    "evidenceKind": "newsletter_web_version",
+    "location": "Early body, paragraph discussing February demand",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "In February, renters in Manhattan met record-highs with a median rent of $4,500",
+    "segments": [
+      {
+        "kind": "quoted_excerpt",
+        "text": "In February, renters in Manhattan met record-highs with a median rent of $4,500"
+      }
+    ],
+    "sha256": "41f04425b8e475472a4c60919e15f7dc82cdc9cd8393d0c33a29bf64067d5b1b",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "month": 202502,
+      "cents": 450000
+    }
+  },
+  {
+    "id": "hemlane-2025-07",
+    "publication": 2,
+    "source": "hemlane",
+    "publishedAt": "2025-07-18",
+    "issuedAt": 1752840000,
+    "url": "https://milled.com/hemlane.com/policy-shockwaves-why-housing-feels-harder-this-summer-aWb8aOP9WiHWX8Qo",
+    "evidenceKind": "sent_email_web_archive",
+    "location": "Rent-freeze article, housing-cost paragraph",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "median rent price in Manhattan hitting a record of $4,571 in May.",
+    "segments": [
+      {
+        "kind": "quoted_excerpt",
+        "text": "median rent price in Manhattan hitting a record of $4,571 in May."
+      }
+    ],
+    "sha256": "61b7263669965e640e8fb7f83f051eb21f3141f1bb4af3005478d5edcae38f7f",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "month": 202505,
+      "cents": 457100
+    }
+  },
+  {
+    "id": "broadsheet-2024-09",
+    "publication": 6,
+    "source": "broadsheet",
+    "publishedAt": "2024-09-30",
+    "issuedAt": 1727697600,
+    "url": "https://myemail-api.constantcontact.com/Chronic-Instability.html?aid=qRI3u58YAKI&soid=1101992539878",
+    "evidenceKind": "sent_email_web_archive",
+    "location": "Chronic Instability / landlord-upside paragraph",
+    "fixtureKind": "curated_archive_excerpt",
+    "originalEmail": false,
+    "authenticated": false,
+    "contentType": "text/plain; charset=utf-8",
+    "encoding": "8bit",
+    "text": "the average rent for market-rate apartments in Manhattan is currently $4,939.",
+    "segments": [
+      {
+        "kind": "quoted_excerpt",
+        "text": "the average rent for market-rate apartments in Manhattan is currently $4,939."
+      }
+    ],
+    "sha256": "7002c79650f4eb661f73a158f97c6ca1fc05a387a9c14feda2d3928845e24fa1",
+    "note": "Visible archive wording and section labels only. Line breaks are normalized; intervening content is omitted. Publication date is unauthenticated metadata for parser testing. This is not original email MIME.",
+    "expected": {
+      "error": "UnsupportedPublication"
+    }
+  }
+]

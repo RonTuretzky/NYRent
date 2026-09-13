@@ -1,0 +1,15 @@
+From: Rent Bulletin <rent@gamma.rent.test>
+To: subscriber@example.invalid
+Subject: Synthetic gamma rental bulletin — 2026-10
+Date: Tue, 10 Nov 2026 12:00:00 GMT
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Message-ID: <test-gamma-2026-10-540800@gamma.rent.test>
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=gamma.rent.test; s=rent; t=1794312000; h=from:to:subject:date:mime-version:content-type:content-transfer-encoding:message-id; bh=2DHVys99Oelb5Tv89gWYf28ZVu4U3/ZyVixF8xrVIro=; b=BqEv7tRaFi0S8ElkFbgvnIYaaboZLwns7NmKolosKmm307JG40bWJpz+7g2DKzzVv+xIIdSl3T6+idfdYy+ZXS6q635GVix/1sh9wS4fgQ6klMkrUeKJFrZaKhGYqeMbjSLaL4iHnYzEPOpkdjLid47HlE+48u78wtTMaRfyxMo1EpNT/LNbdwqscYNSvs05qtXxBkH0cJZsMMfed81vWZfX5YnKOzdXyXhEiz7a7Zvza5kJEqgY2XyXN5HKlERfdplwjMh56TYypdBxZu7m4LnP34wm6sC5hpFuUA8qd+k4YjVzu58P0Y0dAL8OboxWjMRI0QEcvMQuzrM6jseJQw==
+
+U1lOVEhFVElDIFRFU1QgRU1BSUwg4oCUIE5PVCBBIFJFQUwgTkVXU0xFVFRFUg0K
+DQpSZW50YWwgc3RhdGlzdGljcyBmb3IgTWFuaGF0dGFuOiAyMDI2LTEwLiBPbmUt
+YmVkcm9vbSBtZWFuIGluIHRoZSBDb3Jjb3JhbiBzYW1wbGU6ICQ1LDQwOC4wMCBw
+ZXIgbW9udGguDQoNClRlc3Qgc291cmNlOiBnYW1tYS5yZW50LnRlc3QuIFZhbHVl
+cyBhcmUgZGVtb25zdHJhdGlvbiBpbnB1dHMuDQo=

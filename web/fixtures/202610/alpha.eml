@@ -1,0 +1,15 @@
+From: Rent Bulletin <rent@alpha.rent.test>
+To: subscriber@example.invalid
+Subject: Synthetic alpha rental bulletin — 2026-10
+Date: Tue, 10 Nov 2026 12:00:00 GMT
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Message-ID: <test-alpha-2026-10-540800@alpha.rent.test>
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=alpha.rent.test; s=rent; t=1794312000; h=from:to:subject:date:mime-version:content-type:content-transfer-encoding:message-id; bh=b6ppvBjyZUHUGrr3Ivx3H1VB5v1SrL4jPd5d0ulUjUA=; b=RqVgy80yKG9UvNzWAZHTweZW7Z2YlaQxrgImtvVwnOhrCbBiCHmeabZaA4TB/8CpCJTRtwz3vDHmXxD0wRLPkh4dVPr1oVbdvtAX9znfssowV5ThW2YIjE+MQSRZ38Y67gid7ljlED3R6P+dylZLJIiP/CfTp6g9BXtmLCB3qoACSuYz8l4JJvsTG023+Qv1UjqMQOh8tvEAOxMOzD4omWI7RQuOFKWnySRKbX0byZO9xVmMCwDArlacgVx59qKnYBykHtOVSBjzpBJ42naKVYbYJ0ojlRLZz6PqvoZwGXdVCTdOY3txxTU6kEkZLIuoB778kxVdQ0wDc+yh3iuEpg==
+
+SYNTHETIC TEST EMAIL — NOT A REAL NEWSLETTER
+
+Manhattan rental report for 2026-10. Corcoran one-bedroom average rent: $5,408.00 per month.
+
+Test source: alpha.rent.test. Values are demonstration inputs.

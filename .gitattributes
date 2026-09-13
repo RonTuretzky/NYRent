@@ -1,0 +1,2 @@
+# Signed email bytes must survive cloning without line-ending conversion.
+*.eml binary
