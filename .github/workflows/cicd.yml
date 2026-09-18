@@ -15,4 +15,6 @@ concurrency:
 
 jobs:
   cicd:
-    uses: BreadchainCoop/etherform/.github/workflows/_foundry-cicd.yml@main
+    # Temporarily via the RonTuretzky fork: upstream pins foundry-toolchain v1.8.0,
+    # which breaks on the Rust foundryup (fork bumps it to v1.9.1).
+    uses: RonTuretzky/etherform/.github/workflows/_foundry-cicd.yml@main
