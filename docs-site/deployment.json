@@ -1,0 +1,10 @@
+{
+  "chainId": 100,
+  "oracle": "0xdd45a0f7fcA25dD540625130d6c252b1880D0561",
+  "pool": "0x7B22Ed9499aBF9d081A6bA4a632Ab81DE588f0f3",
+  "token": "0x48Db7336C15DC4439aE3F023e24FAA26b400CC87",
+  "currency": "0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d",
+  "seriesIds": [
+    0
+  ]
+}

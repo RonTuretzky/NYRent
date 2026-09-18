@@ -1,0 +1,11 @@
+content-type:multipart/alternative; boundary=681ae532a83a8b5a6bcf95153afab6125a9ee4ff2649a1e8dc6666fd1790
+date:Thu, 17 Sep 2026 10:54:24 +0000 (UTC)
+from:CRE Daily New York <mail@newyork.credaily.com>
+mime-version:1.0
+subject:C-PACE Loans Are 40% Bigger
+reply-to:CRE Daily New York <jordan@credaily.com>
+feedback-id:=?us-ascii?Q?031b2cd5-2b6d-4085-944e-545524e358a7=3Anewsletter=3A21d4251f-0124-?= =?us-ascii?Q?49b4-86d3-06f8df289cb8=3A1c4f93f6acff780?=
+list-unsubscribe:<mailto:21d4251f-0124-49b4-86d3-06f8df289cb8+a998e703-17d6-42e1-8df8-0080cfcee09a+031b2cd5-2b6d-4085-944e-545524e358a7@unsub.beehiiv.com>, <https://newyork.credaily.com/unsubscribe/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWJzY3JpYmVyX2lkIjoiYTk5OGU3MDMtMTdkNi00MmUxLThkZjgtMDA4MGNmY2VlMDlhIiwicG9zdF9pZCI6IjAzMWIyY2Q1LTJiNmQtNDA4NS05NDRlLTU0NTUyNGUzNThhNyIsImxhc3RfcmVzb3VyY2VfZ3VpZCI6IlBvc3Q6MDMxYjJjZDUtMmI2ZC00MDg1LTk0NGUtNTQ1NTI0ZTM1OGE3In0.LNs6OXasCEQtyVQ0h3VKH8ggayrST9TYEd7GjfVr8Po>
+list-unsubscribe-post:List-Unsubscribe=One-Click
+to:"ron.t1234@gmail.com" <ron.t1234@gmail.com>
+dkim-signature:v=1; a=rsa-sha256; c=relaxed/relaxed; d=newyork.credaily.com; h=content-type:date:from:mime-version:subject:reply-to:feedback-id: list-unsubscribe:list-unsubscribe-post:to:cc:content-type:date:feedback-id:from: subject:to; s=b37; t=1789642464; bh=XO8VsgH6yzZkDP1Z0WZojXMdOoa4j1i17epBk4K5SOE=; b=
