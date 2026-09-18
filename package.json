@@ -1,0 +1,8 @@
+{
+  "name": "nyrent-cover",
+  "private": true,
+  "scripts": {
+    "e2e": "npm --prefix e2e install && npm --prefix e2e run e2e",
+    "e2e:browsers": "npm --prefix e2e exec playwright install chromium"
+  }
+}

@@ -1,0 +1,13 @@
+.env
+node_modules/
+out/
+cache/
+broadcast/
+dist/
+web/dist/
+playwright-report/
+test-results/
+# e2e runtime artifacts + per-agent foundry dirs
+e2e/.artifacts/
+out-*/
+cache-*/

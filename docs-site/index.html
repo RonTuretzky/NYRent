@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NY Rent Cover — Manhattan office-rent protection, settled by an email</title>
+<meta name="description" content="Fully collateralized Manhattan office-rent protection on Gnosis Chain, settled by on-chain DKIM verification of CRE Daily's Market Snapshot newsletter." />
+<!-- Single-file static docs site. Palette and type ramp mirror the Decentral Park UI kit
+     (decentralpark-ui-kit/theme.css tokens); fonts loaded from Google Fonts because this file
+     ships alone with no build step — Space Grotesk = Park Display, Inter = Park Body. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Decentral Park tokens (theme.css) */
+    --core-green: #16a34a;
+    --green-0: #86efac;
+    --green-1: #15803d;
+    --green-2: #166534;
+    --primary-pine: #0d9488;
+    --pine-0: #5eead4;
+    --pine-2: #134e4a;
+    --primary-sky: #0284c7;
+    --sky-0: #7dd3fc;
+    --sky-2: #075985;
+    --paper-main: #f0fdf4;
+    --paper-0: #ffffff;
+    --paper-1: #dcfce7;
+    --paper-2: #bbf7d0;
+    --surface-ink: #14211a;
+    --surface-grey: #808080;
+    --surface-grey-2: #595959;
+    --system-red: #df0b00;
+    --system-warning: #ce7f00;
+    --text-standard: #0a0a0a;
+    --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--paper-main);
+    color: var(--text-standard);
+    font-family: var(--font-body);
+    line-height: 1.55;
+  }
+  a { color: var(--primary-sky); }
+  a:hover { color: var(--sky-2); }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+  code { background: var(--paper-1); padding: 0.1em 0.35em; border-radius: 4px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+  header.site {
+    background: var(--paper-0);
+    border-bottom: 2px solid var(--surface-ink);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .nav { display: flex; align-items: center; gap: 18px; height: 62px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--surface-ink); text-decoration: none; }
+  .brand svg { display: block; }
+  .nav .links { margin-left: auto; display: flex; gap: 16px; flex-wrap: wrap; }
+  .nav .links a { font-size: 14px; text-decoration: none; color: var(--surface-ink); font-weight: 700; }
+  .nav .links a:hover { color: var(--core-green); }
+
+  .hero { padding: 72px 0 56px; }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    font-size: clamp(2.4rem, 7vw, 5rem);
+    line-height: 0.95;
+    margin: 0 0 18px;
+    color: var(--surface-ink);
+  }
+  .hero h1 .accent { color: var(--core-green); }
+  .hero p.lede { font-size: 1.15rem; max-width: 46rem; margin: 0 0 26px; }
+  .chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 30px; }
+  .chip {
+    font-family: var(--font-display); font-weight: 500; font-size: 13px;
+    background: var(--paper-1); color: var(--green-2);
+    border: 1px solid var(--paper-2); border-radius: 999px; padding: 5px 12px;
+  }
+  .chip.warn { background: #fff7ed; color: var(--system-warning); border-color: #fed7aa; }
+
+  /* Lifted button, per the kit's LiftedButton */
+  .lifted { position: relative; display: inline-block; margin: 0 6px 6px 0; }
+  .lifted .shadow { position: absolute; inset: 0; background: var(--surface-grey-2); transform: translate(6px, 6px); }
+  .lifted a {
+    position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-body); font-size: 1rem; font-weight: 700; text-decoration: none;
+    padding: 0 30px; height: 52px; line-height: 52px;
+    background: var(--core-green); color: #fff;
+    transition: transform 0.12s ease-out, background 0.12s ease-out;
+  }
+  .lifted a.alt { background: var(--surface-ink); }
+  .lifted a:hover { transform: translate(-2px, -2px); background: var(--green-1); color: #fff; }
+  .lifted a.alt:hover { background: var(--pine-2); }
+
+  section { padding: 46px 0; }
+  section h2 {
+    font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em;
+    font-size: clamp(1.6rem, 4vw, 2.5rem); margin: 0 0 8px; color: var(--surface-ink);
+  }
+  section p.sub { margin: 0 0 26px; color: var(--surface-grey-2); max-width: 44rem; }
+  section:nth-of-type(even) { background: var(--paper-0); }
+
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+  .step {
+    background: var(--paper-0); border: 2px solid var(--surface-ink); padding: 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  section:nth-of-type(even) .step { background: var(--paper-main); }
+  .step .n {
+    font-family: var(--font-display); font-weight: 700; font-size: 13px;
+    color: #fff; background: var(--primary-pine);
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step h3 { font-family: var(--font-display); font-weight: 700; font-size: 1.02rem; margin: 0; color: var(--surface-ink); }
+  .step p { margin: 0; font-size: 0.88rem; color: var(--surface-grey-2); }
+
+  ol.rules { counter-reset: rule; list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  ol.rules li {
+    counter-increment: rule; background: var(--paper-0);
+    border-left: 5px solid var(--core-green);
+    padding: 12px 16px 12px 54px; position: relative; font-size: 0.95rem;
+  }
+  section:nth-of-type(even) ol.rules li { background: var(--paper-main); }
+  ol.rules li::before {
+    content: counter(rule);
+    font-family: var(--font-display); font-weight: 700; color: var(--green-1);
+    position: absolute; left: 18px; top: 11px; font-size: 1.05rem;
+  }
+  ol.rules li.pool { border-left-color: var(--primary-sky); }
+  ol.rules li.pool::before { color: var(--primary-sky); }
+
+  .curve-wrap { background: var(--paper-0); border: 2px solid var(--surface-ink); padding: 18px; }
+  .curve-wrap figcaption { font-size: 0.85rem; color: var(--surface-grey-2); margin-top: 8px; }
+  svg text { font-family: var(--font-body); }
+
+  table.addr { width: 100%; border-collapse: collapse; background: var(--paper-0); }
+  table.addr th, table.addr td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--paper-2); font-size: 0.92rem; }
+  table.addr th { font-family: var(--font-display); font-weight: 700; color: var(--surface-ink); background: var(--paper-1); }
+  table.addr td.mono { word-break: break-all; }
+  .deploy-note { font-size: 0.88rem; color: var(--surface-grey-2); margin-top: 10px; }
+
+  .docgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .doccard { background: var(--paper-0); border: 2px solid var(--surface-ink); padding: 16px; text-decoration: none; color: inherit; display: block; transition: transform 0.12s ease-out, box-shadow 0.12s ease-out; }
+  section:nth-of-type(even) .doccard { background: var(--paper-main); }
+  .doccard:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 var(--surface-grey-2); color: inherit; }
+  .doccard h3 { font-family: var(--font-display); font-weight: 700; margin: 0 0 6px; font-size: 1rem; color: var(--core-green); }
+  .doccard p { margin: 0; font-size: 0.87rem; color: var(--surface-grey-2); }
+
+  footer.site { background: var(--surface-ink); color: var(--paper-1); padding: 34px 0; }
+  footer.site .wrap { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
+  footer.site a { color: var(--pine-0); }
+  footer.site .fbrand { font-family: var(--font-display); font-weight: 700; }
+  .fineprint { font-size: 0.8rem; color: var(--surface-grey); }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap nav">
+    <a class="brand" href="#top" aria-label="NY Rent Cover home">
+      <!-- Decentral Park-style tree mark, simplified -->
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+        <rect x="11.4" y="15" width="3.2" height="9" fill="#513c35"/>
+        <polygon points="13,1 21,12 5,12" fill="#16a34a"/>
+        <polygon points="13,7 23,18 3,18" fill="#15803d"/>
+      </svg>
+      NY Rent Cover
+    </a>
+    <nav class="links" aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#rules">Settlement rules</a>
+      <a href="#curve">Payout curve</a>
+      <a href="#addresses">Addresses</a>
+      <a href="#docs">Docs</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <h1>Rent protection,<br /><span class="accent">settled by an email.</span></h1>
+    <p class="lede">
+      Fully collateralized cover on <strong>Manhattan office rent</strong> (CRE Daily ·
+      Avg&nbsp;Effective&nbsp;$/SF, CompStak data), on Gnosis Chain. The oracle is the newsletter
+      itself: its DKIM signature, body hash and rent figure are verified <em>inside the EVM</em>
+      against an immutable pinned RSA key. No committee, no price feed, no trusted server.
+    </p>
+    <div class="chips" aria-label="Key facts">
+      <span class="chip">Gnosis · chainId 100</span>
+      <span class="chip">Pinned key d=newyork.credaily.com s=b37</span>
+      <span class="chip">2026-09-17 issue: $92.88 / SF → 61% ratio</span>
+      <span class="chip warn">Unaudited demo — tiny amounts</span>
+    </div>
+    <span class="lifted"><span class="shadow"></span><a href="../web/dist/index.html">Open the app</a></span>
+    <span class="lifted"><span class="shadow"></span><a class="alt" href="#docs">Read the protocol</a></span>
+  </div>
+
+  <section id="how">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <p class="sub">Five steps, two roles, one email. Every step after series creation is a
+        permissionless on-chain transaction.</p>
+      <div class="steps">
+        <div class="step"><span class="n">1</span><h3>Sponsor funds</h3>
+          <p>The sponsor collateralizes a series: strikes $88.00 → $96.00, premium 28.50% of max
+             claim, capped capacity. Collateral is reserved — issuance can never exceed it.</p></div>
+        <div class="step"><span class="n">2</span><h3>Buyer mints cover</h3>
+          <p>Pay the premium in WXDAI, mint ERC-1155 cover units: 1 unit = 1 wei of max claim.
+             Terms are immutable from the first sale — no setter even exists.</p></div>
+        <div class="step"><span class="n">3</span><h3>The email arrives</h3>
+          <p>CRE Daily's Market Snapshot prints the Manhattan average effective rent. Its DKIM
+             signature makes those bytes verifiable by anyone, forever.</p></div>
+        <div class="step"><span class="n">4</span><h3>On-chain DKIM settlement</h3>
+          <p>Anyone submits the raw email. The contract checks the RSA-2048 signature, body hash,
+             tag policy and template, extracts the rent, and fixes the payout ratio — once.</p></div>
+        <div class="step"><span class="n">5</span><h3>Redeem</h3>
+          <p>Burn cover units for <code>amount × ratio</code>. Redemption is never pausable.
+             After the redeem window, residual reserves release to the sponsor.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="rules">
+    <div class="wrap">
+      <h2>Settlement rules</h2>
+      <p class="sub">The full statement with trust boundaries is in
+        <a href="../docs/PROTOCOL.md">PROTOCOL.md</a>. Green rules are the oracle's email
+        acceptance; blue rules are the pool's money math.</p>
+      <ol class="rules">
+        <li>New email only: <code>emailId = sha256(body)</code> never seen before (replays revert).</li>
+        <li>Signed headers contain a <code>from:</code> line with
+            <code>&lt;mail@newyork.credaily.com&gt;</code> and end with the canonical
+            <code>dkim-signature:</code> line.</li>
+        <li>Strict tag policy: <code>v=1</code>, <code>a=rsa-sha256</code>,
+            <code>c=relaxed/relaxed</code>, <code>d=newyork.credaily.com</code>, <code>s=b37</code>,
+            empty <code>b=</code>, <strong>no <code>l=</code></strong>, duplicates revert.</li>
+        <li>The signed <code>bh=</code> equals the base64 SHA-256 of the submitted body.</li>
+        <li>The signed timestamp is not in the future (<code>t ≤ now + 1 day</code>).</li>
+        <li>RSA-2048 PKCS#1 v1.5 verification against the immutable pinned modulus
+            (<code class="mono">keccak: 0x2f2f9938…4a41</code>).</li>
+        <li>Template extraction: exactly one <code>Manhattan Office Rent</code> anchor, then
+            <code>Avg Effective</code>, then <code>$NN.NN / SF</code> within bounded distance —
+            quoted-printable decoded on the fly.</li>
+        <li class="pool">A series settles against an observation whose <em>signed email time</em>
+            lies in <code>[obsStart, obsEnd]</code>; first successful settle wins, one-shot.</li>
+        <li class="pool">Payout ratio = <code>clamp((cents − 8800) / (9600 − 8800), 0, 1)</code>
+            for the demo strikes; $92.88 ⇒ 61%.</li>
+        <li class="pool">Solvency invariant: reserved claims never exceed pool balance; the
+            sponsor can only withdraw free capital; pause never blocks redeem.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="curve">
+    <div class="wrap">
+      <h2>Payout curve</h2>
+      <p class="sub">Linear between the strikes, clamped outside them. The dot marks the
+        2026-09-17 authenticated observation.</p>
+      <figure class="curve-wrap" style="margin:0">
+        <svg viewBox="0 0 720 320" role="img" aria-labelledby="curveTitle" style="width:100%;height:auto">
+          <title id="curveTitle">Payout ratio versus observed rent: 0% at or below $88.00, rising linearly to 100% at $96.00; the September 17, 2026 observation of $92.88 pays 61%.</title>
+          <!-- plot area: x 70..690 maps $86..$98, y 270..40 maps 0..1 -->
+          <line x1="70" y1="270" x2="690" y2="270" stroke="#14211a" stroke-width="2"/>
+          <line x1="70" y1="270" x2="70" y2="40" stroke="#14211a" stroke-width="2"/>
+          <!-- gridlines -->
+          <g stroke="#bbf7d0" stroke-width="1">
+            <line x1="70" y1="155" x2="690" y2="155"/>
+            <line x1="70" y1="40"  x2="690" y2="40"/>
+          </g>
+          <!-- strikes -->
+          <g stroke="#808080" stroke-dasharray="5 4" stroke-width="1.5">
+            <line x1="173.3" y1="270" x2="173.3" y2="40"/>
+            <line x1="586.7" y1="270" x2="586.7" y2="40"/>
+          </g>
+          <!-- curve: flat 0 to 88, linear to 96, flat 1 -->
+          <polyline points="70,270 173.3,270 586.7,40 690,40" fill="none" stroke="#16a34a" stroke-width="4" stroke-linejoin="round"/>
+          <!-- settled point at 92.88 -> x = 70 + (92.88-86)/12*620 = 425.5 ; y = 270 - 0.61*230 = 129.7 -->
+          <line x1="425.5" y1="270" x2="425.5" y2="129.7" stroke="#0284c7" stroke-dasharray="3 3" stroke-width="1.5"/>
+          <line x1="70" y1="129.7" x2="425.5" y2="129.7" stroke="#0284c7" stroke-dasharray="3 3" stroke-width="1.5"/>
+          <circle cx="425.5" cy="129.7" r="7" fill="#0284c7" stroke="#ffffff" stroke-width="2.5"/>
+          <!-- labels -->
+          <g font-size="14" fill="#14211a">
+            <text x="173.3" y="292" text-anchor="middle">$88.00</text>
+            <text x="425.5" y="292" text-anchor="middle" fill="#0284c7" font-weight="700">$92.88</text>
+            <text x="586.7" y="292" text-anchor="middle">$96.00</text>
+            <text x="62" y="275" text-anchor="end">0%</text>
+            <text x="62" y="160" text-anchor="end">50%</text>
+            <text x="62" y="45" text-anchor="end">100%</text>
+            <text x="447" y="122" fill="#0284c7" font-weight="700">61% payout</text>
+            <text x="380" y="316" text-anchor="middle" fill="#595959">Observed Manhattan office rent, avg effective $/SF</text>
+          </g>
+        </svg>
+        <figcaption>Buyers of the demo series receive 61¢ per $1 of max claim; the sponsor keeps
+          the premium plus the unclaimed 39%.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="addresses">
+    <div class="wrap">
+      <h2>Contract addresses</h2>
+      <p class="sub">Loaded live from <code>deployment.json</code>; verified source on
+        <a href="https://gnosis.blockscout.com">Blockscout</a> after deployment.</p>
+      <table class="addr" aria-describedby="deploy-note">
+        <thead><tr><th>Contract</th><th>Address</th></tr></thead>
+        <tbody id="addr-body">
+          <tr><td>CredailyRentOracle</td><td class="mono" data-k="oracle">—</td></tr>
+          <tr><td>CoverPool</td><td class="mono" data-k="pool">—</td></tr>
+          <tr><td>CoverToken</td><td class="mono" data-k="token">—</td></tr>
+          <tr><td>Currency (WXDAI)</td><td class="mono" data-k="currency">0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d</td></tr>
+        </tbody>
+      </table>
+      <p class="deploy-note" id="deploy-note">Status: <span id="deploy-status">checking…</span></p>
+      <p class="deploy-note">Series 0 settled on-chain 2026-09-18 with the real 2026-09-17
+        newsletter: <a href="https://gnosis.blockscout.com/tx/0x6370f8ad14ec73b4a7b1d7c030fecf6fcc3484eb128d64d89e1b4c41d37cb0c6">submitObservation</a>
+        (102 KB body DKIM-verified in the EVM, $92.88/SF extracted) →
+        <a href="https://gnosis.blockscout.com/tx/0xf7572e1f0886141324fa65af2ca2a3deccec9b6f0450624c21af8707db8922fc">settle</a>
+        (payout ratio 0.61) →
+        <a href="https://gnosis.blockscout.com/tx/0xa3fabcc5580055b4bac50f6e470922202f3bff54f214fcf5e625f19d8176f2d9">redeem</a>.</p>
+    </div>
+  </section>
+
+  <section id="docs">
+    <div class="wrap">
+      <h2>Documentation</h2>
+      <p class="sub">The pinned build spec is the contract between agents; the four documents
+        below are the operator- and verifier-facing truth.</p>
+      <div class="docgrid">
+        <a class="doccard" href="../docs/PROTOCOL.md"><h3>PROTOCOL.md</h3>
+          <p>The numbered settlement statement, what is trusted (CRE Daily/CompStak, SendGrid key
+             custody, DNS at pin time), and explicit limitations.</p></a>
+        <a class="doccard" href="../docs/VERIFICATION.md"><h3>VERIFICATION.md</h3>
+          <p>Evidence chain for the pinned RSA key: DNS record, fingerprints, Gmail dkim=pass,
+             and the one-command local re-verification.</p></a>
+        <a class="doccard" href="../docs/OPERATIONS.md"><h3>OPERATIONS.md</h3>
+          <p>Deploy runbook (env, gas-estimate discipline, Blockscout), settlement runbook
+             (getting an .eml out of Gmail), recovery paths.</p></a>
+        <a class="doccard" href="../docs/TESTING.md"><h3>TESTING.md</h3>
+          <p>The scenario matrix: real-email settlement, the tamper suite, pool fuzz/invariants,
+             emailkit goldens and the Playwright journey.</p></a>
+        <a class="doccard" href="../docs/SPEC.md"><h3>SPEC.md</h3>
+          <p>The frozen build specification: interfaces, fixtures ground truth, deployment plan.</p></a>
+        <a class="doccard" href="../fixtures/credaily-2026-09-17/EVIDENCE.md"><h3>Fixture evidence</h3>
+          <p>The authenticated 2026-09-17 CRE Daily email: raw bytes, canonical goldens, DNS
+             capture and Gmail authentication results.</p></a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div>
+      <div class="fbrand">NY Rent Cover · a Decentral Park experiment</div>
+      <div class="fineprint">Unaudited software. Fully collateralized but experimental — use tiny
+        amounts. The index is commercial office rent (CompStak via CRE Daily), not residential.</div>
+    </div>
+    <div class="fineprint">
+      <a href="../docs/PROTOCOL.md">Protocol</a> ·
+      <a href="../docs/VERIFICATION.md">Verification</a> ·
+      <a href="https://gnosis.blockscout.com">Blockscout</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Addresses come from the deploy artifact. Prefer a copy placed next to this file at deploy
+  // time; fall back to the app's build-time copy when the repo is served whole.
+  (async function () {
+    const status = document.getElementById("deploy-status");
+    const sources = ["./deployment.json", "../web/src/deployment.json"];
+    for (const src of sources) {
+      try {
+        const res = await fetch(src, { cache: "no-store" });
+        if (!res.ok) continue;
+        const d = await res.json();
+        for (const cell of document.querySelectorAll("#addr-body [data-k]")) {
+          const v = d[cell.dataset.k];
+          if (typeof v === "string" && /^0x[0-9a-fA-F]{40}$/.test(v)) {
+            const a = document.createElement("a");
+            a.href = "https://gnosis.blockscout.com/address/" + v;
+            a.textContent = v;
+            cell.replaceChildren(a);
+          }
+        }
+        status.textContent = "deployed · chainId " + d.chainId +
+          (Array.isArray(d.seriesIds) ? " · series " + d.seriesIds.join(", ") : "");
+        return;
+      } catch (_) { /* try next source */ }
+    }
+    status.textContent = "not yet deployed — addresses appear here once the operator runs the deploy runbook.";
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "nyrent-cover-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.15.30",
+    "typescript": "5.8.3",
+    "viem": "2.56.3"
+  }
+}

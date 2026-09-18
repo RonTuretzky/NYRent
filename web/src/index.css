@@ -1,0 +1,148 @@
+/* NY Rent Cover — Decentral Park brand styling.
+   theme.css begins with `@import "tailwindcss"` and defines the brand @theme
+   tokens, typography component classes, and @font-face for the self-hosted
+   Park Display / Park Body fonts. */
+@import "@decentralpark/ui/theme";
+@import "@decentralpark/ui/fonts";
+
+/* Legacy-style JS config: the brand preset (colors + font families). */
+@config "../tailwind.config.cjs";
+
+/* Tailwind v4 skips node_modules during source detection — explicitly scan the
+   UI kit's shipped components so their classes are generated. */
+@source "../node_modules/@decentralpark/ui/dist";
+
+body {
+  background: var(--color-paper-main);
+  color: var(--color-text-standard);
+}
+
+/* ---------------------------------------------------------------- */
+/* Hand-built animation keyframes for the How-it-works stage and    */
+/* general UI transitions (crowdstake-style mechanics, our art).    */
+/* ---------------------------------------------------------------- */
+
+@keyframes nrc-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-nrc-fade-in {
+  animation: nrc-fade-in 500ms ease-out both;
+}
+
+@keyframes nrc-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
+.animate-nrc-nudge {
+  animation: nrc-nudge 1.2s ease-in-out infinite;
+}
+
+/* Flowing value along an SVG connector: dashed stroke marching. */
+@keyframes nrc-flow {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+.nrc-flow-active {
+  animation: nrc-flow 0.9s linear infinite;
+}
+
+/* Packet travelling along an SVG path (used with offset-path). */
+@keyframes nrc-packet {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes nrc-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.animate-nrc-pulse {
+  animation: nrc-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes nrc-pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.animate-nrc-pop {
+  animation: nrc-pop 450ms ease-out both;
+}
+
+@keyframes nrc-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nrc-flow-active,
+  .animate-nrc-nudge,
+  .animate-nrc-pulse,
+  .animate-nrc-fade-in,
+  .animate-nrc-pop {
+    animation: none;
+  }
+}
+
+/* Simple skeleton shimmer for loading states. */
+@keyframes nrc-shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: 200px 0;
+  }
+}
+.nrc-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-paper-1) 25%,
+    var(--color-paper-2) 50%,
+    var(--color-paper-1) 75%
+  );
+  background-size: 400px 100%;
+  animation: nrc-shimmer 1.4s ease-in-out infinite;
+  border-radius: 0.5rem;
+}

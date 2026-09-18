@@ -1,0 +1,214 @@
+{
+ "testNow": 1789642464,
+ "defaultT": 1789638864,
+ "cases": [
+  {
+   "name": "ok-basic",
+   "description": "well-formed synthetic snapshot, $92.88",
+   "expect": "ok",
+   "cents": 9288,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "ok-value-100-00",
+   "description": "round hundred: $100.00",
+   "expect": "ok",
+   "cents": 10000,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "ok-value-9-99",
+   "description": "single-digit dollars: $9.99",
+   "expect": "ok",
+   "cents": 999,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "ok-value-1234-56",
+   "description": "four-digit dollars: $1234.56",
+   "expect": "ok",
+   "cents": 123456,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "ok-qp-escaped-value",
+   "description": "value written with QP escapes and a soft break inside the number",
+   "expect": "ok",
+   "cents": 9288,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "wrong-domain",
+   "description": "d= is not the pinned domain",
+   "expect": "BadTagPolicy(\"d\")",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "wrong-selector",
+   "description": "s= is not the pinned selector",
+   "expect": "BadTagPolicy(\"s\")",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "wrong-version",
+   "description": "v=2",
+   "expect": "BadTagPolicy(\"v\")",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "wrong-algo",
+   "description": "a=rsa-sha1",
+   "expect": "BadTagPolicy(\"a\")",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "wrong-canon",
+   "description": "c=simple/simple",
+   "expect": "BadTagPolicy(\"c\")",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "has-l-tag",
+   "description": "l= body-length tag present",
+   "expect": "BadTagPolicy(\"l\")",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "nonempty-b",
+   "description": "b= tag not emptied",
+   "expect": "BadTagPolicy(\"b\")",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "missing-from",
+   "description": "no from: line in the signed block",
+   "expect": "MissingFrom",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "future-t",
+   "description": "t= more than 1 day in the future",
+   "expect": "BadTimestamp",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789732464
+  },
+  {
+   "name": "missing-t",
+   "description": "no t= tag",
+   "expect": "BadTimestamp",
+   "cents": 0,
+   "anchors": 1,
+   "t": 0
+  },
+  {
+   "name": "duplicate-d-tag",
+   "description": "d= appears twice",
+   "expect": "DuplicateTag(\"d\")",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "trailing-crlf",
+   "description": "signed block ends with CRLF, so the trailing line is empty",
+   "expect": "MissingDkimLine",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "tampered-body",
+   "description": "one body byte flipped after signing (bh mismatch)",
+   "expect": "BadBodyHash",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "tampered-sig",
+   "description": "one signature byte flipped",
+   "expect": "BadSignature",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "tampered-headers",
+   "description": "one signed-header byte flipped after signing",
+   "expect": "BadSignature",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "duplicate-anchor",
+   "description": "anchor occurs twice in the body",
+   "expect": "AnchorNotUnique(2)",
+   "cents": 0,
+   "anchors": 2,
+   "t": 1789638864
+  },
+  {
+   "name": "zero-value",
+   "description": "$0.00 extracts to zero cents",
+   "expect": "SnapshotNotFound",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "value-overflow",
+   "description": "dollar digits push cents past 2^31",
+   "expect": "ValueOverflow",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "no-label",
+   "description": "anchor present but 'Avg Effective' never appears",
+   "expect": "SnapshotNotFound",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "label-too-far",
+   "description": "'Avg Effective' more than 600 decoded bytes after the anchor",
+   "expect": "SnapshotNotFound",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  },
+  {
+   "name": "bad-suffix",
+   "description": "value not followed by '/ SF'",
+   "expect": "SnapshotNotFound",
+   "cents": 0,
+   "anchors": 1,
+   "t": 1789638864
+  }
+ ]
+}

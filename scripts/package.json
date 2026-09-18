@@ -1,0 +1,10 @@
+{
+  "name": "nyrent-cover-scripts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Operator scripts: verify-eml, emlToCalldata, settle, e2e-mainnet (Node 22+, viem)",
+  "dependencies": {
+    "viem": "^2.38.0"
+  }
+}

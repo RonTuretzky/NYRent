@@ -1,0 +1,5 @@
+from:CRE Daily New York <mail@newyork.credaily.com>
+to:test-recipient@example.com
+subject:Synthetic Market Snapshot (TEST ONLY)
+mime-version:1.0
+dkim-signature:v=1; a=rsa-sha256; c=relaxed/relaxed; d=newyork.credaily.com; h=from:to:subject:mime-version; s=b37; t=1789638864; bh=rKD7bQboCpuVvBFn3PShuDcNzFZW8VLo/fvHgiGqWK4=; b=

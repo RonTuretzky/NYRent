@@ -1,0 +1,7 @@
+Selector DNS name: b37._domainkey.newyork.credaily.com
+CNAME: b37.domainkey.u58081633.wl134.sendgrid.net.
+Raw TXT response:
+b37.domainkey.u58081633.wl134.sendgrid.net.
+"k=rsa; t=s; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwV4CURLOjJLO3QH+Gj0BgHz6MeLfR5nyCUO3bSzHmGzyhlWVOJ/HEbQXaD/TznPiNthYDRidZeOhbbpzCg4N/VyH8M72zspkdYQb/Oke5U8MLA6ISIX9xvMx2svWlsPX38z7spnVbxb/cOo+I47h2XDkLe65cI4/of7B2HrtQ+v+GQbxFCn7IfQIRVgmAK+V2ufWr" "aY12iGnyXticS1Qfk0EzGUfpTs0fZg+hpf6AhNrzI1d0Wmp10MrLx+Dqia+RUlOZXWGS29/m8xFHEGogBXeJiUO4ScInZIpT0WS+xFxXI4z3wf3hMeYeUZzY2Bf4TPqlB8T60tfnpVVzcqf3QIDAQAB"
+Concatenated TXT value:
+k=rsa; t=s; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwV4CURLOjJLO3QH+Gj0BgHz6MeLfR5nyCUO3bSzHmGzyhlWVOJ/HEbQXaD/TznPiNthYDRidZeOhbbpzCg4N/VyH8M72zspkdYQb/Oke5U8MLA6ISIX9xvMx2svWlsPX38z7spnVbxb/cOo+I47h2XDkLe65cI4/of7B2HrtQ+v+GQbxFCn7IfQIRVgmAK+V2ufWraY12iGnyXticS1Qfk0EzGUfpTs0fZg+hpf6AhNrzI1d0Wmp10MrLx+Dqia+RUlOZXWGS29/m8xFHEGogBXeJiUO4ScInZIpT0WS+xFxXI4z3wf3hMeYeUZzY2Bf4TPqlB8T60tfnpVVzcqf3QIDAQAB
