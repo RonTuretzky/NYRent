@@ -19,6 +19,10 @@ import {LocalWXDAI} from "./LocalWXDAI.sol";
 ///         series. Etherform-compatible: `forge script script/Deploy.s.sol:Deploy`.
 /// @dev    Env: PRIVATE_KEY (etherform secret name; DEPLOYER_PRIVATE_KEY also accepted),
 ///         optional CURRENCY to override the token on non-Gnosis chains (anvil e2e).
+///         Executed on Gnosis 2026-09-18: oracle 0xdd45a0f7fcA25dD540625130d6c252b1880D0561,
+///         pool 0x7B22Ed9499aBF9d081A6bA4a632Ab81DE588f0f3, token
+///         0x48Db7336C15DC4439aE3F023e24FAA26b400CC87 (see README "Addresses"). Re-running
+///         deploys a fresh, unrelated stack.
 contract Deploy is Script {
     // ─────────────────────────────────────────────────────────────────────────
     // Gnosis Chain constants
