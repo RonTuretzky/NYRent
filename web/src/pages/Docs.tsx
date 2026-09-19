@@ -1,7 +1,20 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Chip } from "@decentralpark/ui";
-import { ArrowSquareOutIcon, BookOpenIcon } from "@phosphor-icons/react";
+import type { Icon } from "@phosphor-icons/react";
+import {
+  ArrowSquareOutIcon,
+  BankIcon,
+  BookOpenIcon,
+  EnvelopeSimpleIcon,
+  FileTextIcon,
+  HandCoinsIcon,
+  HouseIcon,
+  PiggyBankIcon,
+  PlugsIcon,
+  ReceiptIcon,
+  SwapIcon,
+} from "@phosphor-icons/react";
 import { Card, StatRow } from "../components/States";
 import { deployment, isDeployed, ZERO_ADDRESS } from "../chain/deployment";
 import { addressUrl, txUrl } from "../chain/explorer";
@@ -42,6 +55,212 @@ const DOCS = [
     desc: "The authenticated 2026-09-17 email: raw bytes, canonical goldens, DNS capture, Gmail authentication results.",
   },
 ];
+
+/** One recorded guide GIF per flow, in journey order. `media` lives in
+ * web/public/docs/ (vite copies public/ → dist, so the same file serves
+ * GitHub Pages and this page). Recorded on a local Anvil / Gnosis
+ * mainnet-fork stack — see the honesty note in the Guides section. */
+interface Flow {
+  id: string;
+  n: number;
+  icon: Icon;
+  title: string;
+  blurb: string;
+  steps: string[];
+  media: string;
+  alt: string;
+  /** Intrinsic GIF pixels, so lazy-loaded images reserve space. */
+  width: number;
+  height: number;
+}
+
+const FLOWS: Flow[] = [
+  {
+    id: "landing",
+    n: 1,
+    icon: HouseIcon,
+    title: "See how it works",
+    blurb: "The landing page walks the whole lifecycle before you connect anything.",
+    steps: [
+      "Open the app — no wallet needed to read anything.",
+      "Scroll the five animated steps: fund → buy → email → settle → redeem.",
+      "End on the payout curve — the settled 2026-09-17 issue printed $92.88/SF → 61%.",
+    ],
+    media: "landing.gif",
+    alt: "Landing page without a wallet: hero, five animated how-it-works step cards, ending on the payout curve with the settled $92.88 to 61% dot.",
+    width: 1000,
+    height: 562,
+  },
+  {
+    id: "connect-browse",
+    n: 2,
+    icon: PlugsIcon,
+    title: "Browse series and connect",
+    blurb: "Everything is readable without a wallet; connect only to act.",
+    steps: [
+      "Open Series and pick one — payout curve, lifecycle, capacity and solvency bars.",
+      "Hit Connect and choose your wallet in the RainbowKit modal.",
+      "Your account chip appears in the header — you are ready to transact.",
+    ],
+    media: "connect-browse.gif",
+    alt: "Browsing the series list and Series #0 detail while disconnected, then connecting a wallet through the RainbowKit modal until the account chip shows in the header.",
+    width: 900,
+    height: 506,
+  },
+  {
+    id: "sponsor-fund",
+    n: 3,
+    icon: BankIcon,
+    title: "Sponsor: fund the pool",
+    blurb: "Cover only exists once capital is on-chain — the sponsor deposits WXDAI first.",
+    steps: [
+      "On Sponsor, type the amount into Fund the pool.",
+      "Approve WXDAI (step 1), then Fund pool (step 2).",
+      "Pool state updates: pool balance and free capital rise, the solvency bar stays green.",
+    ],
+    media: "sponsor-fund.gif",
+    alt: "Sponsor console funding the pool with 0.02 WXDAI in two steps, approve then fund, with confirmed transaction toasts and the updated pool-state solvency bar.",
+    width: 900,
+    height: 506,
+  },
+  {
+    id: "buy",
+    n: 4,
+    icon: ReceiptIcon,
+    title: "Buy cover with WXDAI",
+    blurb: "Pay a fixed-rate premium, mint non-transferable cover units 1:1 with your max claim.",
+    steps: [
+      "Enter your max claim — the premium quote updates live.",
+      "Open the pricing breakdown: expected claim, margin, band-implied exposure.",
+      "Pick WXDAI (or xDAI), approve, then buy.",
+      "Your cover balance appears once the transaction confirms.",
+    ],
+    media: "buy.gif",
+    alt: "Buy page quoting a 0.00285 WXDAI premium on a 0.01 max claim, the pricing-transparency breakdown opened, then the approve-and-buy two-step confirming.",
+    width: 900,
+    height: 506,
+  },
+  {
+    id: "buy-with-usdce",
+    n: 5,
+    icon: SwapIcon,
+    title: "Pay the premium in USDC.e",
+    blurb: "No WXDAI? The buy page routes other Gnosis tokens through the real Uniswap v3 pools.",
+    steps: [
+      "Choose USDC.e in the token selector — the quote reprices via QuoterV2.",
+      "Approve the swap, then swap via SwapRouter02.",
+      "Approve the pool, then buy.",
+      "Four confirmations later the cover is minted.",
+    ],
+    media: "buy-with-usdce.gif",
+    alt: "Buying 1 WXDAI of cover paying in USDC.e on a Gnosis mainnet fork: real Uniswap v3 quote, then a four-step stepper of approve swap, swap, approve pool, buy.",
+    width: 900,
+    height: 506,
+  },
+  {
+    id: "settle",
+    n: 6,
+    icon: EnvelopeSimpleIcon,
+    title: "Settle with the raw email",
+    blurb: "Drop the CRE Daily .eml on the settle page — the EVM verifies DKIM and settles.",
+    steps: [
+      "Drag the raw .eml onto the dropzone.",
+      "Watch the nine preflight checks flip green — pinned key, body hash, RSA-2048, $92.88 extraction.",
+      "Record the observation on-chain, then settle.",
+      "The series locks at its ratio — 61% for the 2026-09-17 issue. One shot; the first qualifying email wins.",
+    ],
+    media: "settle.gif",
+    alt: "The real 2026-09-17 CRE Daily .eml dropped on the settle page, all nine DKIM preflight checks passing, record-observation and settle transactions confirming, ending on the 61% payout ratio.",
+    width: 900,
+    height: 506,
+  },
+  {
+    id: "redeem",
+    n: 7,
+    icon: HandCoinsIcon,
+    title: "Redeem your payout",
+    blurb: "After settlement, burn cover units for maxClaim × ratio — redemption can never be paused.",
+    steps: [
+      "Open Redeem — the settled ratio and your cover balance load.",
+      "Max fills your full balance; the preview shows exactly what you will receive.",
+      "Redeem — the WXDAI lands and your cover balance drops to zero.",
+    ],
+    media: "redeem.gif",
+    alt: "Redeem page after settlement at a 61% ratio: Max fills 0.01, the preview shows 0.0061 WXDAI, and the redeem transaction confirms with the balance dropping to zero.",
+    width: 900,
+    height: 506,
+  },
+  {
+    id: "sponsor-withdraw",
+    n: 8,
+    icon: PiggyBankIcon,
+    title: "Sponsor: withdraw free capital",
+    blurb: "Reserved claims stay locked; the sponsor can only ever pull unreserved capital.",
+    steps: [
+      "After settlement, the Withdraw excess card shows what is free.",
+      "Withdraw — the transaction confirms.",
+      "Pool state re-settles, still fully collateralized against remaining claims.",
+    ],
+    media: "sponsor-withdraw.gif",
+    alt: "Sponsor withdrawing 0.005 WXDAI of free capital after settlement, with the pool state settling at 0.01175 WXDAI and the fully-collateralized bar.",
+    width: 900,
+    height: 506,
+  },
+  {
+    id: "docs",
+    n: 9,
+    icon: FileTextIcon,
+    title: "Verify the real deployment",
+    blurb: "This page carries the pinned key, the rules, and the real Gnosis addresses and transactions.",
+    steps: [
+      "Scroll this page: the ten settlement rules and the Sourcify-verified contract addresses.",
+      "Cross-check the recorded lifecycle — three permanent mainnet transactions.",
+      "Follow the repository docs for the full evidence chain.",
+    ],
+    media: "docs.gif",
+    alt: "Scrolling this docs page: the ten settlement rules, the real Gnosis contract addresses, the recorded-lifecycle transactions, and the repository docs list.",
+    width: 900,
+    height: 506,
+  },
+];
+
+function FlowCard({ flow }: { flow: Flow }) {
+  const FlowIcon = flow.icon;
+  return (
+    <Card>
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden="true"
+          className="font-parkDisplay flex h-8 w-8 flex-none items-center justify-center rounded-full bg-core-green text-sm font-bold text-white"
+        >
+          {flow.n}
+        </span>
+        <FlowIcon size={24} className="text-core-green shrink-0" />
+        <div>
+          <h3 className="font-parkDisplay font-bold text-text-standard">
+            {flow.title}
+          </h3>
+          <p className="font-parkBody text-sm text-surface-grey-2">
+            {flow.blurb}
+          </p>
+        </div>
+      </div>
+      <ol className="font-parkBody list-decimal pl-5 mt-3 space-y-1 text-sm text-text-standard">
+        {flow.steps.map((step, i) => (
+          <li key={i}>{step}</li>
+        ))}
+      </ol>
+      <img
+        src={import.meta.env.BASE_URL + "docs/" + flow.media}
+        alt={flow.alt}
+        loading="lazy"
+        width={flow.width}
+        height={flow.height}
+        className="w-full h-auto rounded-xl border-2 border-paper-2 mt-4"
+      />
+    </Card>
+  );
+}
 
 function Code({ children }: { children: ReactNode }) {
   return (
@@ -182,6 +401,34 @@ export function Docs() {
         </div>
       </header>
 
+      <section className="space-y-3">
+        <h2 className="font-parkDisplay font-bold text-lg text-text-standard">
+          Guides
+        </h2>
+        <p className="font-parkBody text-sm text-surface-grey-2 border-l-4 border-system-warning pl-3 py-0.5">
+          Honesty note: these recordings were made on a local Anvil /
+          Gnosis-mainnet-fork stack running the same contracts with the real
+          2026-09-17 newsletter <Code>.eml</Code> — mainnet series 0 is already
+          settled, so the flows cannot be re-recorded live. The permanent
+          on-chain results are in the{" "}
+          <button
+            type="button"
+            onClick={() =>
+              document
+                .getElementById("recorded-lifecycle")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
+            className="underline decoration-dotted"
+          >
+            recorded-lifecycle table
+          </button>{" "}
+          below.
+        </p>
+        {FLOWS.map((flow) => (
+          <FlowCard key={flow.id} flow={flow} />
+        ))}
+      </section>
+
       <Card>
         <h2 className="font-parkDisplay font-bold text-lg mb-1">
           Settlement rules
@@ -264,7 +511,10 @@ export function Docs() {
       </Card>
 
       <Card>
-        <h2 className="font-parkDisplay font-bold text-lg mb-1">
+        <h2
+          id="recorded-lifecycle"
+          className="font-parkDisplay font-bold text-lg mb-1 scroll-mt-24"
+        >
           Recorded lifecycle
         </h2>
         <p className="font-parkBody text-sm text-surface-grey-2 mb-2">

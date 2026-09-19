@@ -8,6 +8,11 @@ immutable pinned key. No committee, no price feed, no trusted server, no ZK cere
 
 **Live app:** https://ronturetzky.github.io/nyrent-cover/
 
+![Settling series 0 in the app: the real 2026-09-17 CRE Daily .eml dropped on the settle page, all nine DKIM preflight checks passing, record-observation and settle transactions confirming, ending on the 61% payout ratio](web/public/docs/settle.gif)
+
+Recorded guides for every flow — fund, buy (WXDAI or USDC.e via Uniswap v3), settle, redeem,
+withdraw — are on the app's [in-app guides](https://ronturetzky.github.io/nyrent-cover/#/docs).
+
 - A **sponsor** collateralizes a series (payout 0 at/below $88.00, 1 at/above $96.00 for the
   demo) and earns premiums.
 - A **buyer** pays a premium (28.50% of max claim in the demo) and mints non-transferable
@@ -86,6 +91,26 @@ The demo series ran the entire flow on-chain with the real email:
 
 Recorded observation: `t=1789642464`, `cents=9288`,
 `emailId=0x5cef15b201facb36640cfd59d166688d731d3a86b88f58b5edea419382b948e1` (the body hash).
+
+### Series 1 — live now, created by the agent (2026-09-19)
+
+The rent-scout agent (`agent/`) priced and opened the current series from live data — strikes
+anchored at the DKIM-verified $92.88 print, premium 1133 bps = 9.06% expected claim × 1.25
+loading (Bachelier, σ=$1.50/SF·mo), sale open until the observation window starts (production
+rule `saleEnd ≤ obsStart`, so the series-0 informed-trading caveat does not apply):
+
+| Step | Tx |
+|---|---|
+| `approve` + `fundPool(0.5 WXDAI)` — agent capital move, clamped to its 0.5/run limit | [`0xf21216ef…48edd6`](https://gnosis.blockscout.com/tx/0xf21216eff36618c6413c4ab1fce07ae1fac0ecc605a1954a8f65e0fda448edd6) |
+| `createSeries($92.88 → $100.88, 1133 bps, cap 0.500335)` — obs Oct 3 – Nov 2, 2026 | [`0xb8731455…4d77c1`](https://gnosis.blockscout.com/tx/0xb8731455cddf8a3114f22d099e45850bc818f584fa75ab5909385a4acf7d77c1) |
+
+And the pay-with-any-token path proven on mainnet (the exact call sequence the app makes):
+
+| Step | Tx |
+|---|---|
+| Uniswap v3 `exactInputSingle` 0.002 WXDAI → USDC.e (0.01% pool) | [`0x34376179…a57805`](https://gnosis.blockscout.com/tx/0x34376179db1e4e7399cff03bdd423f7e1420b01f232e77f972b4ca2985a57805) |
+| Uniswap v3 `exactOutputSingle` USDC.e → exactly the 0.001133 WXDAI premium | [`0x749fd13d…2b2873`](https://gnosis.blockscout.com/tx/0x749fd13d371e3eec1cab94b281fbf5aad3e6a5cc67bc01ed60146070224b2873) |
+| `buyProtection(1, 0.01 WXDAI, …)` — cover minted, paid via USDC.e | [`0xa626280b…c467d2e`](https://gnosis.blockscout.com/tx/0xa626280b7f20652b2042f599aebe7387d3812e387d1d6c8a0406bf951c467d2e) |
 
 ## Screens
 
