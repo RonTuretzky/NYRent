@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "postinstall": "patch-package --error-on-fail",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 5174 --strictPort",
@@ -30,6 +31,7 @@
     "@vitejs/plugin-react": "^4.5.2",
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
+    "patch-package": "^8.0.1",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.11.0",

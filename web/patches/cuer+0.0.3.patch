@@ -1,0 +1,21 @@
+diff --git a/node_modules/cuer/_dist/QrCode.js b/node_modules/cuer/_dist/QrCode.js
+index b180652..f5d127f 100644
+--- a/node_modules/cuer/_dist/QrCode.js
++++ b/node_modules/cuer/_dist/QrCode.js
+@@ -1,12 +1,14 @@
+ import { encodeQR } from 'qr';
+ export function create(value, options = {}) {
+     const { errorCorrection, version } = options;
+-    const grid = encodeQR(value, 'raw', {
+-        border: 0,
++    // qr >= 0.7 requires a quiet zone; Cuer renders its own padding.
++    const borderedGrid = encodeQR(value, 'raw', {
++        border: 1,
+         ecc: errorCorrection,
+         scale: 1,
+         version: version,
+     });
++    const grid = borderedGrid.slice(1, -1).map((row) => row.slice(1, -1));
+     const finderLength = 7;
+     const edgeLength = grid.length;
+     return {

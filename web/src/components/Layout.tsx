@@ -90,11 +90,13 @@ function NavDropdown({ label, items, open, onToggle, onClose, onNavigate, mobile
       container.current?.querySelector<HTMLAnchorElement>("a")?.focus();
       focusFirst.current = false;
     }
-    const dismiss = (event: PointerEvent) => {
+    const dismiss = (event: MouseEvent) => {
       if (!container.current?.contains(event.target as Node)) onClose();
     };
-    document.addEventListener("pointerdown", dismiss);
-    return () => document.removeEventListener("pointerdown", dismiss);
+    // Wait for click: collapsing an inline mobile group on pointerdown moves
+    // the next trigger away before pointerup can activate it.
+    document.addEventListener("click", dismiss);
+    return () => document.removeEventListener("click", dismiss);
   }, [open, onClose]);
 
   return (
@@ -102,7 +104,7 @@ function NavDropdown({ label, items, open, onToggle, onClose, onNavigate, mobile
       ref={container}
       className={mobile ? "w-full" : "relative"}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) onClose();
+        if (!mobile && !event.currentTarget.contains(event.relatedTarget)) onClose();
       }}
       onKeyDown={(event) => {
         if (event.key === "Escape" && open) {
@@ -156,8 +158,8 @@ function NavLinks({ onNavigate, mobile = false }: { onNavigate?: () => void; mob
       {NAV_ITEMS.map((item) => "children" in item ? (
         <NavDropdown key={item.label} label={item.label} items={item.children}
           open={openSection === item.label}
-          onToggle={() => setOpenSection(openSection === item.label ? null : item.label)}
-          onClose={() => setOpenSection(null)} onNavigate={onNavigate} mobile={mobile} />
+          onToggle={() => setOpenSection(current => current === item.label ? null : item.label)}
+          onClose={() => setOpenSection(current => current === item.label ? null : current)} onNavigate={onNavigate} mobile={mobile} />
       ) : (
         <NavLink key={item.to} to={item.to} end={item.to === "/"}
           onClick={() => { setOpenSection(null); onNavigate?.(); }}

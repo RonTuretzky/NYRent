@@ -194,8 +194,7 @@ export function RenterVisualizer() {
           </LiftedButton>
           <p className="font-parkBody text-xs text-surface-grey-2">
             Continues to the checkout with {formatDollars(q.units)} of coverage
-            prefilled — you can adjust it there and pay with {symbol} or
-            another token. At your modeled price it costs about{" "}
+            prefilled — you can adjust it there and pay with {symbol}{market.source === "v4" ? "." : " or another token."} At your modeled price it costs about{" "}
             {formatDollars(q.cost)}. Checkout uses the live price, which may differ. {market.isDemo ? <DemoBadge /> : null}
           </p>
         </div>

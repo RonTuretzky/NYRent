@@ -101,7 +101,16 @@ under “For renters / insurers,” and Settle and Redeem under “Settle / rede
 support keyboard focus, Escape, outside click and mobile expansion. The restored animated
 homepage and styled controls remain in place.
 
-Verification for this update: 110 web unit tests, three one-market browser journeys, and
+Verification for this update: 112 web unit tests, three one-market browser journeys, and
 one isolated wallet-driven v4 lifecycle passed; TypeScript, lint and production build passed.
 The full browser lifecycle proves the UI transaction path locally; the separate mainnet
 receipts prove actual Polygon buy/sell. It does not claim a user wallet has been connected.
+
+
+The live wallet check exposed a dependency incompatibility: Cuer 0.0.3 requests a zero
+QR border that qr 0.7 rejects, crashing WalletConnect's QR view. A versioned patch applied
+by `npm install`/`npm ci` uses the encoder's supported one-module border and removes that
+ring before Cuer adds its visual padding. Regression tests render the wallet QR component
+and independently decode its matrix back to a synthetic pairing URI. Mobile navigation
+also waits until click to dismiss a group, avoiding layout movement before the next
+trigger receives its click; the browser journey covers switching groups in one click.
