@@ -9,7 +9,9 @@
   },
   "scripts": {
     "start": "node run.mjs",
-    "test": "node --test '*.test.mjs' 'policy/**/*.test.mjs' 'collectors/**/*.test.mjs' 'executors/*.test.mjs'",
+    "test": "node --test '*.test.mjs' 'policy/**/*.test.mjs' 'collectors/**/*.test.mjs' 'executors/*.test.mjs' 'v4/*.test.mjs'",
+    "test:v4": "node --test 'v4/*.test.mjs'",
+    "test:v4:local": "node v4/fork-proof.mjs",
     "test:policy": "node --test 'policy/**/*.test.mjs'",
     "test:executors": "node --test 'executors/*.test.mjs'",
     "test:runner": "node --test '*.test.mjs'",

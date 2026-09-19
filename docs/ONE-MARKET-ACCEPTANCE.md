@@ -34,7 +34,7 @@ accuracy corrections and the distinction between tested code and deployment.
 | Price .285 → 4.4% | Unit + browser assertions |
 | Two-fixture DKIM settlement demo | Dedicated local v4 browser harness uses explicit test RSA key with signed September baseline and later $97.99 observation; future fixture is never represented as a real newsletter |
 | Real v4 pool, mint, LP, buy/sell, settle, redeem | Actual v4 contracts, canonical Arbitrum PoolManager fork lifecycle, isolated local browser lifecycle |
-| Publish/redeploy | Tracked separately from the tests; production requires verified manifest, receipts and public website verification |
+| Publish/redeploy | Website published to `rentsafe.nyc` from Pages commit `7edb994`; seven primary routes, default values, mobile layout, legacy recording and HTTPS redirects checked live. V4 mainnet activation remains pending funding |
 
 ## Corrections made to avoid misleading claims
 
@@ -68,4 +68,19 @@ The final canonical Arbitrum fork launch proof completed 14 successful transacti
 including the authentic production-key baseline and real USDC buy/sell. The fork proof
 increased only the local native ETH balance to measure gas; it did not submit future data.
 
+The optional direct v4 market-making integration also passes the full 237-test agent suite
+(14 v4-specific tests). A separate local real-PoolManager proof posts bid/ask ranges,
+fills an ask from another wallet, replaces both quotes and unwinds to zero positions before
+cutoff. The executor defaults to dry run and is not scheduled or funded for production.
+
 Funding and launch gates are recorded in [V4-ROLLOUT.md](V4-ROLLOUT.md). Bankr remains held.
+
+## Website publication
+
+On 2026-09-19 at 20:30 UTC, GitHub Pages completed deployment of `7edb994` from the
+existing repository and custom domain. A real-browser smoke pass visited all seven
+primary routes, checked the acceptance numbers, found no visible “series” strings on
+those routes, checked four mobile layouts without horizontal overflow, and loaded the
+preserved live Gmail recording in legacy docs. There were no uncaught page errors.
+HTTP and `www` both redirect to the HTTPS apex. The one-market site is a labeled preview
+until a matching on-chain market is configured; the production v4 manifest is empty.

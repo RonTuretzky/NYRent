@@ -46,3 +46,5 @@ jobs:
         run: npm --prefix e2e run e2e
       - name: Real v4 local browser lifecycle
         run: npm --prefix e2e run e2e:v4
+      - name: Direct v4 quoting lifecycle
+        run: npm --prefix agent run test:v4:local
