@@ -45,6 +45,12 @@ function Settlement() {
   });
   const qualifying = observations.data?.find(o => o.t >= m.obsStart && o.t <= m.obsEnd);
   const known = report?.parsed && observations.data?.some(o => o.emailId === report.parsed!.emailId);
+  const timestampTag = report?.parsed?.tags.t ?? "";
+  const signedTime = /^\d+$/.test(timestampTag) ? BigInt(timestampTag) : 0n;
+  const inWindow = signedTime >= m.obsStart && signedTime <= m.obsEnd;
+  const parsedCents = report?.parsed?.cents;
+  const previewRatio = parsedCents === undefined ? undefined : Math.min(1, Math.max(0,
+    (parsedCents - m.strikeLowCents) / (m.strikeHighCents - m.strikeLowCents)));
   const ready = !!address && chainId === d.chainId && !working && !market.isError && !["pending", "stillPending", "wallet", "simulating"].includes(tx.state.status);
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["v4-observations"] });
@@ -118,8 +124,17 @@ function Settlement() {
     {(!address || chainId !== d.chainId) && <p>Connect a wallet on the selected network to submit or settle.</p>}
   </Card><Card><h2 className="text-xl font-bold">Verify the original newsletter</h2>
     <label className="block mt-3">Original email (.eml)<input type="file" accept=".eml,message/rfc822" className="block mt-2" disabled={working || m.settled} onChange={e => { const f = e.target.files?.[0]; if (f) void upload(f); }} /></label>
-    {report && <><ul className="my-4 space-y-2" data-testid="v4-preflight">{report.checks.map(c => <li key={c.id}>{c.pass ? "✓" : "✕"} {c.label}: {c.detail}</li>)}</ul>
-      {report.parsed && <p>Signed print: {formatCents(report.parsed.cents)}. {BigInt(report.parsed.tags.t || "0") < m.obsStart || BigInt(report.parsed.tags.t || "0") > m.obsEnd ? "This timestamp is outside this market’s settlement window; it cannot settle this market." : "This timestamp is within the settlement window."}</p>}
+    {report && <>
+      {report.parsed && <div className="mt-5 rounded-xl border-2 border-paper-2 bg-paper-1 p-4" data-testid="signed-rent-summary">
+        <p className="text-sm font-bold text-primary-green">{known ? "Authenticated on-chain" : report.ok ? "Signature checks passed locally" : "Email checks need attention"}</p>
+        <div className="grid sm:grid-cols-2 gap-4 mt-3">
+          <div><p className="text-sm text-surface-grey-2">Rent print in the signed email</p><p className="font-parkDisplay font-bold text-3xl">{formatCents(report.parsed.cents)} <span className="text-base">/SF</span></p></div>
+          <div><p className="text-sm text-surface-grey-2">{m.settled ? "Fixed payout per RENT" : "Payout preview per RENT"}</p><p className="font-parkDisplay font-bold text-3xl">{(m.settled ? Number(m.payoutRatioWad) / 1e18 : previewRatio!).toFixed(4)} <span className="text-base">{d.symbol}</span></p></div>
+        </div>
+        <p className="text-sm mt-3">{inWindow ? "The signed timestamp is inside the settlement window." : "Outside the settlement window: this email cannot settle this market."} {!m.settled && "The payout becomes final only after the oracle authenticates an eligible email and the settlement transaction confirms."}</p>
+      </div>}
+      <ul className="my-4 space-y-2" data-testid="v4-preflight">{report.checks.map(c => <li key={c.id}>{c.pass ? "✓" : "✕"} {c.label}: {c.detail}</li>)}</ul>
+
       <Button app="fund" className="mt-4" disabled={!ready || !report.ok || !!known || m.settled} onClick={() => void record()}>{known ? "Email already authenticated" : "Authenticate email on-chain"}</Button>
     </>}
     {progress && <p role="status" className="mt-3">{progress}</p>}

@@ -16,6 +16,7 @@ export function GrowthChart({
   lines,
   breakevenG,
   breakevenLabel,
+  selectedG,
   ariaLabel,
   testId,
 }: {
@@ -23,6 +24,7 @@ export function GrowthChart({
   /** Vertical marker (fractional growth), e.g. the breakeven. */
   breakevenG?: number;
   breakevenLabel?: string;
+  selectedG?: number;
   ariaLabel: string;
   testId?: string;
 }) {
@@ -150,6 +152,15 @@ export function GrowthChart({
             >
               {breakevenLabel ?? "breakeven"}
             </text>
+          </g>
+        ) : null}
+
+        {selectedG !== undefined && selectedG >= gMin && selectedG <= gMax ? (
+          <g aria-hidden="true">
+            <line x1={x(selectedG)} x2={x(selectedG)} y1={pad.top} y2={H - pad.bottom}
+              stroke="var(--color-core-green)" strokeWidth={12} opacity={0.1} />
+            <line x1={x(selectedG)} x2={x(selectedG)} y1={pad.top} y2={H - pad.bottom}
+              stroke="var(--color-core-green)" strokeWidth={1.5} strokeDasharray="2 3" />
           </g>
         ) : null}
 

@@ -1,0 +1,123 @@
+{
+  "name": "rentsafe-lifecycle",
+  "recordedAt": "2026-09-19T21:34:36.830Z",
+  "duration": 273.32,
+  "chapters": [
+    {
+      "id": "market",
+      "title": "The market and the three parties",
+      "caption": "Rent risk, expressed as a fully backed token. One RENT can pay up to one USDC.",
+      "start": 0.231,
+      "end": 35.31
+    },
+    {
+      "id": "insurer",
+      "title": "Price and fund the insurer position",
+      "caption": "$100,000 modeled capital, 10% sold at $0.285: $2,850 premium and a known maximum net loss.",
+      "start": 35.31,
+      "end": 87.741
+    },
+    {
+      "id": "renter",
+      "title": "Size the renter cover and explore outcomes",
+      "caption": "$60,000 annual rent implies 3,000 RENT for the five-point band. At a modeled $0.285, the cost is $855.",
+      "start": 87.741,
+      "end": 120.169
+    },
+    {
+      "id": "trade",
+      "title": "Buy and sell through the live local v4 pool",
+      "caption": "Checkout separates spot price, simple conversion and executable pool quote. Buying 3,000 RENT moves the price.",
+      "start": 120.169,
+      "end": 156.838
+    },
+    {
+      "id": "forecast",
+      "title": "Read the market price",
+      "caption": "Price maps to a payout-equivalent growth level and index print. It is a priced capped payoff, not expected rent growth.",
+      "start": 156.838,
+      "end": 176.466
+    },
+    {
+      "id": "oracle",
+      "title": "Authenticate the email and fix the payout",
+      "caption": "Advance the LOCAL chain into September 2027. This future newsletter is signed by the test key, not the real publisher.",
+      "start": 176.466,
+      "end": 223.142
+    },
+    {
+      "id": "redeem",
+      "title": "Burn RENT and receive escrowed USDC",
+      "caption": "Redeem RENT burns the tokens and sends their fixed payout from the backing escrow, independently of Uniswap liquidity.",
+      "start": 223.142,
+      "end": 243.436
+    },
+    {
+      "id": "close",
+      "title": "Close the insurer lifecycle",
+      "caption": "After settlement, the insurer removes its pool inventory and redeems any RENT it still owns.",
+      "start": 243.436,
+      "end": 273.32
+    }
+  ],
+  "proof": {
+    "scope": "Local Anvil chain 31337; synthetic USDC; test-key signed emails. No mainnet settlement or user funds.",
+    "chainId": 31337,
+    "deployment": {
+      "chainId": 31337,
+      "market": "0xBA12646CC07ADBe43F8bD25D83FB628D29C8A762",
+      "factory": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "hook": "0x7B2E6303D72B75dd2355eC1Aef764889ac536A80",
+      "router": "0xa513e6e4b8f2a923d98304ec87f64353c4d5c853",
+      "poolManager": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "stateView": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
+      "quoter": "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
+      "oracle": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+      "currency": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+      "decimals": 6,
+      "symbol": "USDC",
+      "deploymentBlock": "0",
+      "baseObservationIndex": 0,
+      "poolKey": {
+        "currency0": "0xBA12646CC07ADBe43F8bD25D83FB628D29C8A762",
+        "currency1": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+        "fee": 8388608,
+        "tickSpacing": 60,
+        "hooks": "0x7B2E6303D72B75dd2355eC1Aef764889ac536A80"
+      }
+    },
+    "initialBacking": "50000 USDC",
+    "liquidity": "23783191804",
+    "purchase": {
+      "spendUSDC": "919.491326",
+      "receivedRENT": "3000",
+      "cashSpent": "919.491326"
+    },
+    "remainingRENT": "2900",
+    "settlement": {
+      "print": "$97.99/SF",
+      "ratio": "50%",
+      "testKeySigned": true
+    },
+    "renterPayoutUSDC": "1450",
+    "residualUSDC": "25000.000001",
+    "finalEscrowUSDC": "0",
+    "transactionHashes": [
+      "0xf467f6d2be15e2fbafa9d802bcbbc43023b6aef8e5ff81f9412e424b2ca48180",
+      "0xc8810a0b8d2b520ee1f2c28bc9ca6f4277a261c5829d19b1fe86cfd1283aca8d",
+      "0xdc49e9b26e503071177b90e3bc8d007a47176945bb8a51b11fb12424a0e2cdba",
+      "0x59c2246c7e2ef47e006bf3469ad50101d9233aeae0e03adc9dc9646551e33911",
+      "0xd8bafe1472794ab97980c459b0e2fef28a009f87aa8889b17f0d8d154cf4feca",
+      "0x4e767a385555d8f4916473a044cb3b308b4abd5cef4ed3e4120848027db86d62",
+      "0xf8aea0652e7ce70deffd6668775d283726161ffdf16cb60d53493a072b72293f",
+      "0xe1c936c38c1d501b637cb7c99f688abd4763207b3e3299dc580e04bfa8ea20da",
+      "0x590fbcd7181cf7df9dc8d81569d70cd93d26956e20693b6236cd3ae90a388571",
+      "0x68cc250fe39a6a19e0907c6c459ff9a40a2fad29ca190e83d0ae47044bb92e03",
+      "0x8139da7e626c27d9118d45ac1e0f45637af5aa7f8b8d2e4ea1f1f39fe25d63f7",
+      "0x0bac5a33b819e4b547f3e591f273731e9e31b8fba535c549658a6396c79114fb",
+      "0xe3c0e83c7fb7692dd2e8ce44a2bb67d817cb88d1a03b5633d4c77ac6e9dac475",
+      "0x97bb9960ea196e04800b98ec2460a94c96cdc743d1b8bc9f7fb38592ef2a25bb",
+      "0x25301e5afdcad8b374bbe2101c98fc3aba28aed193388089e3539f3306f98600"
+    ]
+  }
+}

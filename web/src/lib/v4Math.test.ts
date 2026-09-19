@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fullRangeAmounts, fullRangeLiquidity, minimumOutput, rentPoolId, rentSpotPrice, type RentPoolKey } from "../chain/v4Math.ts";
+import { fullRangeAmounts, fullRangeLiquidity, minimumOutput, quotePriceImpact, spotOutput, rentPoolId, rentSpotPrice, type RentPoolKey } from "../chain/v4Math.ts";
 
 const key: RentPoolKey = { currency0: "0x0000000000000000000000000000000000000001", currency1: "0x0000000000000000000000000000000000000002", fee: 8388608, tickSpacing: 60, hooks: "0x0000000000000000000000000000000000003a80" };
 test("pool identity includes hook, fee and tick spacing", () => {
@@ -29,4 +29,32 @@ test("full range fits both budgets at prices above and below parity with large i
   }
   assert.equal(fullRangeLiquidity(1n, 100n, 100n), 0n);
   assert.equal(fullRangeLiquidity(2n ** 96n, 0n, 100n), 0n);
+});
+
+
+test("spot conversion uses exact token order for buy and sell", () => {
+  const sqrt = 2n ** 95n; // token1 costs 4 token0; inverse is 0.25
+  assert.equal(spotOutput(100_000000n, sqrt, false), 400_000000n);
+  assert.equal(spotOutput(100_000000n, sqrt, true), 25_000000n);
+  const large = 10n ** 30n;
+  assert.equal(spotOutput(large, sqrt, false), large * 4n);
+});
+
+test("quote impact blocks a huge spend into a tiny pool in either token order", () => {
+  const buy = quotePriceImpact(100_000000n, 499000n, 2n ** 95n, false);
+  assert.equal(buy.atSpot, 400_000000n);
+  assert.ok(buy.bps! > 9900n);
+  assert.equal(buy.blocked, true);
+  assert.equal(quotePriceImpact(100_000000n, 499000n, 2n ** 97n, true).blocked, true);
+  assert.equal(quotePriceImpact(4_000000n, 500000n, 2n ** 95n, true).blocked, true);
+});
+
+test("quote limit includes fees and protects the exact ten-percent boundary", () => {
+  const sqrt = 1n << 96n;
+  assert.equal(quotePriceImpact(1_000000n, 990000n, sqrt, true).blocked, false);
+  assert.equal(quotePriceImpact(1_000000n, 900000n, sqrt, true).blocked, false);
+  assert.equal(quotePriceImpact(1_000000n, 899999n, sqrt, true).blocked, true);
+  assert.equal(quotePriceImpact(100n, 101n, sqrt, true).bps, 0n);
+  assert.equal(quotePriceImpact(1n, 1n, sqrt, true).blocked, true);
+  assert.equal(quotePriceImpact(0n, 0n, sqrt, true).blocked, true);
 });

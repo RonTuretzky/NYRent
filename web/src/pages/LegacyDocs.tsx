@@ -471,7 +471,7 @@ export function LegacyDocs() {
           </Chip>
           <Chip size="small">Pinned key d=newyork.credaily.com s=b37</Chip>
           <Chip size="small">2026-09-17 issue: $92.88 / SF → 61% ratio</Chip>
-          <Chip size="small">Unaudited experiment — tiny amounts</Chip>
+          <Chip size="small">Unaudited contracts</Chip>
         </div>
       </header>
 
@@ -930,7 +930,7 @@ export function LegacyDocs() {
       </div>
 
       <p className="font-parkBody text-xs text-surface-grey-2">
-        Unaudited software. Fully collateralized but experimental — use tiny
+        Unaudited software. Fully collateralized — use tiny
         amounts. The index is commercial office rent (CompStak via CRE Daily),
         not residential.
       </p>

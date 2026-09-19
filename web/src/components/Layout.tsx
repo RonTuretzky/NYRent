@@ -29,10 +29,8 @@ const NAV_ITEMS: NavItem[] = [
         { to: "/choose", label: "Help me choose" },
       ]
     : []),
-  { label: "Settle / redeem", children: [
-    { to: "/settle", label: "Settle" },
-    { to: "/redeem", label: "Redeem" },
-  ] },
+  { to: "/buy", label: "Buy & Sell" },
+  { to: "/redeem", label: "Redeem RENT" },
   { to: "/docs", label: "Docs" },
 ];
 
@@ -43,12 +41,15 @@ const TITLES: [prefix: string, title: string][] = [
   ["/insurer", "For insurers"],
   ["/markets", "Markets"],
   ["/market/", "Market"],
-  ["/buy", "Buy protection"],
+  ["/buy", "Buy & Sell"],
+  ["/trade", "Buy & Sell"],
   ["/settle", "Settle"],
-  ["/redeem", "Claim payout"],
+  ["/redeem", "Redeem RENT"],
   ["/underwrite", "Underwrite"],
   ["/sponsor", "Underwrite"],
   ["/choose", "Help me choose"],
+  ["/docs/uniswap", "How Uniswap powers RENT"],
+  ["/docs/walkthrough", "Watch the walkthrough"],
   ["/docs", "Docs"],
 ];
 
@@ -387,8 +388,7 @@ export function Layout() {
       <Toasts />
       <div className="mt-10">
         <p className="font-parkBody text-xs text-surface-grey-2 text-center max-w-6xl w-full mx-auto px-4 sm:px-6 pb-1">
-          RentSafe is a Decentral Park experiment. Unaudited software — fully
-          collateralized but experimental; use tiny amounts.
+          RentSafe is built by Decentral Park. The contracts have not been audited.
         </p>
         <p className="font-parkBody text-xs text-surface-grey-2 text-center max-w-6xl w-full mx-auto px-4 sm:px-6 pb-4">
           The rent index that settles this market tracks Manhattan office

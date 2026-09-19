@@ -1,0 +1,87 @@
+import fs from "node:fs";
+import path from "node:path";
+import { test, expect } from "@playwright/test";
+import { ROOT } from "./constants";
+import { RAW, presentation, say, focus, fill, click, hold, publishCapture, type Chapter } from "./record.helpers";
+
+test("record the current Polygon market without connecting or transacting", async ({ browser, baseURL }) => {
+  fs.mkdirSync(RAW, { recursive: true });
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 }, recordVideo: { dir: RAW, size: { width: 1440, height: 1000 } } });
+  const page = await context.newPage(), video = page.video()!, began = Date.now();
+  const scope = "Polygon mainnet · read-only walkthrough · no transactions";
+  const chapters: Chapter[] = [];
+  const speak = (text: string) => say(page, text, scope);
+  const chapter = async (id: string, title: string, caption: string) => {
+    chapters.push({ id, title, caption, start: (Date.now() - began) / 1000 });
+    await speak(caption);
+  };
+  const go = async (route: string) => {
+    await page.evaluate(route => { window.location.hash = route; window.scrollTo({ top: 0, behavior: "instant" }); }, route);
+    await page.waitForTimeout(900);
+  };
+  try {
+    await presentation(page); await page.goto("/#/");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await chapter("overview", "The current Polygon market", "This is the current interface reading the deployed Polygon market. No wallet is connected and no transaction is sent.");
+    await hold(page, 7);
+    await focus(page, page.getByRole("heading", { name: /three roles/i }));
+    await speak("Three roles: platform defines terms, insurer backs RENT and supplies trading liquidity, renter holds the payout token.");
+    await hold(page, 7);
+    await focus(page, page.getByRole("heading", { name: "The market right now", exact: true }));
+    await speak("The baseline, payout strikes, price and escrow are visible together. The public pool is still very small.");
+    await hold(page, 7);
+    const moneyFlow = page.getByText("Follow the money", { exact: true });
+    await click(page, moneyFlow);
+    await focus(page, moneyFlow.locator(".."));
+    await chapter("money-flow", "Follow the money through the three parties", "The animated diagram separates backing escrow, pool trading and the final payout.");
+    await hold(page, 20);
+    await go("/renter");
+    await chapter("calculator", "Explore coverage without a transaction", "The renter calculator sizes the band: $60,000 annual rent corresponds to 3,000 RENT. Its cost estimate is a model.");
+    await fill(page, page.getByTestId("renter-rent"), "60000");
+    await hold(page, 5);
+    await click(page, page.getByRole("button", { name: "+5%", exact: true }));
+    await expect(page.getByTestId("renter-outcome-payout")).toContainText("$1,200");
+    await speak("At +5% index growth the modeled payout is $1,200; at +8% it reaches the $3,000 cap.");
+    await hold(page, 5);
+    await click(page, page.getByRole("button", { name: "+8%", exact: true }));
+    await hold(page, 4);
+    await go("/buy");
+    await expect(page.getByText("Live trading market · Polygon", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("rent-current-price")).toContainText("Trading open");
+    await chapter("quote", "Understand price and available liquidity", "Buy & Sell shows the current RENT price. A spot-price conversion is different from what the current pool can execute.");
+    await fill(page, page.getByLabel("You pay (USDC)", { exact: true }), "100");
+    await expect(page.getByTestId("price-impact-warning")).toContainText("too large for the available liquidity");
+    await focus(page, page.getByTestId("spot-conversion"));
+    await hold(page, 8);
+    await focus(page, page.getByTestId("price-impact-warning"));
+    await speak("A 100 USDC order cannot execute near the displayed price in this pool. The warning explains the shortfall and blocks the trade.");
+    await hold(page, 8);
+    const quoteEvidence = await page.locator("main").innerText();
+    await fill(page, page.getByLabel("You pay (USDC)", { exact: true }), "0.01");
+    await expect(page.getByTestId("price-impact-warning")).toHaveCount(0);
+    await speak("A smaller order fits the available inventory. Connect a Polygon wallet with native USDC and POL to transact.");
+    await hold(page, 7);
+    await go("/docs/uniswap");
+    await chapter("integration", "See the Uniswap integration", "The dedicated guide separates backing escrow, trading inventory, the timing hook and final redemption.");
+    await hold(page, 6);
+    const headings = page.getByRole("heading", { level: 2 });
+    if (await headings.count()) { await focus(page, headings.nth(Math.min(1, await headings.count() - 1))); await hold(page, 7); }
+    await go("/market-view");
+    await chapter("forecast", "Read the price-implied rent level", "Market view converts price into a payout-equivalent growth level. It does not turn a capped token price into expected rent growth.");
+    await hold(page, 8);
+    await go("/settle");
+    await chapter("publisher-email", "Verify the actual publisher email", "Upload the actual CRE Daily September 2026 newsletter. Its publisher signature authenticates the $92.88/SF baseline.");
+    await page.getByLabel("Original email (.eml)", { exact: true }).setInputFiles(path.join(ROOT, "fixtures/credaily-2026-09-17/credaily-cpace-2026-09-17.eml"));
+    await expect(page.getByTestId("v4-preflight")).not.toContainText("✕");
+    await expect(page.getByTestId("signed-rent-summary")).toContainText("$92.88");
+    await focus(page, page.getByTestId("v4-preflight")); await hold(page, 8);
+    await focus(page, page.getByTestId("signed-rent-summary"));
+    await speak("The real email verifies, but its 2026 timestamp is outside the 2027 settlement window. It supplies the baseline, not a future payout.");
+    await expect(page.getByTestId("signed-rent-summary")).toContainText("Outside the settlement window");
+    await hold(page, 14);
+    const actualEmailChecks = await page.getByTestId("signed-rent-summary").innerText();
+    await context.close();
+    const raw = path.join(RAW, "rentsafe-polygon.webm"); await video.saveAs(raw);
+    if (!process.env.RECORD_DRAFT) publishCapture(raw, "rentsafe-polygon", chapters, { scope, chainId: 137, interfaceOrigin: baseURL, walletConnected: false, transactionsSent: 0, quoteEvidence, actualEmailChecks });
+  } finally { await context.close(); }
+});

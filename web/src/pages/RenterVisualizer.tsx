@@ -31,13 +31,15 @@ export function RenterVisualizer() {
   const [annualRent, setAnnualRent] = useState(DEFAULT_ANNUAL_RENT);
   const [p, setP] = useState(DEMO_PREMIUM_P);
   const [pTouched, setPTouched] = useState(false);
+  const [growthPct, setGrowthPct] = useState(5);
 
   // The price input follows the live market until the user edits it.
   useEffect(() => {
-    if (!pTouched) setP(market.p);
+    if (!pTouched) setP(Number(market.p.toFixed(6)));
   }, [market.p, pTouched]);
 
   const q = renterQuote(annualRent, p);
+  const selectedPayout = renterPayoutAt(growthPct / 100, q.units);
   const rows = OUTCOME_GRID.map((g) => {
     const payout = renterPayoutAt(g, q.units);
     return {
@@ -129,7 +131,40 @@ export function RenterVisualizer() {
         <h2 className="font-parkDisplay font-bold text-lg text-text-standard mb-2">
           Payout across rent outcomes
         </h2>
+        <div className="grid gap-6 sm:grid-cols-2 items-center my-5">
+          <div>
+            <SliderInput
+              label="Rent index growth"
+              value={growthPct}
+              onChange={setGrowthPct}
+              min={0}
+              max={12}
+              step={0.1}
+              unit="%"
+              testId="renter-growth"
+            />
+            <div className="flex gap-2 mt-3" role="group" aria-label="Rent growth scenarios">
+              {[3, 5, 8].map((growth) => (
+                <button
+                  key={growth}
+                  type="button"
+                  onClick={() => setGrowthPct(growth)}
+                  aria-pressed={growthPct === growth}
+                  className={`rounded-full border-2 px-4 py-1.5 font-parkBody text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-core-green ${growthPct === growth ? "border-core-green bg-core-green/10 text-core-green" : "border-paper-2 bg-paper-0 text-surface-grey-2 hover:border-core-green"}`}
+                >
+                  +{growth}%
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-2xl border-2 border-core-green/30 bg-core-green/5 px-5 py-4" aria-live="polite" data-testid="renter-outcome">
+            <p className="font-parkBody text-sm text-surface-grey-2">Your payout at +{growthPct}% growth</p>
+            <p className="font-parkDisplay text-4xl font-bold text-core-green mt-1" data-testid="renter-outcome-payout">{formatDollars(selectedPayout)}</p>
+            <p className="font-parkBody text-sm text-surface-grey-2 mt-2">{formatCount(q.units)} RENT · {formatDollars(selectedPayout - q.cost)} after your modeled cost</p>
+          </div>
+        </div>
         <GrowthChart
+          selectedG={growthPct / 100}
           ariaLabel={`Renter payout across rent-growth outcomes: payout reaches ${formatDollars(q.maxPayout)} at 8% growth; you break even once growth passes ${formatGrowth(q.breakevenGrowth)}.`}
           testId="renter-chart"
           breakevenG={q.breakevenGrowth}
@@ -189,11 +224,10 @@ export function RenterVisualizer() {
             }
             data-testid="renter-buy"
           >
-            Buy {formatCount(q.units)} RENT
+            Buy & Sell
           </LiftedButton>
           <p className="font-parkBody text-xs text-surface-grey-2">
-            Continues to the checkout with {formatDollars(q.units)} of coverage
-            prefilled — you can adjust it there and pay with {symbol}{market.source === "v4" ? "." : " or another token."} At your modeled price it costs about{" "}
+            Continues to the market with {formatCount(q.units)} RENT requested — you can adjust it there and pay with {symbol}{market.source === "v4" ? "." : " or another token."} At your modeled price it costs about{" "}
             {formatDollars(q.cost)}. Checkout uses the live price, which may differ.
           </p>
         </div>

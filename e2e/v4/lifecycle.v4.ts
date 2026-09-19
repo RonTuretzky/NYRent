@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { test, expect } from "@playwright/test";
 import { formatUnits, parseAbiItem } from "viem";
-import { ART, CREATOR, BUYER, OBS_START, SETTLE_TIME, CLAIM_END, UNIT } from "./constants";
+import { ART, PREVIEW, CREATOR, BUYER, OBS_START, SETTLE_TIME, CLAIM_END, UNIT } from "./constants";
 import { client, deployment, marketAbi, oracleAbi, rentBalance, cashBalance, balance, lpBalance, warp, openWallet, syncClock, connectWallet, clickReady, dismissToasts } from "./support";
 
 test("real v4 UI: backed mint, LP, buy/sell, blackout, DKIM settlement, payout and residual", async ({ page: insurer, context }) => {
@@ -27,31 +27,61 @@ test("real v4 UI: backed mint, LP, buy/sell, blackout, DKIM settlement, payout a
   });
 
   await test.step("insurer funds real v4 liquidity, distinct from escrow", async () => {
-    await insurer.getByLabel("Maximum RENT", {exact: true}).fill("500");
-    await insurer.getByLabel("Maximum USDC", {exact: true}).fill("142.5");
+    await insurer.getByLabel("RENT deposit limit", {exact: true}).fill("100000");
+    await insurer.getByLabel("USDC deposit limit", {exact: true}).fill("142.5");
+    // Only the matching amounts need funding, even when an upper limit exceeds the wallet balance.
+    await expect(insurer.getByRole("button", {name: "Add liquidity", exact: true})).toBeEnabled();
+    await insurer.getByLabel("RENT deposit limit", {exact: true}).fill("500");
+    await expect(insurer.getByTestId("liquidity-price")).toContainText("Changing the deposit limits does not change it");
+    await expect(insurer.getByTestId("liquidity-deposit-preview")).toContainText("unused tokens stay in your wallet");
     await clickReady(insurer, "Add liquidity");
     await expect.poll(lpBalance).toBeGreaterThan(0n);
     expect(await balance(d.currency, d.market)).toBe(1000n * UNIT);
     receipts.liquidity = (await lpBalance()).toString();
   });
 
+  await test.step("empty wallets see chain-specific missing USDC, RENT and gas messages", async () => {
+    const emptyWalletContext = await context.browser()!.newContext({ baseURL: PREVIEW });
+    const empty = await emptyWalletContext.newPage();
+    await openWallet(empty, 0, ["0x000000000000000000000000000000000000dEaD"]);
+    await empty.goto("/#/buy");
+    await connectWallet(empty);
+    await expect(empty.getByTestId("insufficient-funds")).toContainText("No USDC on");
+    await expect(empty.getByTestId("pay-balance")).toContainText("0 USDC");
+    await expect(empty.getByTestId("missing-gas")).toContainText("network fees");
+    await expect(empty.getByRole("button", {name: "Confirm trade", exact: true})).toBeDisabled();
+    await empty.getByRole("button", {name: "Sell", exact: true}).click();
+    await expect(empty.getByTestId("insufficient-funds")).toContainText("No RENT on");
+    await expect(empty.getByRole("button", {name: "Confirm trade", exact: true})).toBeDisabled();
+    await emptyWalletContext.close();
+  });
+
   await test.step("renter buys, then sells RENT back through the real v4 router", async () => {
     await renter.goto("/#/buy?amount=3");
     await connectWallet(renter);
-    await expect(renter.getByText("The spending amount below is estimated", {exact: false})).toBeVisible();
+    await expect(renter.getByText("We filled in its current cost below", {exact: false})).toBeVisible();
     const targetSpend = Number(await renter.getByLabel("You pay (USDC)", {exact: true}).inputValue());
     expect(targetSpend).toBeGreaterThan(0.8);
     expect(targetSpend).toBeLessThan(1);
-    await expect(renter.getByText("1 RENT ≈", {exact: false})).toContainText("Trading open");
+    await expect(renter.getByTestId("rent-current-price")).toContainText("Trading open");
+    await renter.getByLabel("You pay (USDC)", {exact: true}).fill("100");
+    await expect(renter.getByTestId("spot-conversion")).toContainText("100 USDC ÷");
+    await expect(renter.getByTestId("price-impact-warning")).toContainText("too large for the available liquidity");
+    await expect(renter.getByRole("button", {name: "Confirm trade", exact: true})).toBeDisabled();
+    await expect(renter.getByTestId("coverage-request")).toHaveCount(0);
+    await renter.getByLabel("You pay (USDC)", {exact: true}).fill("100001");
+    await expect(renter.getByTestId("insufficient-funds")).toContainText("Not enough USDC");
+    await expect(renter.getByTestId("insufficient-funds")).toContainText("1 more USDC");
     await renter.getByLabel("You pay (USDC)", {exact: true}).fill("1");
+    await expect(renter.getByTestId("insufficient-funds")).toHaveCount(0);
     const cashBefore = await cashBalance(BUYER);
-    await clickReady(renter, "Buy RENT");
+    await clickReady(renter, "Confirm trade");
     await expect.poll(() => rentBalance(BUYER)).toBeGreaterThan(3n * UNIT);
     expect(await cashBalance(BUYER)).toBe(cashBefore - UNIT);
     const bought = await rentBalance(BUYER);
-    await renter.getByRole("button", {name: "Sell RENT", exact: true}).first().click();
+    await renter.getByRole("button", {name: "Sell", exact: true}).click();
     await renter.getByLabel("You pay (RENT)", {exact: true}).fill("1");
-    await clickReady(renter, "Sell RENT");
+    await clickReady(renter, "Confirm trade");
     await expect.poll(() => rentBalance(BUYER)).toBe(bought - UNIT);
     expect(await cashBalance(BUYER)).toBeGreaterThan(cashBefore - UNIT);
     receipts.renterRemaining = (await rentBalance(BUYER)).toString();
@@ -85,7 +115,7 @@ test("real v4 UI: backed mint, LP, buy/sell, blackout, DKIM settlement, payout a
     await expect(insurer.getByRole("button", {name: "Remove my liquidity", exact: true})).toBeDisabled();
     await expect(insurer.getByRole("button", {name: "Add liquidity", exact: true})).toBeDisabled();
     await renter.goto("/#/trade");
-    await expect(renter.getByRole("button", {name: "Buy RENT", exact: true}).last()).toBeDisabled();
+    await expect(renter.getByRole("button", {name: "Confirm trade", exact: true}).last()).toBeDisabled();
     expect(await client.readContract({address: d.market, abi: marketAbi, functionName: "tradingOpen"})).toBe(false);
     expect(await client.readContract({address: d.market, abi: marketAbi, functionName: "liquidityRemovalOpen"})).toBe(false);
     await expect(client.simulateContract({account: BUYER, address: d.market, abi: marketAbi, functionName: "transfer", args: [CREATOR, 1n]})).rejects.toThrow();
@@ -96,6 +126,9 @@ test("real v4 UI: backed mint, LP, buy/sell, blackout, DKIM settlement, payout a
     await syncClock(renter); await syncClock(insurer);
     await renter.goto("/#/settle");
     await renter.getByLabel("Original email (.eml)", {exact: true}).setInputFiles(path.join(ART, "settlement-test-only.eml"));
+    await expect(renter.getByTestId("signed-rent-summary")).toContainText("$97.99");
+    await expect(renter.getByTestId("signed-rent-summary")).toContainText("0.5000 USDC");
+    await expect(renter.getByTestId("signed-rent-summary")).toContainText("Signature checks passed locally");
     await expect(renter.getByTestId("v4-preflight")).not.toContainText("✕");
     await expect(renter.getByTestId("v4-preflight")).toContainText("RSA signature");
     await clickReady(renter, "Authenticate email on-chain");

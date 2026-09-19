@@ -22,6 +22,24 @@ export function rentSpotPrice(sqrtPriceX96: bigint, key: RentPoolKey, rent: Addr
   return key.currency0.toLowerCase() === rent.toLowerCase() ? token1PerToken0 : 1 / token1PerToken0;
 }
 
+export const MAX_TRADE_PRICE_IMPACT_BPS = 1000n;
+
+/** Reference conversion at the pre-trade pool price; both tokens have the same decimals. */
+export function spotOutput(amountIn: bigint, sqrtPriceX96: bigint, zeroForOne: boolean): bigint {
+  if (amountIn <= 0n || sqrtPriceX96 <= 0n) return 0n;
+  const ratio = sqrtPriceX96 * sqrtPriceX96;
+  const q192 = 1n << 192n;
+  return zeroForOne ? amountIn * ratio / q192 : amountIn * q192 / ratio;
+}
+
+/** Output shortfall from spot, including pool fees. Round up for the UI's trade limit. */
+export function quotePriceImpact(amountIn: bigint, amountOut: bigint, sqrtPriceX96: bigint, zeroForOne: boolean) {
+  const atSpot = spotOutput(amountIn, sqrtPriceX96, zeroForOne);
+  const shortfall = atSpot > amountOut ? atSpot - amountOut : 0n;
+  const bps = atSpot > 0n ? (shortfall * 10000n + atSpot - 1n) / atSpot : null;
+  return { atSpot, bps, blocked: bps === null || bps > MAX_TRADE_PRICE_IMPACT_BPS || amountOut <= 1n };
+}
+
 /** Integer bound used for signing; never converts token amounts to floating point. */
 export function minimumOutput(quoted: bigint, slippageBps = 100): bigint {
   if (quoted <= 0n || !Number.isInteger(slippageBps) || slippageBps < 0 || slippageBps > 500) {

@@ -1,7 +1,7 @@
 /**
  * Acceptance numbers for the single shared market module (spec is law):
  *   renter  R=60,000 p=0.285 → N=3,000 cost=855 breakeven 4.4% (4.425) max 3,000
- *   insurer C=100,000 p=0.285 y=4% u=10% → premium 2,850 yield 4,000 worst −3,150
+ *   insurer C=100,000 p=0.285 y=0 u=10% → premium 2,850 worst −7,150
  *   market view p=0.285 → implied growth 4.4% (4.425)
  */
 import { test } from "node:test";
@@ -95,20 +95,20 @@ test("renter acceptance: R=60,000 p=0.285 → N=3,000 cost=855 breakeven 4.425% 
   approx(q.maxPayout, 3000);
 });
 
-test("insurer acceptance: C=100,000 p=0.285 y=4% u=10% → premium 2,850 yield 4,000 worst −3,150", () => {
-  const q = insurerQuote(100_000, DEMO_PREMIUM_P, 0.04, 0.1);
+test("insurer acceptance: C=100,000 p=0.285 no yield u=10% → premium 2,850 worst −7,150", () => {
+  const q = insurerQuote(100_000, DEMO_PREMIUM_P, 0, 0.1);
   approx(q.minted, 100_000);
   approx(q.sold, 10_000);
   approx(q.premiumIncome, 2850, 1e-6);
-  approx(q.yieldIncome, 4000);
+  approx(q.yieldIncome, 0);
   approx(q.maxLossPremiumOnly, 7150, 1e-6);
-  approx(q.worstCaseNet, -3150, 1e-6);
-  // worst case is the net at any r=1 outcome
-  approx(insurerNetAt(0.12, 100_000, DEMO_PREMIUM_P, 0.04, 0.1), -3150, 1e-6);
-  // insurer breakeven ≥ renter breakeven (the gap is the loading)
-  const renter = renterQuote(60_000, DEMO_PREMIUM_P);
-  approx(q.breakevenGrowth, 0.06425, 1e-9);
-  assert.ok(q.breakevenGrowth >= renter.breakevenGrowth);
+  approx(q.worstCaseNet, -7150, 1e-6);
+  approx(insurerNetAt(0.12, 100_000, DEMO_PREMIUM_P, 0, 0.1), -7150, 1e-6);
+  approx(q.breakevenGrowth, 0.04425, 1e-9);
+  const halfSold = insurerQuote(100_000, DEMO_PREMIUM_P, 0, 0.5);
+  approx(halfSold.premiumIncome, 14_250, 1e-6);
+  approx(halfSold.worstCaseNet, -35_750, 1e-6);
+  approx(halfSold.breakevenGrowth, q.breakevenGrowth);
 });
 
 test("market view acceptance: p=0.285 → implied growth 4.425% (+4.4%), implied rent $96.99", () => {
@@ -130,7 +130,7 @@ test("function API renter acceptance: N=3,000 cost=855 breakeven 4.4% max 3,000"
   approx(worst.net, 3_000 - 855, 1e-6);
 });
 
-test("function API insurer acceptance: premium 2,850 yield 4,000 worst −3,150", () => {
+test("function API insurer acceptance: premium 2,850 no yield worst −7,150", () => {
   const params: InsurerParams = {
     capital: DEFAULT_INSURER_CAPITAL,
     p: 0.285,
@@ -140,17 +140,17 @@ test("function API insurer acceptance: premium 2,850 yield 4,000 worst −3,150"
   assert.equal(insurerMinted(params), 100_000);
   approx(insurerSold(params), 10_000);
   approx(insurerPremiumIncome(params), 2_850, 1e-6);
-  approx(insurerYieldIncome(params), 4_000);
+  approx(insurerYieldIncome(params), 0);
   approx(insurerMaxLossPremiumOnly(params), 7_150, 1e-6);
-  approx(insurerWorstCaseNet(params), -3_150, 1e-6);
-  // net at r=0 keeps premium+yield; r=1 equals the worst case; breakeven nets 0
-  approx(insurerNet(params, 0), 6_850, 1e-6);
+  approx(insurerWorstCaseNet(params), -7_150, 1e-6);
+  // net at r=0 keeps premium; r=1 equals the worst case; breakeven nets 0
+  approx(insurerNet(params, 0), 2_850, 1e-6);
   approx(insurerNet(params, 1), insurerWorstCaseNet(params), 1e-9);
-  const be = insurerBreakevenGrowth(0.285, 0.04, 0.1);
-  approx(be, 0.06425);
+  const be = insurerBreakevenGrowth(0.285, 0, 0.1);
+  approx(be, 0.04425);
   approx(insurerNet(params, payoutRatioFromGrowth(be)), 0, 1e-6);
-  assert.equal(insurerBreakevenGrowth(0.285, 0.04, 0), Infinity);
-  assert.equal(formatPct(insurerBreakevenGrowth(0.285, 0.04, 0)), "—");
+  assert.equal(insurerBreakevenGrowth(0.285, 0, 0), Infinity);
+  assert.equal(formatPct(insurerBreakevenGrowth(0.285, 0, 0)), "—");
 });
 
 test("outcome grids run the spec's g grid and agree with the quotes", () => {

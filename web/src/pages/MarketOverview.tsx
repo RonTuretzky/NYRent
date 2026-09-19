@@ -27,6 +27,7 @@ import {
   useReducedMotion,
 } from "../components/hiw/shared";
 import { useActiveMarket } from "../chain/useActiveMarket";
+import { useActiveDeployment } from "../chain/registry";
 import { formatCents, formatCurrency, formatDate } from "../chain/format";
 import { COVERAGE_CEIL, COVERAGE_FLOOR } from "../lib/market";
 
@@ -34,6 +35,7 @@ const HowItWorks = lazy(() => import("../components/HowItWorks").then((m) => ({ 
 
 export function MarketOverview() {
   const m = useActiveMarket();
+  const { deployment } = useActiveDeployment();
   const { symbol, decimals } = m;
   const walkthrough = useMemo(() => ({ lowCents: m.strikeLowCents, highCents: m.strikeHighCents, trading: m.source !== "fixed" }), [m.strikeLowCents, m.strikeHighCents, m.source]);
   const floorPct = Math.round(COVERAGE_FLOOR * 100);
@@ -61,7 +63,7 @@ export function MarketOverview() {
         <div className="flex justify-center gap-2 flex-wrap mb-6">
           <Chip size="small">Money escrowed up front</Chip>
           <Chip size="small">1 RENT pays up to $1</Chip>
-          <Chip size="small">Unaudited experiment — tiny amounts</Chip>
+          <Chip size="small">Unaudited contracts</Chip>
         </div>
         <h1 className="font-parkDisplay font-bold text-4xl sm:text-6xl tracking-tight text-text-standard">
           Rent goes up.{" "}
@@ -90,8 +92,38 @@ export function MarketOverview() {
         </p>
       </section>
 
+      <section id="roles" className="max-w-5xl mx-auto scroll-mt-28">
+        <h2 className="font-parkDisplay font-bold text-3xl text-text-standard text-center mb-6">
+          Three roles, one fully backed market
+        </h2>
+        <div className="grid sm:grid-cols-3 gap-5">
+          <RoleCard
+            icon={<VaultIcon size={28} weight="bold" />}
+            name="PLATFORM"
+            provides={["Sets the index, signed-email oracle, base value, 3–8% band and dates."]}
+            obligations={["Terms stay fixed in code. The contract holds the backing and enforces payouts."]}
+          />
+          <RoleCard
+            icon={<BankIcon size={28} weight="bold" />}
+            name="INSURER"
+            provides={[`Deposits ${symbol} to mint RENT 1:1, then pairs RENT with additional ${symbol} as liquidity at the current pool price.`]}
+            obligations={["Backing stays in escrow. Trading proceeds and remaining inventory belong to the LP position."]}
+          />
+          <RoleCard
+            icon={<UserIcon size={28} weight="bold" />}
+            name="RENTER"
+            provides={[`Buys RENT with ${symbol} at the live pool price, or sells it while trading is open.`]}
+            obligations={["No further payment. Redeem RENT for the final payout, up to $1 each, before the claim deadline."]}
+          />
+        </div>
+        <details className="mt-5 max-w-3xl mx-auto rounded-2xl border border-paper-2 bg-paper-0 p-5">
+          <summary className="cursor-pointer font-parkDisplay font-bold text-text-standard">Follow the money</summary>
+          <div className="mt-5"><MoneyFlowViz symbol={symbol} /></div>
+        </details>
+      </section>
+
       {/* Restore the original alternating, animated visual walkthrough. */}
-      <section className="max-w-5xl mx-auto">
+      <section id="how-it-works" className="max-w-5xl mx-auto scroll-mt-28">
         <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
           <h2 className="font-parkDisplay font-bold text-3xl text-text-standard">How it works</h2>
           <p className="font-parkBody text-surface-grey-2 mt-3">
@@ -102,17 +134,19 @@ export function MarketOverview() {
         <Suspense fallback={<div className="nrc-skeleton h-72 rounded-3xl" />}>
           <HowItWorks market={walkthrough} />
         </Suspense>
-        <details className="mt-12 max-w-3xl mx-auto rounded-2xl border border-paper-2 bg-paper-0 p-5">
-          <summary className="cursor-pointer font-parkDisplay font-bold text-text-standard">All three roles, at a glance</summary>
-          <div className="mt-5"><MoneyFlowViz symbol={symbol} /></div>
-        </details>
       </section>
 
       {/* live numbers */}
-      <section className="max-w-5xl mx-auto space-y-4">
+      <section id="current-market" className="max-w-5xl mx-auto space-y-4 scroll-mt-28">
         <h2 className="font-parkDisplay font-bold text-3xl text-text-standard text-center">
           The market right now
         </h2>
+        <p className="text-center font-parkBody text-sm text-surface-grey-2">
+          {m.source === "v4" ? `Uniswap v4 on ${deployment.name} · ` : ""}
+          <Link to="/buy" className="underline decoration-dotted underline-offset-4 hover:text-core-green">Buy &amp; Sell</Link>
+          {" · "}<Link to="/docs/uniswap" className="underline decoration-dotted underline-offset-4 hover:text-core-green">How the pool works</Link>
+          {" · "}<Link to="/docs" className="underline decoration-dotted underline-offset-4 hover:text-core-green">Rent index &amp; source</Link>
+        </p>
         {m.rpcError ? <RpcStaleBanner /> : null}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <Stat
@@ -181,49 +215,6 @@ export function MarketOverview() {
             yoyBaseCents={m.baseCents}
             settledCents={settledPoint?.cents}
             ratioWad={settledPoint?.ratioWad}
-          />
-        </div>
-      </section>
-
-      {/* the three roles */}
-      <section className="max-w-5xl mx-auto">
-        <h2 className="font-parkDisplay font-bold text-3xl text-text-standard text-center mb-6">
-          Three roles, three promises
-        </h2>
-        <div className="grid sm:grid-cols-3 gap-5">
-          <RoleCard
-            icon={<VaultIcon size={28} weight="bold" />}
-            name="PLATFORM"
-            provides={[
-              "The market's terms: the rent index, the signed-email oracle, the base value, the +3% to +8% band and the dates.",
-              "A plan to invest the escrow in a yield-bearing stable with the yield going to the insurer — shown as planned, since today the escrow simply sits in the contract.",
-            ]}
-            obligations={[
-              "Keep the terms fixed once the market is live — no setter exists.",
-              "Take no rent risk and hold no money outside the contract's escrow.",
-            ]}
-          />
-          <RoleCard
-            icon={<BankIcon size={28} weight="bold" />}
-            name="INSURER"
-            provides={[
-              "The capital that backs every RENT — deposited up front and minted 1:1, so payouts can never exceed what is escrowed.",
-              `The opening price of RENT (the initial premium). In return the insurer earns every premium paid in ${symbol}, plus the planned yield on escrow.`,
-            ]}
-            obligations={[
-              "Pay ratio × $1 for every RENT outstanding at settlement. The money is already locked, so this can't be dodged, paused or renegotiated.",
-            ]}
-          />
-          <RoleCard
-            icon={<UserIcon size={28} weight="bold" />}
-            name="RENTER"
-            provides={[
-              `The premium: buys RENT with ${symbol} at the current price, once.`,
-            ]}
-            obligations={[
-              "Nothing further — the premium is the most a renter can ever lose. If the index grows past +3%, each RENT pays its ratio × $1; past +8%, the full $1.",
-              "When the live trading pool launches, RENT can be sold back before the measurement window to exit or reduce coverage.",
-            ]}
           />
         </div>
       </section>
@@ -310,15 +301,15 @@ function RoleCard({
 
 /**
  * One SVG money-flow loop among the three roles (hiw visual language):
- * capital → escrow, premium → insurer, RENT → renter, planned yield →
- * insurer, settlement payout → renter. Reduced motion freezes to the
+ * capital → escrow, premium → LP inventory, RENT → renter, residual →
+ * insurer after the claim deadline, settlement payout → renter. Reduced motion freezes to the
  * labeled diagram.
  */
 const FLOW_DUR = "9s";
 const P_CAPITAL = "M 88 100 C 88 152 128 184 190 200";
 const P_PREMIUM = "M 322 44 L 166 44";
 const P_RENT = "M 158 74 L 314 74";
-const P_YIELD = "M 166 244 C 92 238 52 176 52 108";
+const P_RESIDUAL = "M 166 244 C 92 238 52 176 52 108";
 const P_PAYOUT = "M 314 244 C 388 238 428 176 428 108";
 
 function ArrowHead({
@@ -369,17 +360,17 @@ function FlowLabel({
 function MoneyFlowViz({ symbol }: { symbol: string }) {
   const reducedMotion = useReducedMotion();
   return (
-    <VizCard caption="capital in escrow · premiums + planned yield to the insurer · payouts to renters">
+    <VizCard caption="backing stays in escrow · RENT trades through the pool · payouts follow the index">
       <svg
         viewBox="0 0 480 300"
         className="w-full h-auto"
         role="img"
-        aria-label={`Money flow: the insurer's capital goes into the platform's escrow and RENT is minted 1:1; renters pay premiums in ${symbol} to the insurer and receive RENT; planned yield on escrow flows to the insurer; at settlement the escrow pays each RENT its ratio times one dollar-stable unit, and the rest returns to the insurer.`}
+        aria-label={`Money flow: the insurer's capital goes into the platform's escrow and RENT is minted 1:1; renters exchange ${symbol} for RENT through the trading pool; at settlement the escrow pays each RENT its ratio times one dollar-stable unit. After the claim deadline, the remaining backing can return to the original insurers.`}
       >
         <Track d={P_CAPITAL} />
         <Track d={P_PREMIUM} />
         <Track d={P_RENT} />
-        <Track d={P_YIELD} />
+        <Track d={P_RESIDUAL} />
         <Track d={P_PAYOUT} />
 
         {/* direction arrows (always visible, informative when frozen) */}
@@ -390,9 +381,9 @@ function MoneyFlowViz({ symbol }: { symbol: string }) {
         <ArrowHead x={428} y={108} angle={-90} color={C.green} />
 
         <FlowLabel x={112} y={158}>capital, escrowed</FlowLabel>
-        <FlowLabel x={240} y={36}>premium</FlowLabel>
-        <FlowLabel x={240} y={90}>RENT</FlowLabel>
-        <FlowLabel x={44} y={168} anchor="start">yield (planned)</FlowLabel>
+        <FlowLabel x={240} y={36}>premium via pool</FlowLabel>
+        <FlowLabel x={240} y={90}>RENT via pool</FlowLabel>
+        <FlowLabel x={30} y={185} anchor="start">remaining backing*</FlowLabel>
         <FlowLabel x={436} y={168} anchor="end">payout r × $1</FlowLabel>
 
         <IconBox
@@ -428,7 +419,7 @@ function MoneyFlowViz({ symbol }: { symbol: string }) {
 
         {reducedMotion ? null : (
           <>
-            {/* one choreographed cycle: fund → trade → yield → settle */}
+            {/* one choreographed cycle: fund → trade → settle → residual */}
             <DotStream
               path={P_CAPITAL}
               color={C.green}
@@ -451,10 +442,10 @@ function MoneyFlowViz({ symbol }: { symbol: string }) {
               windows={[[0.34, 0.46]]}
             />
             <DotStream
-              path={P_YIELD}
+              path={P_RESIDUAL}
               color={C.pine}
               dur={FLOW_DUR}
-              windows={[[0.54, 0.66]]}
+              windows={[[0.83, 0.95]]}
               r={3.5}
             />
             <DotStream
@@ -483,7 +474,7 @@ function MoneyFlowViz({ symbol }: { symbol: string }) {
               h={82}
               rx={14}
               color={C.green}
-              phases={[0.42, 0.66]}
+              phases={[0.42, 0.95]}
               dur={FLOW_DUR}
             />
             <PulseRing
@@ -499,6 +490,7 @@ function MoneyFlowViz({ symbol }: { symbol: string }) {
           </>
         )}
       </svg>
+      <p className="font-parkBody text-xs text-surface-grey-2 text-center mt-2">*Remaining backing is claimable by original insurers after the redemption deadline. LP sale proceeds stay in the trading position until withdrawn.</p>
     </VizCard>
   );
 }

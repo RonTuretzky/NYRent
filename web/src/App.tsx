@@ -32,6 +32,8 @@ const Underwrite = lazy(() =>
   import("./pages/Underwrite").then((m) => ({ default: m.Underwrite })),
 );
 const Docs = lazy(() => import("./pages/Docs").then((m) => ({ default: m.Docs })));
+const UniswapGuide = lazy(() => import("./pages/UniswapGuide").then((m) => ({ default: m.UniswapGuide })));
+const Walkthrough = lazy(() => import("./pages/Walkthrough").then((m) => ({ default: m.Walkthrough })));
 const LegacyLanding = lazy(() => import("./pages/Landing").then((m) => ({ default: m.Landing })));
 const LegacyDocs = lazy(() => import("./pages/LegacyDocs").then((m) => ({ default: m.LegacyDocs })));
 
@@ -96,6 +98,8 @@ export default function App() {
                     path="/sponsor"
                     element={<Navigate to="/underwrite" replace />}
                   />
+                  <Route path="/docs/uniswap" element={suspend(<UniswapGuide />)} />
+                  <Route path="/docs/walkthrough" element={suspend(<Walkthrough />)} />
                   <Route path="/docs" element={suspend(<Docs />)} />
                   <Route path="/legacy/docs" element={suspend(<LegacyDocs />)} />
                   <Route path="/legacy/home" element={suspend(<LegacyLanding />)} />

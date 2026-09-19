@@ -68,7 +68,7 @@ export function Landing() {
         <div className="flex justify-center gap-2 flex-wrap mb-6">
           <Chip size="small">{chains.map((d) => d.name).join(" + ")}</Chip>
           <Chip size="small">Money escrowed up front</Chip>
-          <Chip size="small">Unaudited experiment — tiny amounts</Chip>
+          <Chip size="small">Unaudited contracts</Chip>
         </div>
         <h1 className="font-parkDisplay font-bold text-4xl sm:text-6xl tracking-tight text-text-standard">
           Rent goes up.{" "}

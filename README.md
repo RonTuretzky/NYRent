@@ -16,7 +16,18 @@ immutable market terms, a lifecycle hook, a buy/sell + liquidity router, authent
 email settlement and escrow recovery. [V4 design and boundaries](docs/V4.md) and
 [rollout evidence](docs/V4-ROLLOUT.md) distinguish build, fork proofs and live deployment.
 Only addresses in `web/src/chain/v4-deployments.json` are treated as configured live v4
-markets. No manifest entry means fixed-price mode or a clearly labeled demo.
+markets. Without a v4 manifest, the app uses a configured fixed-price market or shows that transactions are unavailable.
+
+The live v4 market is on **Polygon (137)**, trading RENT against native USDC.
+The [illustrated Uniswap guide](https://rentsafe.nyc/#/docs/uniswap) explains the
+pool, hook, and separate backing escrow. [Recorded walkthroughs](https://rentsafe.nyc/#/docs/walkthrough)
+show the product and complete contract lifecycle. Settlement recordings use a local
+chain and test-signed future emails; they do not claim that the September 2027
+Polygon market has settled.
+
+Checkout separates the current spot conversion from the executable pool quote,
+shows chain-specific balances, and blocks orders with more than 10% output
+shortfall from spot (including fees). Calculators exclude escrow yield.
 
 ## Preserved fixed-price mode
 

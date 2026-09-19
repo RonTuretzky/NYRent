@@ -10,7 +10,6 @@ import { useActiveMarket } from "../chain/useActiveMarket";
 import { formatCents } from "../chain/format";
 import {
   DEMO_PREMIUM_P,
-  DEMO_YIELD_RATE,
   OUTCOME_GRID,
   formatGrowth,
   insurerClaimsAt,
@@ -35,15 +34,14 @@ export function InsurerDashboard() {
   const [capital, setCapital] = useState(DEFAULT_CAPITAL);
   const [p, setP] = useState(DEMO_PREMIUM_P);
   const [pTouched, setPTouched] = useState(false);
-  const [yieldPct, setYieldPct] = useState(DEMO_YIELD_RATE * 100);
   const [soldPct, setSoldPct] = useState(DEFAULT_SOLD_PCT);
 
   // The price input follows the live market until the user edits it.
   useEffect(() => {
-    if (!pTouched) setP(market.p);
+    if (!pTouched) setP(Number(market.p.toFixed(6)));
   }, [market.p, pTouched]);
 
-  const y = yieldPct / 100;
+  const y = 0;
   const u = soldPct / 100;
   const q = insurerQuote(capital, p, y, u);
   const rows = OUTCOME_GRID.map((g) => {
@@ -67,13 +65,12 @@ export function InsurerDashboard() {
           Back this market as the insurer
         </h1>
         <p className="font-parkBody text-surface-grey-2 mt-1">
-          You deposit capital; RENT is minted 1:1 against it and you sell it at
-          the price you choose. You keep the premiums plus the planned yield on
-          escrow — in exchange you pay every sold RENT up to $1 per token if
-          the rent index rises past 3%.
+          Deposit capital to mint RENT 1:1, then pair RENT with additional USDC
+          to add liquidity. This market already has a pool price: your deposit
+          amounts do not reset it. Explore sale proceeds and maximum exposure
+          below before funding the market.
         </p>
       </header>
-      {market.source === "v4" ? <V4Trade mode="underwrite" /> : null}
 
       <Card>
         <h2 className="font-parkDisplay font-bold text-lg text-text-standard mb-3">
@@ -91,7 +88,7 @@ export function InsurerDashboard() {
             testId="insurer-capital"
           />
           <SliderInput
-            label="Price per RENT"
+            label="Average sale price per RENT"
             value={p}
             onChange={(next) => {
               setPTouched(true);
@@ -103,20 +100,10 @@ export function InsurerDashboard() {
             unit="per RENT"
             hint={
               market.isDemo
-                ? "Set a price to explore costs and payouts."
-                : "Prefilled from the live market price — edit to explore."
+                ? "Assumed average price for this calculation."
+                : "Starts at the current pool price. Changing this assumption does not change the live price."
             }
             testId="insurer-price"
-          />
-          <SliderInput
-            label="Annual yield · planned"
-            value={yieldPct}
-            onChange={setYieldPct}
-            min={0}
-            max={10}
-            step={0.1}
-            unit="%"
-            testId="insurer-yield"
           />
           <SliderInput
             label="Share of RENT sold"
@@ -140,12 +127,8 @@ export function InsurerDashboard() {
             value={`${formatCount(q.sold)} RENT`}
           />
           <StatRow
-            label="Premium income (p × sold)"
+            label="Modeled sale proceeds (p × sold)"
             value={formatDollars(q.premiumIncome)}
-          />
-          <StatRow
-            label="Yield income (y × C) — PLANNED"
-            value={formatDollars(q.yieldIncome)}
           />
           <StatRow
             label="Breakeven growth (net = 0)"
@@ -163,9 +146,9 @@ export function InsurerDashboard() {
           />
         </div>
         <p className="mt-2 font-parkBody text-xs text-surface-grey-2">
-          The yield line is <span className="font-bold">planned</span>: today
-          the escrow sits un-invested in the pool currency ({symbol}), so treat
-          it as a forecast, not a promise. All results are modeled scenarios, including unsold inventory returned to the insurer.
+          Models RENT sold at one average price, with unsold RENT retained.
+          In a live Uniswap position, trades change both the price and your token
+          inventory; sale proceeds stay in the position until withdrawn.
         </p>
       </Card>
 
@@ -182,7 +165,7 @@ export function InsurerDashboard() {
           breakevenLabel={`breakeven ${formatGrowth(q.breakevenGrowth)}`}
           lines={[
             {
-              label: "Net P&L (premium + yield − claims)",
+              label: "Net P&L (premium − claims)",
               color: "var(--color-core-green)",
               points: rows.map((r) => ({ g: r.g, value: r.net })),
             },
@@ -199,10 +182,10 @@ export function InsurerDashboard() {
           data-testid="insurer-takeaway"
         >
           {q.sold === 0
-            ? "With nothing sold there are no claims. Only the assumed, planned yield contributes to this model."
+            ? "With nothing sold there is no premium income or claim exposure from buyers."
             : q.worstCaseNet >= 0
               ? "Under these assumptions, even the maximum claim does not create a net loss."
-              : `In this model you lose money if index growth exceeds ${formatGrowth(q.breakevenGrowth)}. This includes the assumed planned yield.`}
+              : `In this model you lose money if index growth exceeds ${formatGrowth(q.breakevenGrowth)}. Premiums offset part of your claim exposure.`}
         </p>
 
         <div className="mt-4 overflow-x-auto">
@@ -274,6 +257,8 @@ export function InsurerDashboard() {
         </p>
       </Card>
 
+      {market.source === "v4" ? <V4Trade mode="underwrite" /> : null}
+
       <Card>
         <h2 className="font-parkDisplay font-bold text-lg text-text-standard mb-2">
           Where your capital actually sits
@@ -286,9 +271,10 @@ export function InsurerDashboard() {
             (1 − p) × u × C = {formatDollars(q.maxLossPremiumOnly)}
           </span>{" "}
           — the sold tokens' full payout minus the premiums you were paid for
-          them. With the planned yield of {formatDollars(q.yieldIncome)}{" "}
-          included, the worst-case net shown in the table is{" "}
-          {formatDollars(q.worstCaseNet)}. Retaining unsold RENT preserves the insurer's claim on that slice of backing; this model assumes it is not sold later.
+          them. This assumes you retain and redeem unsold RENT, and reclaim your
+          share of the remaining backing after the claim deadline. Actual LP
+          results also depend on inventory, fees, and the prices at which trades
+          execute.
         </p>
         <details className="mt-2 font-parkBody text-xs text-surface-grey-2">
           <summary className="cursor-pointer">Legacy underwriting tools</summary>

@@ -28,9 +28,9 @@ export const lpBalance = () => client.readContract({address: deployment().router
 export async function warp(timestamp: bigint) {
   await testClient.setNextBlockTimestamp({timestamp}); await testClient.mine({blocks: 1});
 }
-export async function openWallet(page: Page, accountIndex: number) {
+export async function openWallet(page: Page, accountIndex: number, accounts: Address[] = [CREATOR, BUYER]) {
   await page.clock.install({time: new Date(Number((await client.getBlock()).timestamp) * 1000)});
-  await page.addInitScript(config => { (window as unknown as {__E2E_WALLET_CONFIG: unknown}).__E2E_WALLET_CONFIG = config; }, {rpcUrl: RPC, chainIdHex: "0x7a69", accounts: [CREATOR, BUYER], accountIndex});
+  await page.addInitScript(config => { (window as unknown as {__E2E_WALLET_CONFIG: unknown}).__E2E_WALLET_CONFIG = config; }, {rpcUrl: RPC, chainIdHex: "0x7a69", accounts, accountIndex});
   await page.addInitScript({path: path.join(ROOT, "e2e/support/wallet-shim.js")});
 }
 export async function syncClock(page: Page) { await page.clock.setSystemTime(new Date(Number((await client.getBlock()).timestamp) * 1000)); }

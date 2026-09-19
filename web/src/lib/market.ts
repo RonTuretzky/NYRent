@@ -28,7 +28,7 @@ export const BAND_WIDTH = COVERAGE_CEIL - COVERAGE_FLOOR; // 0.05
  * parameters; live chain reads take precedence when present. */
 export const DEMO_BASE_CENTS = 9288; // verified Sept 2026 fixture print, $/SF
 export const DEMO_PREMIUM_P = 0.285; // premiumRateBps 2850 / 10000
-export const DEMO_YIELD_RATE = 0.04; // planned escrow yield (parameterized)
+export const DEMO_YIELD_RATE = 0; // escrow holds the backing currency; no yield is assumed
 export const DEMO_SALE_END = 1_819_756_800n; // 2027-09-01 00:00 UTC
 export const DEMO_OBS_START = 1_819_756_800n;
 export const DEMO_OBS_END = 1_822_348_740n;
