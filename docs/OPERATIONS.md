@@ -635,7 +635,16 @@ against fresh forks of both mainnets, the cycle proofs ending in a realized
 redeem (0.2 units × ratio 0.5 → 0.1 units collected, cover burned) and a
 no-op idempotent re-run.
 
-## Next on-chain ops (ON HOLD — operator go required)
+## Current continuation: one September market and Uniswap v4
+
+The September 2026 → September 2027 one-market specification and the subsequent
+request to build the v4 hook supersede the October-window sequence below. Website
+publication is authorized. New v4 mainnet execution awaits the operator's funding
+decision; use [V4-ROLLOUT.md](V4-ROLLOUT.md) for the rehearsed deployment, exact shared
+terms, budget checks and restart journal. Bankr remains held. Local/fork addresses
+must never be copied into the production manifest.
+
+## Archived next-ops plan (superseded; do not execute)
 
 Both permissionless deployments are live with **zero series**; nothing below has been
 executed. The operator-approved sequence, in order:

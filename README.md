@@ -1,4 +1,4 @@
-# NY Rent Cover
+# RentSafe
 
 Fully collateralized, fully permissionless protection against Manhattan office rent staying
 high, settled by an email. The oracle input is CRE Daily's "Market Snapshot" newsletter
@@ -6,13 +6,29 @@ high, settled by an email. The oracle input is CRE Daily's "Market Snapshot" new
 RSA-SHA256 DKIM signature, body hash and template parsing all execute in the EVM against an
 immutable pinned key. No committee, no price feed, no trusted server, no ZK ceremony.
 
-**Live app:** https://ronturetzky.github.io/NYRent/
+**Live app:** https://rentsafe.nyc/
+
+The one-market UI presents September 2026 → September 2027 Manhattan office rent
+protection as **RENT**, with Platform / Insurer / Renter views.
+
+**New: Uniswap v4 market mode.** The implementation includes transferable backed RENT,
+immutable market terms, a lifecycle hook, a buy/sell + liquidity router, authenticated
+email settlement and escrow recovery. [V4 design and boundaries](docs/V4.md) and
+[rollout evidence](docs/V4-ROLLOUT.md) distinguish build, fork proofs and live deployment.
+Only addresses in `web/src/chain/v4-deployments.json` are treated as configured live v4
+markets. No manifest entry means fixed-price mode or a clearly labeled demo.
+
+## Preserved fixed-price mode
+
+The following recordings and contract overview describe the existing fixed-price
+deployment. Its features remain available through the hidden legacy routes; its
+nontransferable tokens are distinct from the new v4 RENT ERC-20.
 
 ![Settling series 0 in the app: the real 2026-09-17 CRE Daily .eml dropped on the settle page, all nine DKIM preflight checks passing, record-observation and settle transactions confirming, ending on the 61% payout ratio](web/public/docs/settle.gif)
 
 Recorded guides for every flow — fund, buy (the pool currency or any routed token via
 Uniswap v3), settle, redeem, withdraw — are on the app's
-[in-app guides](https://ronturetzky.github.io/NYRent/#/docs).
+[legacy in-app guides](https://rentsafe.nyc/#/legacy/docs).
 
 - **Anyone underwrites** — there are no roles at all. `createSeries` escrows the creator's own
   capital 1:1 as that series' backing (payout 0 at/below $88.00, 1 at/above $96.00 for the
@@ -71,11 +87,11 @@ npm --prefix web install && npm --prefix web run dev
 Deploy/settlement runbooks (env, gas estimate discipline, Blockscout verification):
 [docs/OPERATIONS.md](docs/OPERATIONS.md). What every suite covers:
 [docs/TESTING.md](docs/TESTING.md). Browser-facing docs: the live app's `/docs` route
-(https://ronturetzky.github.io/NYRent/#/docs).
+(https://rentsafe.nyc/#/docs).
 
-## Current deployments (permissionless version, 2026-09-19)
+## Fixed-price deployments (permissionless version, 2026-09-19)
 
-One contract version on two chains, all eight contracts Sourcify `exact_match` verified.
+The fixed-price contract version is on two chains, all eight contracts Sourcify `exact_match` verified. The additive v4 stack has its own deployment manifest and does not change these addresses.
 Both pools launched with **zero series** — underwriting is a permissionless post-deploy act
 (see the on-hold ops plan in [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
@@ -116,7 +132,7 @@ The demo series ran the entire flow on-chain with the real email:
 Recorded observation: `t=1789642464`, `cents=9288`,
 `emailId=0x5cef15b201facb36640cfd59d166688d731d3a86b88f58b5edea419382b948e1` (the body hash).
 
-### Series 1 — live now, created by the agent (2026-09-19)
+### Historical series 1 — created by the agent (2026-09-19)
 
 The rent-scout agent (`agent/`) priced and opened the current series from live data — strikes
 anchored at the DKIM-verified $92.88 print, premium 1133 bps = 9.06% expected claim × 1.25

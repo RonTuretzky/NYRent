@@ -45,12 +45,12 @@ export function SeriesDetail() {
   if (!isLiveDeployment(deployment)) {
     return (
       <EmptyState title="Not deployed yet">
-        Series data will appear once contracts are live on {deployment.name}.
+        Market data will appear once contracts are live on {deployment.name}.
       </EmptyState>
     );
   }
   if (seriesId === undefined || Number.isNaN(seriesId)) {
-    return <EmptyState title="Invalid series id" />;
+    return <EmptyState title="Invalid market id" />;
   }
   if (isLoading) {
     return (
@@ -70,7 +70,7 @@ export function SeriesDetail() {
   }
   if (!s) {
     return (
-      <EmptyState title={`Series #${seriesId} not found`}>
+      <EmptyState title={`Market #${seriesId} not found`}>
         Nothing is stored at this id in the pool on {deployment.name}.
       </EmptyState>
     );
@@ -99,7 +99,7 @@ export function SeriesDetail() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-parkDisplay font-bold text-3xl text-text-standard">
-            Series #{seriesId}
+            Market #{seriesId}
           </h1>
           <p className="font-parkBody text-surface-grey-2">
             Starts paying above {formatCents(s.strikeLowCents)}, pays in full
@@ -135,7 +135,7 @@ export function SeriesDetail() {
       </header>
 
       {s.cancelled ? (
-        <EmptyState title="This series was cancelled">
+        <EmptyState title="This market was cancelled">
           Its creator cancelled it before anything sold; the escrow was
           refunded and nothing can be bought or claimed here.
         </EmptyState>
@@ -168,13 +168,13 @@ export function SeriesDetail() {
               </Link>
             </div>
             <p className="font-parkBody text-xs text-surface-grey">
-              This series settles on an index of Manhattan office rent
+              This market settles on an index of Manhattan office rent
               (commercial, not residential) — the details are in the terms
               below.
             </p>
             {paused && now <= s.saleEnd && !s.settled ? (
               <p className="font-parkBody text-xs text-system-warning font-bold">
-                Sales are paused by the series creator right now. Settlement
+                Sales are paused by the market creator right now. Settlement
                 and payouts can never be paused.
               </p>
             ) : null}
@@ -194,7 +194,7 @@ export function SeriesDetail() {
               {!s.settled ? (
                 <p className="font-parkBody text-xs text-surface-grey mt-2">
                   Not settled yet — the dot appears once an in-window rent
-                  reading settles this series.
+                  reading settles this market.
                 </p>
               ) : null}
             </Card>
@@ -229,7 +229,7 @@ export function SeriesDetail() {
 
             <Card>
               <h2 className="font-parkDisplay font-bold text-lg mb-3">
-                Series accounting
+                Market accounting
               </h2>
               <StatRow
                 label="Escrow (backs all payouts)"
@@ -303,7 +303,7 @@ export function SeriesDetail() {
                 />
               ) : null}
               <p className="font-parkBody text-xs text-surface-grey mt-3">
-                What settles this series: the average effective Manhattan
+                What settles this market: the average effective Manhattan
                 office rent ($/SF) printed in CRE Daily's Market Snapshot
                 newsletter, whose DKIM signature is verified on-chain. It is a
                 commercial rent index — related to, but not the same as,
@@ -345,7 +345,7 @@ export function SeriesDetail() {
                           {truncateHex(o.emailId, 6)}
                           {settlementObs?.index === o.index ? (
                             <span className="ml-2 text-sky-2 font-bold font-parkBody">
-                              settled this series
+                              settled this market
                             </span>
                           ) : null}
                         </td>

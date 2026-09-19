@@ -92,35 +92,35 @@ const ERROR_COPY: Record<string, string> = {
   ValueOverflow: "The extracted rent value overflows the allowed range.",
   BadLength: "An input has the wrong length (signature or modulus).",
   // Pool (permissionless)
-  SaleClosed: "Buying is closed for this series — the sale window ended or the series has already settled.",
+  SaleClosed: "Buying is closed for this market — the sale window ended or the market has already settled.",
   SalesArePaused:
-    "Sales are currently paused by the series creator. Existing cover is unaffected.",
-  InvalidSeries: "No series exists at this id.",
-  InvalidParams: "Series parameters are invalid.",
+    "Sales are currently paused by the market creator. Existing cover is unaffected.",
+  InvalidSeries: "No market exists at this id.",
+  InvalidParams: "Market parameters are invalid.",
   ZeroAmount: "Amount must be greater than zero.",
   ZeroAddress: "The recipient address can't be the zero address.",
   CapacityExceeded:
-    "That size would exceed the series' remaining capacity.",
-  OnlyPool: "Only the pool contract may mint or burn cover tokens.",
+    "That size would exceed the market' remaining capacity.",
+  OnlyPool: "Only the pool contract may mint or burn RENT.",
   PremiumTooHigh:
     "The price moved above your maximum — refresh the quote or lower the size.",
   PremiumRoundsToZero:
     "That amount is so small its price rounds to zero — nothing would be charged, so the contract rejects it. Enter a slightly larger amount.",
-  NotSettled: "This series has not been settled yet.",
-  AlreadySettled: "This series is already settled (settlement is one-shot).",
+  NotSettled: "This market has not been settled yet.",
+  AlreadySettled: "This market is already settled (settlement is one-shot).",
   ObservationOutOfWindow:
-    "That observation's timestamp falls outside this series' observation window.",
+    "That observation's timestamp falls outside this market' observation window.",
   RedeemWindowClosed:
-    "The claim window has closed; what's left in the series returns to its creator.",
+    "The claim window has closed; what's left in the market returns to its creator.",
   RedeemWindowOpen:
     "The claim window is still open — the creator can only collect the residual after it ends.",
-  NotCreator: "Only this series' creator can perform this action.",
+  NotCreator: "Only this market' creator can perform this action.",
   SeriesClosed:
-    "This series was cancelled by its creator before anything was sold — it's permanently closed.",
+    "This market was cancelled by its creator before anything was sold — it's permanently closed.",
   AlreadySold:
-    "Cover has already been sold on this series, so it can no longer be cancelled — the escrow releases after the claim window instead.",
+    "Cover has already been sold on this market, so it can no longer be cancelled — the escrow releases after the claim window instead.",
   ResidualAlreadyWithdrawn:
-    "The creator's capital already left this series once (cancel or residual withdrawal) — it can't leave twice.",
+    "The creator's capital already left this market once (cancel or residual withdrawal) — it can't leave twice.",
   // SwapAndBuyRouter
   InvalidPath:
     "The swap route is malformed — it must run from the pool currency back to the token you're paying with. Refresh and try again.",
@@ -129,7 +129,7 @@ const ERROR_COPY: Record<string, string> = {
   NativeValueMismatch:
     "The native coin amount sent doesn't match the swap's input cap. Refresh the quote and try again.",
   TransfersDisabled:
-    "Cover tokens are non-transferable (mint and redeem only).",
+    "RENT are non-transferable (mint and redeem only).",
   // OpenZeppelin 5.x (inherited by the deployed contracts)
   ERC1155InsufficientBalance:
     "You no longer hold that much cover — your balance changed since this page loaded (e.g. a redeem in another tab). Refresh and try a smaller amount.",

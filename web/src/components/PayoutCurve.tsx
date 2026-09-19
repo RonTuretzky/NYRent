@@ -10,15 +10,21 @@ export function PayoutCurve({
   highCents,
   settledCents,
   ratioWad,
+  yoyBaseCents,
 }: {
   lowCents: number;
   highCents: number;
   settledCents?: number;
   ratioWad?: bigint;
+  /** When set, each strike also shows its year-over-year growth vs this
+   * base — the same axis in a second unit ($/SF ↔ YoY %). */
+  yoyBaseCents?: number;
 }) {
   const W = 560;
-  const H = 240;
-  const pad = { left: 52, right: 24, top: 22, bottom: 40 };
+  const H = yoyBaseCents ? 256 : 240;
+  const pad = { left: 52, right: 24, top: 22, bottom: yoyBaseCents ? 56 : 40 };
+  const yoyLabel = (cents: number) =>
+    `+${Math.round(((cents / (yoyBaseCents ?? cents)) - 1) * 100)}% YoY`;
   const iw = W - pad.left - pad.right;
   const ih = H - pad.top - pad.bottom;
 
@@ -47,7 +53,7 @@ export function PayoutCurve({
       viewBox={`0 0 ${W} ${H}`}
       className="w-full h-auto"
       role="img"
-      aria-label={`Payout curve: 0% at or below ${formatCents(lowCents)}, rising linearly to 100% at or above ${formatCents(highCents)}${settled ? `; settled at ${formatCents(settled.cents)} for ${(settled.ratio * 100).toFixed(1)}%` : ""}`}
+      aria-label={`Payout curve: 0% at or below ${formatCents(lowCents)}${yoyBaseCents ? ` (${yoyLabel(lowCents)})` : ""}, rising linearly to 100% at or above ${formatCents(highCents)}${yoyBaseCents ? ` (${yoyLabel(highCents)})` : ""}${settled ? `; settled at ${formatCents(settled.cents)} for ${(settled.ratio * 100).toFixed(1)}%` : ""}`}
       data-testid="payout-curve"
     >
       {/* gridlines */}
@@ -116,6 +122,18 @@ export function PayoutCurve({
           >
             {s.label}
           </text>
+          {yoyBaseCents ? (
+            <text
+              x={x(s.cents)}
+              y={H - pad.bottom + 30}
+              textAnchor="middle"
+              fontSize={10.5}
+              fill="var(--color-surface-grey)"
+              fontFamily="var(--font-parkBody)"
+            >
+              {yoyLabel(s.cents)}
+            </text>
+          ) : null}
         </g>
       ))}
 

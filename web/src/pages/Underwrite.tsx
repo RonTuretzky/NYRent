@@ -113,10 +113,10 @@ function YourSeriesCard({ row }: { row: SeriesRow }) {
   const now = nowSec();
   const phase = seriesPhase(s, now);
 
-  const pauseTx = useTx({ label: `Series #${id} sales switch` });
+  const pauseTx = useTx({ label: `Market #${id} sales switch` });
   const approveTopUpTx = useTx({ label: "Approve top-up" });
   const addCapacityTx = useTx({ label: "Add capacity" });
-  const cancelTx = useTx({ label: "Cancel series" });
+  const cancelTx = useTx({ label: "Cancel market" });
   const withdrawTx = useTx({ label: "Withdraw residual" });
 
   const [topUpInput, setTopUpInput] = useState("");
@@ -201,7 +201,7 @@ function YourSeriesCard({ row }: { row: SeriesRow }) {
     <Card data-testid={`your-series-${id}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h3 className="font-parkDisplay font-bold text-lg">
-          Series #{id} · {formatCents(s.strikeLowCents)} →{" "}
+          Market #{id} · {formatCents(s.strikeLowCents)} →{" "}
           {formatCents(s.strikeHighCents)}
         </h3>
         <div className="flex items-center gap-2">
@@ -242,7 +242,7 @@ function YourSeriesCard({ row }: { row: SeriesRow }) {
       {s.cancelled ? (
         <p className="font-parkBody text-sm text-surface-grey-2 mt-3">
           Cancelled — your full escrow was refunded when you cancelled, and
-          this series is permanently closed.
+          this market is permanently closed.
         </p>
       ) : (
         <div className="mt-4 space-y-4">
@@ -269,7 +269,7 @@ function YourSeriesCard({ row }: { row: SeriesRow }) {
               )}
             </Button>
             <span className="font-parkBody text-xs text-surface-grey-2">
-              Pausing stops new purchases of this series only — it never
+              Pausing stops new purchases of this market only — it never
               blocks settlement or holders' payouts.
             </span>
           </div>
@@ -346,7 +346,7 @@ function YourSeriesCard({ row }: { row: SeriesRow }) {
               <span className="font-parkBody text-xs text-surface-grey-2">
                 Only possible while nothing has sold: your full{" "}
                 {formatCurrency(s.escrow, { symbol, decimals })} escrow comes
-                straight back and the series closes forever.
+                straight back and the market closes forever.
               </span>
             </div>
           ) : null}
@@ -414,7 +414,7 @@ export function Underwrite() {
   const [createdId, setCreatedId] = useState<bigint | undefined>(undefined);
 
   const approveTx = useTx({ label: "Approve escrow" });
-  const createTx = useTx({ label: "Create series" });
+  const createTx = useTx({ label: "Create market" });
 
   const strikeLow = parseCents(strikeLowInput);
   const strikeHigh = parseCents(strikeHighInput);
@@ -613,11 +613,11 @@ export function Underwrite() {
         </div>
         <ul className="font-parkBody text-sm text-surface-grey-2 space-y-1.5 list-disc pl-5">
           <li>
-            Your escrow backs your series 1:1 — buyers can never be sold more
+            Your escrow backs your market 1:1 — buyers can never be sold more
             protection than you deposited, so claims are always payable.
           </li>
           <li>
-            Claims are paid ONLY from your own series' escrow. Other series
+            Claims are paid ONLY from your own market' escrow. Other market
             can never touch your money, and you can never touch theirs.
           </li>
           <li>
@@ -625,7 +625,7 @@ export function Underwrite() {
             to you — escrow residual plus every premium buyers paid.
           </li>
           <li>
-            Your levers: pause your series' sales, top up capacity before the
+            Your levers: pause your market' sales, top up capacity before the
             sale ends, cancel while nothing has sold (full refund), and
             withdraw the residual at the end. Nothing else — terms are
             immutable once created.
@@ -636,7 +636,7 @@ export function Underwrite() {
       {!isConnected ? (
         <Card>
           <p className="font-parkBody text-sm text-surface-grey-2">
-            Connect a wallet to create a series or manage the ones you've
+            Connect a wallet to create a market or manage the ones you've
             underwritten. Viewing needs no wallet.
           </p>
         </Card>
@@ -645,11 +645,11 @@ export function Underwrite() {
       {/* create form */}
       <Card>
         <h2 className="font-parkDisplay font-bold text-lg mb-1">
-          Create a series
+          Create a market
         </h2>
         <p className="font-parkBody text-sm text-surface-grey-2 mb-4">
           Terms are immutable once created — no setter exists at all. The
-          index your series settles on tracks Manhattan office rent
+          index your market settles on tracks Manhattan office rent
           (commercial, not residential).
         </p>
         <div className="grid grid-cols-2 gap-3">
@@ -700,7 +700,7 @@ export function Underwrite() {
           </Field>
           <Field
             label={`Capacity (${symbol})`}
-            hint="YOU DEPOSIT THIS — escrowed 1:1 until the series ends"
+            hint="YOU DEPOSIT THIS — escrowed 1:1 until the market ends"
           >
             <input
               type="text"
@@ -781,7 +781,7 @@ export function Underwrite() {
             <span className="text-core-green">
               {formatCurrency(capacity, { symbol, decimals })}
             </span>{" "}
-            as escrow when you create this series. It backs every claim 1:1
+            as escrow when you create this market. It backs every claim 1:1
             and returns to you (plus premiums, minus payouts) after the claim
             window.
           </p>
@@ -835,12 +835,12 @@ export function Underwrite() {
             onClick={onCreateSeries}
             data-testid="create-series-button"
           >
-            {needsApproval ? "2 · " : ""}Create series & deposit escrow
+            {needsApproval ? "2 · " : ""}Create market & deposit escrow
           </Button>
           <TxStatus state={createTx.state} label="Create" />
           {createTx.state.status === "confirmed" && createdId !== undefined ? (
             <p className="font-parkBody text-sm text-system-green">
-              Series #{createdId.toString()} created — your escrow is
+              Market #{createdId.toString()} created — your escrow is
               deposited and the sale is live.
             </p>
           ) : null}
@@ -850,18 +850,18 @@ export function Underwrite() {
       {/* your series */}
       <section className="space-y-4">
         <h2 className="font-parkDisplay font-bold text-xl text-text-standard">
-          Your series
+          Your market
         </h2>
         {!isConnected ? (
           <p className="font-parkBody text-sm text-surface-grey-2">
-            Connect to see the series you've underwritten.
+            Connect to see the market you've underwritten.
           </p>
         ) : isLoading ? (
           <Card>
             <LoadingSkeleton lines={3} />
           </Card>
         ) : yourSeries.length === 0 ? (
-          <EmptyState title="No series underwritten by this wallet yet">
+          <EmptyState title="No market underwritten by this wallet yet">
             Create one above — the escrow, terms and premiums are all yours.
           </EmptyState>
         ) : (

@@ -48,7 +48,7 @@ export function SeriesTimeline({ series }: { series: Series }) {
     {
       key: "release",
       label: "Residual released",
-      sub: "unclaimed escrow + premiums return to the series creator",
+      sub: "unclaimed escrow + premiums return to the market creator",
       done: now > series.redeemEnd,
       active: false,
     },

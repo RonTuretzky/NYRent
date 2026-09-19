@@ -105,7 +105,7 @@ export function PricingPanel({
             bold
           />
           <Row
-            label={`Expected payouts (${formatBps(expectedRateBps)}) — the model's estimate of what buyers of this series will be paid on average`}
+            label={`Expected payouts (${formatBps(expectedRateBps)}) — the model's estimate of what buyers of this market will be paid on average`}
             value={hasAmount ? fmt(expected) : formatBps(expectedRateBps)}
           />
           <Row
@@ -114,7 +114,7 @@ export function PricingPanel({
           />
           <p className="font-parkBody text-xs text-surface-grey-2 pt-2">
             This is a fixed, illustrative rate — not a live market price.
-            Anyone can create a series at any rate; this breakdown just shows
+            Anyone can create a market at any rate; this breakdown just shows
             how the reference model prices one.
           </p>
           {exposure !== undefined && exposureMultiplier !== undefined ? (

@@ -146,12 +146,12 @@ export default async function globalSetup(): Promise<void> {
   }
 
   // 5. Build against the local deployment.json, then serve the built app.
-  run("npm", ["--prefix", "web", "run", "build"], {
+  run("npm", ["--prefix", "web", "run", "build", "--", "--outDir", "../e2e/.artifacts/site"], {
     // production build against anvil chainId 31337 — declare it so the app's
     // registry guard (chain/registryCore.ts) serves the test deployment
     env: { ...process.env, VITE_ALLOW_TEST_CHAIN: "1" },
   });
-  const preview = spawn("npm", ["--prefix", "web", "run", "preview"], {
+  const preview = spawn("npm", ["--prefix", "web", "run", "preview", "--", "--outDir", "../e2e/.artifacts/site"], {
     cwd: ROOT,
     detached: true,
     stdio: "ignore",

@@ -16,3 +16,33 @@ concurrency:
 jobs:
   cicd:
     uses: BreadchainCoop/etherform/.github/workflows/_foundry-cicd.yml@main
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - name: Install application and browser dependencies
+        run: |
+          npm --prefix web ci
+          npm --prefix e2e ci
+          npm --prefix agent ci
+          ./e2e/node_modules/.bin/playwright install --with-deps chromium
+      - name: Application validation
+        run: |
+          npm --prefix web run typecheck
+          npm --prefix web run lint
+          npm --prefix web test
+          npm --prefix web run build
+          npm --prefix agent test
+      - name: Existing wallet and one-market journeys
+        run: npm --prefix e2e run e2e
+      - name: Real v4 local browser lifecycle
+        run: npm --prefix e2e run e2e:v4

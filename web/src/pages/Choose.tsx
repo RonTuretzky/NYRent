@@ -214,7 +214,7 @@ export function Choose() {
         <QuestionCards
           name="horizon"
           legend="How far ahead do you want protection?"
-          help="Each series watches one reporting window of the rent index."
+          help="Each market watches one reporting window of the rent index."
           options={HORIZON_OPTIONS}
           value={horizon}
           onChange={setHorizon}
@@ -281,14 +281,14 @@ export function Choose() {
       ) : !result || !picked ? (
         <div className="space-y-4">
           <EmptyState title="Nothing is open for purchase right now">
-            No series on {deployment.name} is currently selling protection.
+            No market on {deployment.name} is currently selling protection.
             Check{" "}
-            <Link to="/series" className="underline">
-              the series list
+            <Link to="/markets" className="underline">
+              the market list
             </Link>{" "}
             — or become the market yourself: anyone can{" "}
             <Link to="/underwrite" className="underline">
-              underwrite a new series
+              underwrite a new market
             </Link>
             .
           </EmptyState>
@@ -306,7 +306,7 @@ export function Choose() {
           <div className="flex items-center gap-2 mb-2">
             <SealCheckIcon size={22} weight="fill" className="text-core-green" />
             <h2 className="font-parkDisplay font-bold text-xl">
-              Your match: series #{result.seriesId}
+              Your match: market #{result.seriesId}
             </h2>
             {result.standard ? (
               <span className="font-parkBody text-xs font-bold rounded-full px-3 py-1 border border-core-green text-core-green">
@@ -351,7 +351,7 @@ export function Choose() {
             {result.capacityLimited ? (
               <p className="font-parkBody text-xs text-system-warning font-bold">
                 Heads-up: only this much protection is left unsold in the
-                series — the suggestion is capped at what's available.
+                market — the suggestion is capped at what's available.
               </p>
             ) : null}
           </div>
@@ -368,7 +368,7 @@ export function Choose() {
             >
               Continue — buy this protection
             </LiftedButton>
-            <Link to={`/series/${result.seriesId}`}>
+            <Link to={`/market/${result.seriesId}`}>
               <Button app="fund" variant="secondary">
                 See full terms
               </Button>

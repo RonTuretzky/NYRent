@@ -1,3 +1,4 @@
+import { ACTIVE_MARKET_ID } from "../lib/market";
 import { useCallback, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { decodeEventLog } from "viem";
@@ -66,12 +67,12 @@ export function SettlePicker() {
     );
   }
   if (series.length === 0) {
-    return <EmptyState title="No series to settle" />;
+    return <EmptyState title="No market to settle" />;
   }
   return (
     <div className="max-w-xl mx-auto space-y-4">
       <h1 className="font-parkDisplay font-bold text-3xl text-text-standard">
-        Settle a series
+        Settle a market
       </h1>
       {rpcError ? <RpcStaleBanner /> : null}
       {series.map(({ id, series: s }) => (
@@ -79,7 +80,7 @@ export function SettlePicker() {
           <Card className="hover:border-core-green transition-colors">
             <div className="flex items-center justify-between">
               <span className="font-parkBody font-bold">
-                Series #{id} · {formatCents(s.strikeLowCents)} →{" "}
+                Market #{id} · {formatCents(s.strikeLowCents)} →{" "}
                 {formatCents(s.strikeHighCents)}
               </span>
               <span className="font-parkBody text-sm text-surface-grey-2">
@@ -101,7 +102,7 @@ type FileState =
 
 export function Settle() {
   const { id } = useParams();
-  const seriesId = id !== undefined ? Number(id) : undefined;
+  const seriesId = id !== undefined ? Number(id) : ACTIVE_MARKET_ID;
   const { deployment } = useActiveDeployment();
   const { series: s, isLoading, rpcError } = useSeriesRow(seriesId);
   const { observations } = useOracleObservations();
@@ -166,7 +167,7 @@ export function Settle() {
     );
   }
   if (seriesId === undefined || Number.isNaN(seriesId)) {
-    return <EmptyState title="Invalid series id" />;
+    return <EmptyState title="Invalid market id" />;
   }
   if (isLoading) {
     return (
@@ -186,7 +187,7 @@ export function Settle() {
     );
   }
   if (!s) {
-    return <EmptyState title={`Series #${seriesId} not found`} />;
+    return <EmptyState title={`Market #${seriesId} not found`} />;
   }
 
   const recordedIndex =
@@ -252,7 +253,7 @@ export function Settle() {
         args: [BigInt(seriesId!), recordedIndex],
         account: address,
       },
-      { label: "Settle series" },
+      { label: "Settle market" },
     );
   }
 
@@ -265,7 +266,7 @@ export function Settle() {
     <div className="max-w-2xl mx-auto space-y-6">
       <header>
         <h1 className="font-parkDisplay font-bold text-3xl text-text-standard">
-          Settle series #{seriesId}
+          Settle market #{seriesId}
         </h1>
         <p className="font-parkBody text-surface-grey-2 mt-1">
           Drop the raw CRE Daily “Market Snapshot” .eml. Every on-chain
@@ -496,7 +497,7 @@ export function Settle() {
                     onClick={onSettle}
                     data-testid="settle-button"
                   >
-                    2 · Settle series #{seriesId}
+                    2 · Settle market #{seriesId}
                     {recordedIndex !== undefined
                       ? ` with observation #${recordedIndex}`
                       : ""}

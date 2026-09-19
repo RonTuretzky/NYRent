@@ -1,3 +1,4 @@
+import { ACTIVE_MARKET_ID } from "../lib/market";
 import { useEffect, useMemo, useState } from "react";
 import {
   Link,
@@ -73,7 +74,7 @@ function Term({ children, tip }: { children: string; tip: string }) {
 
 export function Buy() {
   const { id } = useParams();
-  const seriesId = id !== undefined ? Number(id) : undefined;
+  const seriesId = id !== undefined ? Number(id) : ACTIVE_MARKET_ID;
   const { deployment } = useActiveDeployment();
   const { symbol, decimals } = deployment.currency;
 
@@ -205,7 +206,7 @@ export function Buy() {
     }
     const capacityLeft = s.escrow - s.sold;
     if (maxClaim > capacityLeft) {
-      return `Only ${formatCurrency(capacityLeft, { symbol, decimals })} of protection is still available in this series.`;
+      return `Only ${formatCurrency(capacityLeft, { symbol, decimals })} of protection is still available in this market.`;
     }
     if (premium === undefined) return null;
     if (isDirect || (isWrap && wrapDone)) {
@@ -261,7 +262,7 @@ export function Buy() {
     );
   }
   if (seriesId === undefined || Number.isNaN(seriesId)) {
-    return <EmptyState title="Invalid series id" />;
+    return <EmptyState title="Invalid market id" />;
   }
   if (isLoading) {
     return (
@@ -274,7 +275,7 @@ export function Buy() {
     return <RpcDownState />;
   }
   if (!s) {
-    return <EmptyState title={`Series #${seriesId} not found`} />;
+    return <EmptyState title={`Market #${seriesId} not found`} />;
   }
 
   // Mirrors buyProtectionFor's own guards: window, not settled, not
@@ -446,11 +447,11 @@ export function Buy() {
         </h1>
         <p className="font-parkBody text-surface-grey-2 mt-1">
           You pay once, now. If the reported rent number rises past this
-          series' trigger, you get paid — up to the amount you choose. If it
+          market' trigger, you get paid — up to the amount you choose. If it
           doesn't, you owe nothing more.
         </p>
         <p className="font-parkBody text-xs text-surface-grey mt-1">
-          Series #{seriesId} · price {formatBps(s.premiumRateBps)} of the
+          Market #{seriesId} · price {formatBps(s.premiumRateBps)} of the
           amount you protect · pays in full at{" "}
           {formatCents(s.strikeHighCents)}/SF
         </p>
@@ -460,21 +461,21 @@ export function Buy() {
         <EmptyState
           title={
             s.cancelled
-              ? "Series cancelled"
+              ? "Market cancelled"
               : s.settled
-                ? "Series settled"
+                ? "Market settled"
                 : paused
                   ? "Sales paused"
                   : "Sale closed"
           }
         >
           {s.cancelled
-            ? "The creator cancelled this series before anything was sold — nothing can be bought here anymore."
+            ? "The creator cancelled this market before anything was sold — nothing can be bought here anymore."
             : s.settled
-              ? "This series has settled — the outcome is known, so protection can no longer be bought. You can still "
+              ? "This market has settled — the outcome is known, so protection can no longer be bought. You can still "
               : paused
-                ? "The series creator has paused new purchases. Existing protection is unaffected — you can still "
-                : "The sale window for this series ended. You can still "}
+                ? "The market creator has paused new purchases. Existing protection is unaffected — you can still "
+                : "The sale window for this market ended. You can still "}
           {!s.cancelled ? (
             <>
               <Link className="underline" to={`/settle/${seriesId}`}>
@@ -704,8 +705,8 @@ export function Buy() {
           >
             This index tracks Manhattan office rent (commercial, not
             residential). Full details on the{" "}
-            <Link className="underline" to={`/series/${seriesId}`}>
-              series page
+            <Link className="underline" to={`/market/${seriesId}`}>
+              market page
             </Link>{" "}
             and in the{" "}
             <Link className="underline" to="/docs">
@@ -849,9 +850,9 @@ export function Buy() {
                   Cover minted. You're protected — see{" "}
                   <Link
                     className="underline font-bold"
-                    to={`/series/${seriesId}`}
+                    to={`/market/${seriesId}`}
                   >
-                    series #{seriesId}
+                    market #{seriesId}
                   </Link>{" "}
                   or head to{" "}
                   <Link

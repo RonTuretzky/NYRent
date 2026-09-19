@@ -25,12 +25,12 @@ const TOKEN_ARRIVALS = [0.46, 0.62, 0.78] as const;
 
 export function BuyViz({ reducedMotion }: { reducedMotion: boolean }) {
   return (
-    <VizCard caption="premium in · cover units out · claim reserved">
+    <VizCard caption="premium in · RENT out · claim reserved">
       <svg
         viewBox="0 0 420 240"
         className="w-full h-auto"
         role="img"
-        aria-label="A buyer pays a premium into the pool and receives ERC-1155 cover units back; the matching claim is reserved inside the pool."
+        aria-label="A renter pays a premium into the pool and receives RENT back; the matching claim is reserved inside the pool."
       >
         <Track d={PREMIUM_PATH} />
         <Track d={TOKEN_PATH} />
@@ -52,7 +52,7 @@ export function BuyViz({ reducedMotion }: { reducedMotion: boolean }) {
           fill={C.grey2}
           fontFamily="var(--font-parkBody)"
         >
-          cover units
+          RENT
         </text>
 
         <IconBox
@@ -61,8 +61,8 @@ export function BuyViz({ reducedMotion }: { reducedMotion: boolean }) {
           w={120}
           h={84}
           color={C.sky}
-          title="Buyer"
-          sub="holds cover"
+          title="Renter"
+          sub="holds RENT"
           icon={<UserIcon size={22} color={C.sky} weight="bold" />}
         />
 

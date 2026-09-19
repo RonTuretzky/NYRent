@@ -91,7 +91,7 @@ test("anyone underwrites: the creator escrows a new series through the app", asy
 
   // approve escrow (allowance was consumed by the deploy) → createSeries.
   await approveThen(page, "create-series-button");
-  await expect(page.getByText(/Series #1 created/)).toBeVisible({
+  await expect(page.getByText(/Market #1 created/)).toBeVisible({
     timeout: 30000,
   });
 

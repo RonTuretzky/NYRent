@@ -10,7 +10,8 @@
     "gifs:record": "playwright test -c record/record.config.ts",
     "gifs:record:fork": "playwright test -c record/record-fork.config.ts",
     "gifs:assemble": "node record/assemble.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "e2e:v4": "playwright test -c v4/playwright.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

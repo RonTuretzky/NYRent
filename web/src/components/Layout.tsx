@@ -7,17 +7,36 @@ import { ListIcon, XIcon } from "@phosphor-icons/react";
 import { DEPLOYMENTS, useActiveDeployment } from "../chain/registry";
 import { NotDeployedBanner, WrongNetworkBanner } from "./Banners";
 import { Toasts } from "./Toasts";
+import { MarketStrip } from "./MarketStrip";
+
+/** Legacy multi-market nav entries stay hidden unless explicitly re-exposed
+ * (the routes themselves are always registered). */
+const SHOW_LEGACY_ROUTES =
+  import.meta.env.VITE_SHOW_LEGACY_ROUTES === "1";
 
 const NAV_ITEMS = [
-  { to: "/series", label: "Series" },
-  { to: "/underwrite", label: "Underwrite" },
+  { to: "/renter", label: "Renter" },
+  { to: "/insurer", label: "Insurer" },
+  { to: "/market-view", label: "Market view" },
+  ...(SHOW_LEGACY_ROUTES
+    ? [
+        { to: "/markets", label: "Markets" },
+        { to: "/underwrite", label: "Underwrite" },
+        { to: "/choose", label: "Help me choose" },
+      ]
+    : []),
   { to: "/settle", label: "Settle" },
+  { to: "/redeem", label: "Redeem" },
   { to: "/docs", label: "Docs" },
 ];
 
 /** Route → document title (RentSafe rebrand). */
 const TITLES: [prefix: string, title: string][] = [
-  ["/series", "Series"],
+  ["/market-view", "Price as a forecast"],
+  ["/renter", "For renters"],
+  ["/insurer", "For insurers"],
+  ["/markets", "Markets"],
+  ["/markets", "Market"],
   ["/buy", "Buy protection"],
   ["/settle", "Settle"],
   ["/redeem", "Claim payout"],
@@ -46,7 +65,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           to={item.to}
           onClick={onNavigate}
           className={({ isActive }) =>
-            `font-parkBody text-base px-1 py-2 md:py-1 border-b-2 transition-colors ${
+            `font-parkBody text-base whitespace-nowrap px-1 py-2 md:py-1 border-b-2 transition-colors ${
               isActive
                 ? "border-core-green text-core-green font-bold"
                 : "border-transparent text-text-standard hover:text-core-green"
@@ -155,6 +174,7 @@ function AppNavbar() {
   useEffect(() => {
     if (!open) return;
     const menu = menuRef.current;
+    const burger = burgerRef.current;
     const focusables = () =>
       Array.from(menu?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
     focusables()[0]?.focus();
@@ -179,24 +199,21 @@ function AppNavbar() {
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      burgerRef.current?.focus();
+      burger?.focus();
     };
   }, [open]);
 
   return (
     <header className="relative py-2.5 flex items-center justify-between gap-4">
       <Link to="/" className="flex items-center gap-3 shrink-0">
-        <Logo size={24} className="md:hidden" />
-        <span className="hidden md:block lg:text-2xl">
-          <Logo text="Decentral Park" size={24} color="green" />
-        </span>
+        <Logo size={28} />
         <span className="font-parkDisplay font-bold text-sm md:text-base text-primary-green border border-primary-green rounded-full px-3 py-0.5 whitespace-nowrap">
           RentSafe
         </span>
       </Link>
 
       {/* desktop nav */}
-      <nav className="hidden md:flex items-center gap-5">
+      <nav className="hidden xl:flex items-center gap-4" aria-label="Main navigation">
         <NavLinks />
         <ChainSwitcher />
         <ConnectButton
@@ -210,7 +227,7 @@ function AppNavbar() {
       <button
         ref={burgerRef}
         onClick={() => setOpen(true)}
-        className="md:hidden text-primary-green h-11 w-11 -mr-1.5 flex items-center justify-center"
+        className="xl:hidden text-primary-green h-11 w-11 -mr-1.5 flex items-center justify-center"
         aria-label="Open menu"
         aria-expanded={open}
         aria-controls="mobile-menu"
@@ -225,7 +242,7 @@ function AppNavbar() {
           role="dialog"
           aria-modal="true"
           aria-label="Navigation menu"
-          className="bg-paper-main fixed inset-0 z-50 p-6 md:hidden overflow-y-auto"
+          className="bg-paper-main fixed inset-0 z-50 p-6 xl:hidden overflow-y-auto"
         >
           <div className="flex items-center justify-between mb-8">
             <Logo text="RentSafe" size={24} color="green" />
@@ -261,7 +278,8 @@ export function Layout() {
       <div className="max-w-6xl w-full mx-auto px-4 sm:px-6">
         <AppNavbar />
       </div>
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-8">
+        <MarketStrip />
         <Outlet />
       </main>
       <Toasts />
@@ -271,7 +289,7 @@ export function Layout() {
           collateralized but experimental; use tiny amounts.
         </p>
         <p className="font-parkBody text-xs text-surface-grey-2 text-center max-w-6xl w-full mx-auto px-4 sm:px-6 pb-4">
-          The rent index that settles every series tracks Manhattan office
+          The rent index that settles this market tracks Manhattan office
           rent (commercial, not residential).
         </p>
         <Footer />

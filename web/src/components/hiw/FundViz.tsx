@@ -26,7 +26,7 @@ export function FundViz({ reducedMotion }: { reducedMotion: boolean }) {
         viewBox="0 0 420 240"
         className="w-full h-auto"
         role="img"
-        aria-label="The underwriter deposits currency as escrow into the cover pool; the pool's fill level rises with each deposit."
+        aria-label="The insurer deposits currency as escrow into the cover pool; the pool's fill level rises with each deposit."
       >
         <Track d={PATH} />
 
@@ -36,7 +36,7 @@ export function FundViz({ reducedMotion }: { reducedMotion: boolean }) {
           w={120}
           h={80}
           color={C.green}
-          title="Underwriter"
+          title="Insurer"
           sub="escrowed capital"
           icon={<BankIcon size={22} color={C.green} weight="bold" />}
         />

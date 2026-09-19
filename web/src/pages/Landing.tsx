@@ -87,12 +87,12 @@ export function Landing() {
               Help me choose
             </LiftedButton>
           </Link>
-          <Link to="/series">
+          <Link to="/markets">
             <LiftedButton
               preset="secondary"
               rightIcon={<ArrowRightIcon size={20} />}
             >
-              View series
+              View market
             </LiftedButton>
           </Link>
         </div>
@@ -141,7 +141,7 @@ export function Landing() {
           icon={<VaultIcon size={28} weight="bold" />}
           title="The money is already there"
         >
-          Whoever underwrites a series deposits its full payout capacity into
+          Whoever underwrites a market deposits its full payout capacity into
           the contract before a single unit is sold. Your potential payout is
           held where nobody can pause it or take it away.
         </Pillar>
@@ -158,7 +158,7 @@ export function Landing() {
           icon={<ShieldCheckIcon size={28} weight="bold" />}
           title="Anyone can settle"
         >
-          Whoever holds the newsletter can settle a series — upload the raw
+          Whoever holds the newsletter can settle a market — upload the raw
           email, the app checks every rule locally, then submits it on-chain.
           First qualifying reading wins, once.
         </Pillar>
@@ -172,7 +172,7 @@ export function Landing() {
           </h2>
           <p className="font-parkBody text-surface-grey-2 mt-3">
             {live && demo
-              ? "Each series pays 0% at its low level and 100% at its high level, sliding linearly in between."
+              ? "Each market pays 0% at its low level and 100% at its high level, sliding linearly in between."
               : "Example: levels at $88.00 and $96.00. At the verified reading of $92.88 the payout ratio is 61%."}
           </p>
         </div>

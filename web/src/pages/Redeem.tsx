@@ -1,3 +1,4 @@
+import { ACTIVE_MARKET_ID } from "../lib/market";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAccount } from "wagmi";
@@ -31,7 +32,7 @@ import {
 
 export function Redeem() {
   const { id } = useParams();
-  const seriesId = id !== undefined ? Number(id) : undefined;
+  const seriesId = id !== undefined ? Number(id) : ACTIVE_MARKET_ID;
   const { deployment } = useActiveDeployment();
   const { series: s, isLoading, rpcError } = useSeriesRow(seriesId);
   const { symbol, decimals } = deployment.currency;
@@ -55,7 +56,7 @@ export function Redeem() {
     if (amount === null) return "Enter a valid decimal amount.";
     if (amount <= 0n) return "Amount must be greater than zero.";
     if (coverBalance !== undefined && amount > coverBalance) {
-      return `You only hold ${formatCurrency(coverBalance, { symbol, decimals })} of protection in this series.`;
+      return `You only hold ${formatCurrency(coverBalance, { symbol, decimals })} of protection in this market.`;
     }
     return null;
   }, [s, amountInput, amount, coverBalance, symbol, decimals]);
@@ -68,7 +69,7 @@ export function Redeem() {
     );
   }
   if (seriesId === undefined || Number.isNaN(seriesId)) {
-    return <EmptyState title="Invalid series id" />;
+    return <EmptyState title="Invalid market id" />;
   }
   if (isLoading) {
     return (
@@ -88,7 +89,7 @@ export function Redeem() {
     );
   }
   if (!s) {
-    return <EmptyState title={`Series #${seriesId} not found`} />;
+    return <EmptyState title={`Market #${seriesId} not found`} />;
   }
 
   const windowOpen = s.settled && now <= s.redeemEnd;
@@ -120,10 +121,10 @@ export function Redeem() {
     <div className="max-w-xl mx-auto space-y-6">
       <header>
         <h1 className="font-parkDisplay font-bold text-3xl text-text-standard">
-          Claim payout · series #{seriesId}
+          Claim payout · market #{seriesId}
         </h1>
         <p className="font-parkBody text-surface-grey-2 mt-1">
-          This series has a settled result. Turn in your protection and the
+          This market has a settled result. Turn in your protection and the
           contract pays you your share directly — claiming can never be
           paused, and nobody can take the money out from under you.
         </p>
@@ -132,13 +133,13 @@ export function Redeem() {
       {rpcError ? <RpcStaleBanner /> : null}
 
       {s.cancelled ? (
-        <EmptyState title="This series was cancelled">
+        <EmptyState title="This market was cancelled">
           It was cancelled by its creator before anything sold — there is
           nothing to claim.
         </EmptyState>
       ) : !s.settled ? (
         <EmptyState title="Not settled yet">
-          This series doesn't have a result yet.{" "}
+          This market doesn't have a result yet.{" "}
           <Link className="underline" to={`/settle/${seriesId}`}>
             Settle it with the signed rent newsletter
           </Link>{" "}
@@ -147,7 +148,7 @@ export function Redeem() {
       ) : now > s.redeemEnd ? (
         <EmptyState title="The claim window has closed">
           Claims were open until {formatTimestamp(s.redeemEnd)}. Anything left
-          unclaimed returns to the series creator who escrowed the money.
+          unclaimed returns to the market creator who escrowed the money.
         </EmptyState>
       ) : (
         <Card>
@@ -156,7 +157,7 @@ export function Redeem() {
             value={formatRatioWad(s.payoutRatioWad)}
           />
           <StatRow
-            label="Your protection in this series"
+            label="Your protection in this market"
             value={formatCurrency(coverBalance, { symbol, decimals })}
           />
           <StatRow

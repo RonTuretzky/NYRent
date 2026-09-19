@@ -31,7 +31,7 @@ export function RedeemViz({ reducedMotion }: { reducedMotion: boolean }) {
         viewBox="0 0 420 240"
         className="w-full h-auto"
         role="img"
-        aria-label="After settlement, 61% of reserves stream to cover holders as claims and 39% release back to the underwriter."
+        aria-label="After settlement, 61% of reserves stream to RENT holders as claims and 39% release back to the insurer."
       >
         <Track d={CLAIM_PATH} />
         <Track d={RELEASE_PATH} />
@@ -52,8 +52,8 @@ export function RedeemViz({ reducedMotion }: { reducedMotion: boolean }) {
           w={126}
           h={76}
           color={C.sky}
-          title="Buyer"
-          sub="burns cover"
+          title="Renter"
+          sub="burns RENT"
           icon={<UserIcon size={22} color={C.sky} weight="bold" />}
         />
         <IconBox
@@ -62,7 +62,7 @@ export function RedeemViz({ reducedMotion }: { reducedMotion: boolean }) {
           w={126}
           h={76}
           color={C.pine}
-          title="Underwriter"
+          title="Insurer"
           sub="free capital"
           icon={<BankIcon size={22} color={C.pine} weight="bold" />}
         />

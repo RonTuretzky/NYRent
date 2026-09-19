@@ -107,10 +107,10 @@ function SeriesCard({
           </div>
           <div>
             <Link
-              to={`/series/${id}`}
+              to={`/market/${id}`}
               className="font-parkDisplay font-bold text-lg text-text-standard hover:text-core-green"
             >
-              Series #{id} · pays above {formatCents(s.strikeLowCents)}, full
+              Market #{id} · pays above {formatCents(s.strikeLowCents)}, full
               at {formatCents(s.strikeHighCents)}
             </Link>
             <p className="font-parkBody text-xs text-surface-grey-2">
@@ -145,7 +145,7 @@ function SeriesCard({
             </Pill>
           ) : null}
           {!s.cancelled ? <PhaseBadge phase={phase} /> : null}
-          <Link to={`/series/${id}`} aria-label={`Open series ${id}`}>
+          <Link to={`/market/${id}`} aria-label={`Open market ${id}`}>
             <ArrowRightIcon
               size={20}
               className="text-surface-grey hover:text-core-green transition-colors"
@@ -233,12 +233,12 @@ export function SeriesList() {
     <div
       className="inline-flex rounded-full border-2 border-paper-2 bg-paper-0 p-0.5"
       role="group"
-      aria-label="Series view"
+      aria-label="Market view"
     >
       {(
         [
-          [false, "Open series"],
-          [true, "All series"],
+          [false, "Open market"],
+          [true, "All market"],
         ] as const
       ).map(([all, label]) => (
         <button
@@ -264,10 +264,10 @@ export function SeriesList() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-parkDisplay font-bold text-3xl text-text-standard">
-            Protection series
+            Protection market
           </h1>
           <p className="font-parkBody text-surface-grey-2 mt-1">
-            Each series pays you when the reported rent index rises past its
+            Each market pays you when the reported rent index rises past its
             level. Pick one, or{" "}
             <Link to="/choose" className="underline decoration-dotted">
               let us help you choose
@@ -275,7 +275,7 @@ export function SeriesList() {
             .
           </p>
           <p className="font-parkBody text-xs text-surface-grey mt-1">
-            The index behind every series tracks Manhattan office rent
+            The index behind every market tracks Manhattan office rent
             (commercial, not residential).
           </p>
         </div>
@@ -283,8 +283,8 @@ export function SeriesList() {
       </header>
 
       {!live ? (
-        <EmptyState title="No on-chain series yet">
-          The contracts have not been deployed on {deployment.name} — series
+        <EmptyState title="No on-chain market yet">
+          The contracts have not been deployed on {deployment.name} — market
           will appear here once real addresses are baked in.
         </EmptyState>
       ) : isLoading ? (
@@ -296,8 +296,8 @@ export function SeriesList() {
         // background refetch keeps the last-good list plus a stale banner.
         <RpcDownState />
       ) : rows.length === 0 ? (
-        <EmptyState title="No series yet — the market is open">
-          Anyone can underwrite the first series: deposit the payout money as
+        <EmptyState title="No market yet — the market is open">
+          Anyone can underwrite the first market: deposit the payout money as
           escrow, set the terms, earn the premiums.{" "}
           <Link to="/underwrite" className="underline">
             Start on the Underwrite page
@@ -307,14 +307,14 @@ export function SeriesList() {
       ) : !showAll ? (
         open.length === 0 ? (
           <EmptyState title="Nothing is on sale right now">
-            {rows.length} series exist but none are currently open for
+            {rows.length} market exist but none are currently open for
             purchase — check{" "}
             <button
               type="button"
               className="underline"
               onClick={() => setShowAll(true)}
             >
-              all series
+              all market
             </button>{" "}
             for settled and upcoming ones, or{" "}
             <Link to="/underwrite" className="underline">

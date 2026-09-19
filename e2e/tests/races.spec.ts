@@ -162,7 +162,7 @@ test("buy raced by the creator pausing sales shows the decoded paused copy", asy
   // Simulation-first useTx decodes SalesArePaused before any wallet interaction.
   const error = page.getByTestId("tx-reverted");
   await expect(error).toContainText(
-    "Sales are currently paused by the series creator",
+    "Sales are currently paused by the market creator",
   );
 
   // A fresh render of the same page shows the dedicated paused empty state.
@@ -192,7 +192,7 @@ test("buy raced by the creator cancelling shows the decoded cancelled copy", asy
   await page.reload();
   const empty = page.getByTestId("empty-state");
   await expect(empty).toBeVisible();
-  await expect(empty).toContainText("Series cancelled");
+  await expect(empty).toContainText("Market cancelled");
 });
 
 test("redeem raced by a redeem in another tab shows the balance-changed copy", async ({
@@ -236,7 +236,7 @@ test("buy raced by the sale window closing shows the decoded closed copy", async
 
   // buyProtectionFor reverts SaleClosed; the copy names both causes.
   const error = page.getByTestId("tx-reverted");
-  await expect(error).toContainText("Buying is closed for this series");
+  await expect(error).toContainText("Buying is closed for this market");
 
   // Let the BROWSER clock catch up with the warp, then a fresh render shows
   // the dedicated sale-closed empty state.
