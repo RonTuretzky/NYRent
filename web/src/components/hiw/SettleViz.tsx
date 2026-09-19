@@ -14,7 +14,7 @@ const CHECKS = [
   { at: 0.48, label: "$92.88 extracted" },
 ] as const;
 const BAR = { x: 60, y: 186, w: 300, h: 12 };
-const RATIO = 0.61;
+
 const FILL_WINDOW = [0.55, 0.75] as const;
 
 function CheckRow({
@@ -65,15 +65,20 @@ function CheckRow({
   );
 }
 
-export function SettleViz({ reducedMotion }: { reducedMotion: boolean }) {
-  const markX = BAR.x + BAR.w * RATIO;
+export function SettleViz({ reducedMotion, lowCents = 8800, highCents = 9600, valueCents = 9288, example = false }: {
+  reducedMotion: boolean; lowCents?: number; highCents?: number; valueCents?: number; example?: boolean;
+}) {
+  const ratio = Math.max(0, Math.min(1, (valueCents - lowCents) / (highCents - lowCents)));
+  const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const checks = CHECKS.map((c, i) => i === 2 ? { ...c, label: `${money(valueCents)} extracted` } : c);
+  const markX = BAR.x + BAR.w * ratio;
   return (
-    <VizCard caption="clamp($92.88) → payout ratio 0.61">
+    <VizCard caption={`${example ? "illustrative print" : "verified print"} ${money(valueCents)} → ${Math.round(ratio * 100)}% payout`}>
       <svg
         viewBox="0 0 420 240"
         className="w-full h-auto"
         role="img"
-        aria-label="Anyone submits the raw email to the DKIM Oracle; the signature, body hash and extracted value checks pass, fixing the payout ratio at 0.61 between the $88 and $96 strikes."
+        aria-label={`${example ? "Illustrative future settlement" : "Settlement"}: a signed email is checked by the oracle. ${money(valueCents)} between ${money(lowCents)} and ${money(highCents)} gives about ${Math.round(ratio * 100)}% payout.`}
       >
         <Track d={CHIP_PATH} />
 
@@ -99,7 +104,7 @@ export function SettleViz({ reducedMotion }: { reducedMotion: boolean }) {
         >
           DKIM Oracle
         </text>
-        {CHECKS.map((c, i) => (
+        {checks.map((c, i) => (
           <CheckRow
             key={c.label}
             at={c.at}
@@ -161,7 +166,7 @@ export function SettleViz({ reducedMotion }: { reducedMotion: boolean }) {
         <rect
           x={BAR.x}
           y={BAR.y}
-          width={reducedMotion ? BAR.w * RATIO : 0}
+          width={reducedMotion ? BAR.w * ratio : 0}
           height={BAR.h}
           rx={BAR.h / 2}
           fill={C.green}
@@ -175,7 +180,7 @@ export function SettleViz({ reducedMotion }: { reducedMotion: boolean }) {
                 repeatCount="indefinite"
                 calcMode="spline"
                 keySplines="0 0 1 1;0.22 0.8 0.36 1;0 0 1 1"
-                values={`0;0;${BAR.w * RATIO};${BAR.w * RATIO}`}
+                values={`0;0;${BAR.w * ratio};${BAR.w * ratio}`}
                 keyTimes={`0;${f(FILL_WINDOW[0])};${f(FILL_WINDOW[1])};1`}
               />
               <animate
@@ -198,7 +203,7 @@ export function SettleViz({ reducedMotion }: { reducedMotion: boolean }) {
           fill={C.grey2}
           fontFamily="var(--font-parkBody)"
         >
-          $88
+          {money(lowCents)}
         </text>
         <text
           x={BAR.x + BAR.w}
@@ -208,7 +213,7 @@ export function SettleViz({ reducedMotion }: { reducedMotion: boolean }) {
           fill={C.grey2}
           fontFamily="var(--font-parkBody)"
         >
-          $96
+          {money(highCents)}
         </text>
         <g opacity={reducedMotion ? 1 : 0}>
           <line
@@ -228,7 +233,7 @@ export function SettleViz({ reducedMotion }: { reducedMotion: boolean }) {
             fill={C.pine}
             fontFamily="var(--font-parkBody)"
           >
-            61%
+            {Math.round(ratio * 100)}%
           </text>
           {reducedMotion ? null : (
             <animate

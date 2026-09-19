@@ -24,14 +24,16 @@ const RELEASE_PATH = "M 146 142 C 210 158 216 176 270 168";
 const CLAIM_ARRIVALS = [0.28, 0.52, 0.76] as const;
 const RELEASE_ARRIVALS = [0.4, 0.7] as const;
 
-export function RedeemViz({ reducedMotion }: { reducedMotion: boolean }) {
+export function RedeemViz({ reducedMotion, ratio = 0.61, example = false }: { reducedMotion: boolean; ratio?: number; example?: boolean }) {
+  const claimPct = Math.round(ratio * 100);
+  const residualPct = 100 - claimPct;
   return (
-    <VizCard caption="claims 61% · releases 39% · never pausable">
+    <VizCard caption={`${example ? "example · " : ""}claims ${claimPct}% · residual ${residualPct}% after deadline`}>
       <svg
         viewBox="0 0 420 240"
         className="w-full h-auto"
         role="img"
-        aria-label="After settlement, 61% of reserves stream to RENT holders as claims and 39% release back to the insurer."
+        aria-label={`Example with all RENT redeemed: ${claimPct}% of backing pays RENT holders; the remaining ${residualPct}% returns to insurers after the claim deadline.`}
       >
         <Track d={CLAIM_PATH} />
         <Track d={RELEASE_PATH} />
@@ -42,8 +44,8 @@ export function RedeemViz({ reducedMotion }: { reducedMotion: boolean }) {
           w={126}
           h={88}
           color={C.green}
-          title="Cover Pool"
-          sub="settled at 0.61"
+          title="RENT escrow"
+          sub={`payout ${ratio.toFixed(2)} per RENT`}
           icon={<VaultIcon size={22} color={C.green} weight="bold" />}
         />
         <IconBox
@@ -63,7 +65,7 @@ export function RedeemViz({ reducedMotion }: { reducedMotion: boolean }) {
           h={76}
           color={C.pine}
           title="Insurer"
-          sub="free capital"
+          sub="after claim deadline"
           icon={<BankIcon size={22} color={C.pine} weight="bold" />}
         />
 
@@ -74,7 +76,7 @@ export function RedeemViz({ reducedMotion }: { reducedMotion: boolean }) {
           w={82}
           h={7}
           color={C.green}
-          target={0.61}
+          target={ratio}
           phases={CLAIM_ARRIVALS}
           dur={DUR}
           frozen={reducedMotion}
@@ -87,7 +89,7 @@ export function RedeemViz({ reducedMotion }: { reducedMotion: boolean }) {
           fill={C.grey2}
           fontFamily="var(--font-parkBody)"
         >
-          61%
+          {claimPct}%
         </text>
         <MiniBar
           x={282}
@@ -95,7 +97,7 @@ export function RedeemViz({ reducedMotion }: { reducedMotion: boolean }) {
           w={82}
           h={7}
           color={C.pine}
-          target={0.39}
+          target={1 - ratio}
           phases={RELEASE_ARRIVALS}
           dur={DUR}
           frozen={reducedMotion}
@@ -108,7 +110,7 @@ export function RedeemViz({ reducedMotion }: { reducedMotion: boolean }) {
           fill={C.grey2}
           fontFamily="var(--font-parkBody)"
         >
-          39%
+          {residualPct}%
         </text>
 
         {reducedMotion ? null : (

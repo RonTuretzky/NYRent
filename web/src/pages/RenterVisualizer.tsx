@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@decentralpark/ui";
+import { LiftedButton } from "@decentralpark/ui";
 import { useActiveMarket } from "../chain/useActiveMarket";
 import {
   DEMO_PREMIUM_P,
@@ -68,9 +68,9 @@ export function RenterVisualizer() {
         <h2 className="font-parkDisplay font-bold text-lg text-text-standard mb-3">
           Your coverage
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-8 sm:grid-cols-2">
           <SliderInput
-            label={`R — your annual rent (${symbol})`}
+            label="Your annual rent"
             value={annualRent}
             onChange={setAnnualRent}
             min={6_000}
@@ -80,7 +80,7 @@ export function RenterVisualizer() {
             testId="renter-rent"
           />
           <SliderInput
-            label="p — current RENT price"
+            label="Price per RENT"
             value={p}
             onChange={(next) => {
               setPTouched(true);
@@ -181,8 +181,8 @@ export function RenterVisualizer() {
 
       <Card>
         <div className="flex flex-col gap-3">
-          <Button
-            app="fund"
+          <LiftedButton
+            width="full"
             onClick={() =>
               navigate(
                 `/buy?amount=${encodeURIComponent(String(q.units))}`,
@@ -191,7 +191,7 @@ export function RenterVisualizer() {
             data-testid="renter-buy"
           >
             Buy {formatCount(q.units)} RENT
-          </Button>
+          </LiftedButton>
           <p className="font-parkBody text-xs text-surface-grey-2">
             Continues to the checkout with {formatDollars(q.units)} of coverage
             prefilled — you can adjust it there and pay with {symbol} or

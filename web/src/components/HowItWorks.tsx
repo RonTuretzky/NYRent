@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { useMemo, type ComponentType } from "react";
 import { BuyViz } from "./hiw/BuyViz";
 import { EmailViz } from "./hiw/EmailViz";
 import { FundViz } from "./hiw/FundViz";
@@ -56,14 +56,42 @@ const STEPS: Step[] = [
   },
 ];
 
-export function HowItWorks() {
+type MarketExample = { lowCents: number; highCents: number; trading: boolean };
+
+export function HowItWorks({ market }: { market?: MarketExample } = {}) {
   const reducedMotion = useReducedMotion();
+  const steps = useMemo(() => {
+  const exampleCents = market ? Math.round((market.lowCents + market.highCents) / 2) : 9288;
+  const ratio = market ? (exampleCents - market.lowCents) / (market.highCents - market.lowCents) : 0.61;
+  const result: Step[] = market ? [
+    { key: "fund", title: "The insurer puts the money in first",
+      body: market.trading
+        ? "The insurer locks capital in escrow and receives one RENT for each dollar-stable unit deposited. That backing stays in the contract. Liquidity for trading is funded separately."
+        : "The insurer deposits the full payout capacity before protection goes on sale. When a renter buys, their RENT is minted against that backing. The money stays in escrow until claims or the residual withdrawal.",
+      viz: ({ reducedMotion }) => <FundViz reducedMotion={reducedMotion} marketMode /> },
+    { key: "buy", title: market.trading ? "The renter buys protection" : "The renter pays once for protection",
+      body: market.trading
+        ? "The insurer seeds the RENT trading pool at an opening price. A renter pays the quoted premium and receives RENT. Before the cutoff, they can also sell it back if liquidity is available. Trading does not move the backing out of escrow."
+        : "The renter pays the fixed premium and receives RENT, each paying up to $1 after settlement. This fixed-price version has no resale market. The price and coverage terms are shown before any wallet approval.",
+      viz: ({ reducedMotion }) => <BuyViz reducedMotion={reducedMotion} trading={market.trading} /> },
+    { key: "email", title: "A signed rent print sets the reference",
+      body: "The real September 2026 newsletter reports $92.88 per square foot. Its publisher signature can be checked on-chain. This market measures the change from that baseline to a qualifying September 2027 print; that future print has not arrived.",
+      viz: EmailViz },
+    { key: "settle", title: "The contract checks the email",
+      body: `Anyone can submit a qualifying signed email. The oracle checks the signature and body, then the market fixes its payout. For illustration, a future $${(exampleCents / 100).toFixed(2)} print lands halfway between the strikes and pays about 50¢ per RENT. This is an example, not a reported future value.`,
+      viz: ({ reducedMotion }) => <SettleViz reducedMotion={reducedMotion} lowCents={market.lowCents} highCents={market.highCents} valueCents={exampleCents} example /> },
+    { key: "redeem", title: "Holders claim. The remaining backing returns.",
+      body: "RENT holders redeem before the claim deadline. In this half-payout example, 100 RENT returns about 50 stablecoin units. After the deadline, insurers recover their share of the remaining backing. Retained RENT and tokens removed from liquidity also need to be redeemed.",
+      viz: ({ reducedMotion }) => <RedeemViz reducedMotion={reducedMotion} ratio={ratio} example /> },
+  ] : STEPS;
+  return result;
+  }, [market]);
   return (
     <section id="how-it-works" data-testid="how-it-works">
       {/* role="list" restores list semantics that `list-style: none` drops
           in Safari/VoiceOver */}
       <ol role="list" className="list-none space-y-16 sm:space-y-24">
-        {STEPS.map((s, i) => (
+        {steps.map((s, i) => (
           <StepRow
             key={s.key}
             step={s}

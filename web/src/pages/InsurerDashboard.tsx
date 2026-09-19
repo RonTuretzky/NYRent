@@ -80,9 +80,9 @@ export function InsurerDashboard() {
         <h2 className="font-parkDisplay font-bold text-lg text-text-standard mb-3">
           Your position
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-x-8 gap-y-7 sm:grid-cols-2">
           <SliderInput
-            label={`C — capital deposited (${symbol})`}
+            label="Capital you put in"
             value={capital}
             onChange={setCapital}
             min={1_000}
@@ -92,7 +92,7 @@ export function InsurerDashboard() {
             testId="insurer-capital"
           />
           <SliderInput
-            label="p — RENT price / premium"
+            label="Price per RENT"
             value={p}
             onChange={(next) => {
               setPTouched(true);
@@ -110,7 +110,7 @@ export function InsurerDashboard() {
             testId="insurer-price"
           />
           <SliderInput
-            label="y — annual yield on escrow (PLANNED)"
+            label="Annual yield · planned"
             value={yieldPct}
             onChange={setYieldPct}
             min={0}
@@ -120,7 +120,7 @@ export function InsurerDashboard() {
             testId="insurer-yield"
           />
           <SliderInput
-            label="u — share of minted RENT sold"
+            label="Share of RENT sold"
             value={soldPct}
             onChange={setSoldPct}
             min={0}

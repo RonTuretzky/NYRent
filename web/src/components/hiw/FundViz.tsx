@@ -19,7 +19,7 @@ const DUR = "4s";
 const PATH = "M 138 66 C 210 66 220 140 254 152";
 const ARRIVALS = [0.3, 0.54, 0.78] as const;
 
-export function FundViz({ reducedMotion }: { reducedMotion: boolean }) {
+export function FundViz({ reducedMotion, marketMode = false }: { reducedMotion: boolean; marketMode?: boolean }) {
   return (
     <VizCard caption="escrowed collateral → pool · fully backed">
       <svg
@@ -61,7 +61,7 @@ export function FundViz({ reducedMotion }: { reducedMotion: boolean }) {
           fill={C.ink}
           fontFamily="var(--font-parkDisplay)"
         >
-          Cover Pool
+          {marketMode ? "RENT escrow" : "Cover Pool"}
         </text>
         <FillSteps
           x={266}

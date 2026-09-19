@@ -15,6 +15,7 @@ const SHOW_LEGACY_ROUTES =
   import.meta.env.VITE_SHOW_LEGACY_ROUTES === "1";
 
 const NAV_ITEMS = [
+  { to: "/", label: "Home" },
   { to: "/renter", label: "Renter" },
   { to: "/insurer", label: "Insurer" },
   { to: "/market-view", label: "Market view" },
@@ -36,7 +37,7 @@ const TITLES: [prefix: string, title: string][] = [
   ["/renter", "For renters"],
   ["/insurer", "For insurers"],
   ["/markets", "Markets"],
-  ["/markets", "Market"],
+  ["/market/", "Market"],
   ["/buy", "Buy protection"],
   ["/settle", "Settle"],
   ["/redeem", "Claim payout"],
@@ -63,9 +64,10 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
         <NavLink
           key={item.to}
           to={item.to}
+          end={item.to === "/"}
           onClick={onNavigate}
           className={({ isActive }) =>
-            `font-parkBody text-base whitespace-nowrap px-1 py-2 md:py-1 border-b-2 transition-colors ${
+            `font-parkBody text-sm whitespace-nowrap px-1 py-2 md:py-1 border-b-2 transition-colors ${
               isActive
                 ? "border-core-green text-core-green font-bold"
                 : "border-transparent text-text-standard hover:text-core-green"
@@ -213,7 +215,7 @@ function AppNavbar() {
       </Link>
 
       {/* desktop nav */}
-      <nav className="hidden xl:flex items-center gap-4" aria-label="Main navigation">
+      <nav className="hidden lg:flex items-center gap-3" aria-label="Main navigation">
         <NavLinks />
         <ChainSwitcher />
         <ConnectButton
@@ -223,11 +225,13 @@ function AppNavbar() {
         />
       </nav>
 
-      {/* mobile burger */}
+      {/* Wallet access remains visible on mobile, as does the menu. */}
+      <div className="flex items-center gap-3 lg:hidden">
+        <ConnectButton showBalance={false} chainStatus="none" accountStatus="avatar" />
       <button
         ref={burgerRef}
         onClick={() => setOpen(true)}
-        className="xl:hidden text-primary-green h-11 w-11 -mr-1.5 flex items-center justify-center"
+        className="lg:hidden text-primary-green h-11 w-11 -mr-1.5 flex items-center justify-center"
         aria-label="Open menu"
         aria-expanded={open}
         aria-controls="mobile-menu"
@@ -235,6 +239,7 @@ function AppNavbar() {
       >
         <ListIcon size={32} />
       </button>
+      </div>
       {open ? (
         <div
           ref={menuRef}
@@ -242,7 +247,7 @@ function AppNavbar() {
           role="dialog"
           aria-modal="true"
           aria-label="Navigation menu"
-          className="bg-paper-main fixed inset-0 z-50 p-6 xl:hidden overflow-y-auto"
+          className="bg-paper-main fixed inset-0 z-50 p-6 lg:hidden overflow-y-auto"
         >
           <div className="flex items-center justify-between mb-8">
             <Logo text="RentSafe" size={24} color="green" />

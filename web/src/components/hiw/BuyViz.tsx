@@ -23,14 +23,14 @@ const TOKEN_PATH = "M 262 156 C 212 180 200 170 142 146";
 const PREMIUM_ARRIVALS = [0.22, 0.38, 0.54] as const;
 const TOKEN_ARRIVALS = [0.46, 0.62, 0.78] as const;
 
-export function BuyViz({ reducedMotion }: { reducedMotion: boolean }) {
+export function BuyViz({ reducedMotion, trading = false }: { reducedMotion: boolean; trading?: boolean }) {
   return (
-    <VizCard caption="premium in · RENT out · claim reserved">
+    <VizCard caption={trading ? "premium in · RENT out · backing stays in escrow" : "premium in · RENT out · claim reserved"}>
       <svg
         viewBox="0 0 420 240"
         className="w-full h-auto"
         role="img"
-        aria-label="A renter pays a premium into the pool and receives RENT back; the matching claim is reserved inside the pool."
+        aria-label={trading ? "A renter exchanges a premium for RENT in the trading pool. Backing remains in a separate escrow." : "A renter pays a premium into the pool and receives RENT back; the matching claim is reserved inside the pool."}
       >
         <Track d={PREMIUM_PATH} />
         <Track d={TOKEN_PATH} />
@@ -86,7 +86,7 @@ export function BuyViz({ reducedMotion }: { reducedMotion: boolean }) {
           fill={C.ink}
           fontFamily="var(--font-parkDisplay)"
         >
-          Cover Pool
+          {trading ? "Trading pool" : "Cover Pool"}
         </text>
         <rect x={274} y={86} width={116} height={88} rx={8} fill={C.green0} />
         <text
@@ -97,9 +97,9 @@ export function BuyViz({ reducedMotion }: { reducedMotion: boolean }) {
           fill={C.green2}
           fontFamily="var(--font-parkBody)"
         >
-          capital
+          {trading ? "separate liquidity" : "capital"}
         </text>
-        <FillSteps
+        {!trading ? <FillSteps
           x={280}
           yBottom={168}
           w={104}
@@ -109,8 +109,10 @@ export function BuyViz({ reducedMotion }: { reducedMotion: boolean }) {
           phases={PREMIUM_ARRIVALS}
           dur={DUR}
           frozen={reducedMotion}
-        />
-        {reducedMotion ? (
+        /> : null}
+        {trading ? (
+          <text x={332} y={146} textAnchor="middle" fontSize={12} fill={C.pine} fontFamily="var(--font-parkDisplay)">RENT ⇄ premium</text>
+        ) : reducedMotion ? (
           <text
             x={332}
             y={162}

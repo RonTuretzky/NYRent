@@ -5,13 +5,12 @@
  * both $/SF and YoY %, three role cards (provides / is obligated to), and
  * the animated how-it-works walkthrough below.
  */
-import type { ReactNode } from "react";
+import { lazy, Suspense, useMemo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { LiftedButton, Chip } from "@decentralpark/ui";
 import {
   ArrowRightIcon,
   BankIcon,
-  ChartLineUpIcon,
   ShieldCheckIcon,
   UserIcon,
   VaultIcon,
@@ -32,9 +31,12 @@ import { useActiveMarket } from "../chain/useActiveMarket";
 import { formatCents, formatCurrency, formatDate } from "../chain/format";
 import { COVERAGE_CEIL, COVERAGE_FLOOR } from "../lib/market";
 
+const HowItWorks = lazy(() => import("../components/HowItWorks").then((m) => ({ default: m.HowItWorks })));
+
 export function MarketOverview() {
   const m = useActiveMarket();
   const { symbol, decimals } = m;
+  const walkthrough = useMemo(() => ({ lowCents: m.strikeLowCents, highCents: m.strikeHighCents, trading: m.source !== "fixed" }), [m.strikeLowCents, m.strikeHighCents, m.source]);
   const floorPct = Math.round(COVERAGE_FLOOR * 100);
   const ceilPct = Math.round(COVERAGE_CEIL * 100);
 
@@ -53,26 +55,24 @@ export function MarketOverview() {
       : undefined;
 
   return (
-    <div className="space-y-14">
+    <div className="space-y-16">
 
       {/* hero — what this market offers */}
-      <section className="pt-2 sm:pt-6 text-center max-w-3xl mx-auto">
+      <section className="pt-8 sm:pt-14 text-center max-w-3xl mx-auto">
         <div className="flex justify-center gap-2 flex-wrap mb-6">
           <Chip size="small">Money escrowed up front</Chip>
           <Chip size="small">1 RENT pays up to $1</Chip>
           <Chip size="small">Unaudited experiment — tiny amounts</Chip>
         </div>
-        <h1 className="font-parkDisplay font-bold text-4xl sm:text-5xl tracking-tight text-text-standard">
-          {m.name}
+        <h1 className="font-parkDisplay font-bold text-4xl sm:text-6xl tracking-tight text-text-standard">
+          Rent goes up.{" "}
+          <span className="text-core-green">RentSafe helps you cover the rise.</span>
         </h1>
         <p className="font-parkBody text-lg text-surface-grey-2 mt-6">
-          One market, one question: how much will the Manhattan rent index
-          rise between September 2026 and September 2027? RENT is protection
-          against the answer being “a lot”. Each RENT pays up to $1 from money
-          already locked in escrow — nothing if growth stays at +{floorPct}%
-          or less, the full $1 at +{ceilPct}% or more, and a straight line in
-          between. The index comes from a cryptographically signed rent
-          newsletter, so the contract can check the publisher signature. The source, key and extraction rules remain trust assumptions.
+          Pay once for protection against rising Manhattan office rents.
+          Each RENT pays up to $1 from money already in escrow: payouts start
+          above +{floorPct}% growth and reach the full $1 at +{ceilPct}%.
+          A signed rent newsletter supplies the index.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <Link to="/renter">
@@ -85,30 +85,29 @@ export function MarketOverview() {
               I want to back it
             </LiftedButton>
           </Link>
-          <Link to="/market-view">
-            <LiftedButton
-              preset="secondary"
-              rightIcon={<ChartLineUpIcon size={20} />}
-            >
-              What the price says
-            </LiftedButton>
-          </Link>
         </div>
+        <p className="mt-5 font-parkBody text-sm text-surface-grey-2">
+          <Link to="/market-view" className="inline-flex items-center gap-1 underline decoration-dotted underline-offset-4 hover:text-core-green">Explore what the price says <ArrowRightIcon size={14} /></Link>
+        </p>
       </section>
 
-      {/* money flow among the three roles */}
-      <section className="max-w-3xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-6">
-          <h2 className="font-parkDisplay font-bold text-3xl text-text-standard">
-            Where the money goes
-          </h2>
+      {/* Restore the original alternating, animated visual walkthrough. */}
+      <section className="max-w-5xl mx-auto">
+        <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
+          <h2 className="font-parkDisplay font-bold text-3xl text-text-standard">How it works</h2>
           <p className="font-parkBody text-surface-grey-2 mt-3">
-            The insurer locks capital in escrow and RENT is minted against
-            it. Renters pay premiums for RENT; at settlement the escrow pays
-            renters their share and whatever remains goes back to the insurer.
+            Money goes in first. A renter buys protection. A signed newsletter
+            sets the result. Follow the money through each step.
           </p>
+          {m.source === "demo" ? <p className="font-parkBody text-xs text-surface-grey mt-3">The illustrated v4 market is a preview; trading opens after launch.</p> : null}
         </div>
-        <MoneyFlowViz symbol={symbol} />
+        <Suspense fallback={<div className="nrc-skeleton h-72 rounded-3xl" />}>
+          <HowItWorks market={walkthrough} />
+        </Suspense>
+        <details className="mt-12 max-w-3xl mx-auto rounded-2xl border border-paper-2 bg-paper-0 p-5">
+          <summary className="cursor-pointer font-parkDisplay font-bold text-text-standard">All three roles, at a glance</summary>
+          <div className="mt-5"><MoneyFlowViz symbol={symbol} /></div>
+        </details>
       </section>
 
       {/* live numbers */}
@@ -164,7 +163,7 @@ export function MarketOverview() {
           <Stat
             label="Measured"
             value={`${formatDate(m.obsStart)} – ${formatDate(m.obsEnd)}`}
-            sub="first qualifying print wins"
+            sub="a qualifying signed September print"
           />
           <Stat label="Claim payouts by" value={formatDate(m.redeemEnd)} />
         </div>

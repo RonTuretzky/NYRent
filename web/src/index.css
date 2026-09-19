@@ -97,3 +97,37 @@ body {
     animation: none;
   }
 }
+
+/* Range controls use the same paper, green outline and lifted interaction as
+   the existing brand components, without browser-default charcoal rails. */
+.rent-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  cursor: pointer;
+  background: transparent;
+  outline: none;
+}
+.rent-range::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--color-core-green) var(--range-progress), var(--color-paper-2) var(--range-progress));
+}
+.rent-range::-moz-range-track { height: 8px; border-radius: 999px; background: var(--color-paper-2); }
+.rent-range::-moz-range-progress { height: 8px; border-radius: 999px; background: var(--color-core-green); }
+.rent-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 24px; height: 24px; margin-top: -8px;
+  border: 3px solid var(--color-core-green); border-radius: 50%;
+  background: var(--color-paper-0); box-shadow: 0 2px 0 var(--color-primary-pine);
+}
+.rent-range::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border: 3px solid var(--color-core-green); border-radius: 50%;
+  background: var(--color-paper-0); box-shadow: 0 2px 0 var(--color-primary-pine);
+}
+.rent-range:focus-visible { outline: 2px solid var(--color-core-green); outline-offset: 5px; border-radius: 999px; }
+.rent-range:hover::-webkit-slider-thumb { background: var(--color-paper-1); }
+.rent-range:hover::-moz-range-thumb { background: var(--color-paper-1); }
