@@ -37,6 +37,16 @@ const LEGACY_GNOSIS_V1 = {
     "0x4b5175eacee972e65c018fd2ca4ccc37d0e15cee730aacc0aff79e3204878391",
 } as const;
 
+const LIVE_DEMO_TXS = {
+  verify:
+    "0x6370f8ad14ec73b4a7b1d7c030fecf6fcc3484eb128d64d89e1b4c41d37cb0c6",
+  buy: "0x667cbf4b3eb5bba1dd7cb2d8d26f6cbfe4b9701796e354acb5677f8f70070b77",
+  settle:
+    "0x5811678afbd3f3ac2654212535fe1abc87e9c2d294d6f0be68b0889c8881c87c",
+  redeem:
+    "0x5096186bfbc7e3d3b6aeabe9259f825fe653bca32ea19680adb0f1524e79a06a",
+} as const;
+
 const DOCS = [
   {
     href: `${REPO}/blob/main/docs/PROTOCOL.md`,
@@ -181,7 +191,7 @@ const FLOWS: Flow[] = [
       "Drag the raw .eml onto the dropzone.",
       "Watch the nine preflight checks flip green — pinned key, body hash, RSA-2048, $92.88 extraction.",
       "Record the observation on-chain, then settle.",
-      "The market locks at its ratio — 61% for the 2026-09-17 issue. One shot; the first qualifying email wins.",
+      "The market locks at its ratio — 61% for the 2026-09-17 issue. One shot; the first successful qualifying settlement wins.",
     ],
     media: "settle.gif",
     alt: "The real 2026-09-17 CRE Daily .eml dropped on the settle page, all nine DKIM preflight checks passing, record-observation and settle transactions confirming, ending on the 61% payout ratio.",
@@ -370,7 +380,7 @@ const RULES: { pool?: boolean; body: ReactNode }[] = [
     pool: true,
     body: (
       <>
-        Per-market escrow: every claim unit is backed 1:1 by its own market'
+        Per-market escrow: every claim unit is backed 1:1 by its own market's
         escrow (<Code>sold ≤ escrow</Code>), claims draw only from that
         escrow, and the creator's per-market pause never blocks settle or
         redeem. There is no global pause and no roles at all.
@@ -465,12 +475,65 @@ export function LegacyDocs() {
         </div>
       </header>
 
+      <Card>
+        <h2 className="font-parkDisplay font-bold text-lg text-text-standard">
+          Live Gmail-to-redemption walkthrough
+        </h2>
+        <p className="font-parkBody text-sm text-surface-grey-2 mt-1">
+          Captured on 2026-09-19 against the deployed contracts with real
+          wallet confirmations and no mocked steps: download the raw CRE Daily
+          email from Gmail, inspect its $92.88/SF print, buy a tiny claim,
+          upload the same <Code>.eml</Code>, pass every DKIM preflight check,
+          inspect the successful on-chain observation, settle at 61%, and
+          redeem 0.00061 of the pool currency.
+        </p>
+        <img
+          src={
+            import.meta.env.BASE_URL +
+            "docs/live-gmail-settle-redeem.gif"
+          }
+          alt="Live Gmail-to-redemption walkthrough using the real CRE Daily email and deployed contracts."
+          loading="eager"
+          width={1000}
+          height={525}
+          className="w-full h-auto rounded-xl border-2 border-paper-2 mt-4"
+        />
+        <ul className="font-parkBody text-sm text-text-standard mt-4 space-y-1">
+          {(
+            [
+              ["Buy 0.001 cover", LIVE_DEMO_TXS.buy],
+              ["Verify the email on-chain", LIVE_DEMO_TXS.verify],
+              ["Settle Market #2", LIVE_DEMO_TXS.settle],
+              ["Redeem 0.00061", LIVE_DEMO_TXS.redeem],
+            ] as const
+          ).map(([label, hash]) => (
+            <li key={hash}>
+              <a
+                href={`${LEGACY_GNOSIS_V1.explorerBase}/tx/${hash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-dotted"
+              >
+                {label}: {truncateHex(hash)}
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p className="font-parkBody text-sm text-surface-grey-2 border-l-4 border-system-warning pl-3 py-0.5 mt-4">
+          Market #2 is a retired v1 demo whose sale overlapped its observation
+          window, so this tiny purchase was informed by the already-public
+          result. It proves the mechanics, not fair price discovery. Current
+          permissionless pools enforce <Code>saleEnd &lt;= obsStart</Code>
+          on-chain.
+        </p>
+      </Card>
+
       <section className="space-y-3">
         <h2 className="font-parkDisplay font-bold text-lg text-text-standard">
           Guides
         </h2>
         <p className="font-parkBody text-sm text-surface-grey-2 border-l-4 border-system-warning pl-3 py-0.5">
-          Honesty note: these recordings were made on a local Anvil /
+          Honesty note: unlike the live walkthrough above, these recordings were made on a local Anvil /
           Gnosis-mainnet-fork stack running the earlier sponsor-model
           contracts with the real 2026-09-17 newsletter <Code>.eml</Code> —
           that deployment's market 0 is already settled, so the flows cannot
@@ -550,14 +613,14 @@ export function LegacyDocs() {
           The pool is fully permissionless — there are NO roles in the
           contract. Anyone calls <Code>createSeries</Code> with strikes,
           premium rate, windows and capacity, and the call pulls the full
-          capacity from the caller as that market' escrow. Every unit of
+          capacity from the caller as that market's escrow. Every unit of
           protection sold is backed 1:1 by that escrow alone: accounting is
           strictly per market, so one creator's claims can never touch
           another's money.
         </p>
         <ul className="font-parkBody text-sm text-surface-grey-2 mt-3 space-y-1.5 list-disc pl-5">
           <li>
-            Creator rights (and nothing more): pause their own market' sales,
+            Creator rights (and nothing more): pause their own market's sales,
             top up escrow before the sale ends, cancel while unsold (full
             refund), withdraw the residual — escrow + premiums − payouts —
             after the claim window. Terms themselves are immutable.

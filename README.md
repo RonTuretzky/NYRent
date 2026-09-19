@@ -24,7 +24,18 @@ The following recordings and contract overview describe the existing fixed-price
 deployment. Its features remain available through the hidden legacy routes; its
 nontransferable tokens are distinct from the new v4 RENT ERC-20.
 
-![Settling series 0 in the app: the real 2026-09-17 CRE Daily .eml dropped on the settle page, all nine DKIM preflight checks passing, record-observation and settle transactions confirming, ending on the 61% payout ratio](web/public/docs/settle.gif)
+![Live Gmail-to-redemption walkthrough: download the real CRE Daily email, inspect its $92.88 rent print, buy a tiny claim, pass DKIM preflight, inspect the successful on-chain observation, settle at 61%, and redeem](web/public/docs/live-gmail-settle-redeem.gif)
+
+The walkthrough above was captured against the live Gnosis deployment on 2026-09-19 with
+wallet `0x86213f…112844` and **no mocked steps**: Gmail's freshly downloaded `.eml` was
+byte-for-byte identical to the audited fixture; the buyer minted `0.001` of Series #2 cover;
+the already-recorded email was cross-checked against the successful
+[`submitObservation` transaction](https://gnosisscan.io/tx/0x6370f8ad14ec73b4a7b1d7c030fecf6fcc3484eb128d64d89e1b4c41d37cb0c6);
+Series #2 [settled at 61%](https://gnosisscan.io/tx/0x5811678afbd3f3ac2654212535fe1abc87e9c2d294d6f0be68b0889c8881c87c);
+and the holder [burned the claim for `0.00061 WXDAI`](https://gnosisscan.io/tx/0x5096186bfbc7e3d3b6aeabe9259f825fe653bca32ea19680adb0f1524e79a06a).
+Series #2 belongs to the retired v1 demo and allowed sales during its observation window, so
+the purchase was informed by the public result. This proves the mechanics, not fair market
+price discovery; current permissionless pools enforce `saleEnd <= obsStart` on-chain.
 
 Recorded guides for every flow — fund, buy (the pool currency or any routed token via
 Uniswap v3), settle, redeem, withdraw — are on the app's
