@@ -18,7 +18,7 @@ export function SourceGallery() {
       <div className="min-w-0 max-w-2xl">
         <p className="font-parkBody text-xs font-semibold uppercase tracking-widest text-core-green">Published rent research</p>
         <h2 id={headingId} className="font-parkDisplay mt-2 text-xl font-bold sm:text-2xl">The newsletters behind our source archive</h2>
-        <p className="font-parkBody mt-2 text-sm leading-relaxed text-surface-grey-2">{INDEXED_EDITION_COUNT} indexed editions · {RENT_SOURCES.length} publications. The live market uses CRE Daily’s signed office-rent snapshot.</p>
+        <p className="font-parkBody mt-2 text-sm leading-relaxed text-surface-grey-2">{INDEXED_EDITION_COUNT} indexed editions · {RENT_SOURCES.length} publications.</p>
       </div>
       <button type="button" onClick={() => setPaused(value => !value)} aria-pressed={paused} aria-label={paused ? "Play source gallery" : "Pause source gallery"} className="source-gallery-motion inline-flex min-h-11 items-center gap-2 rounded-xl border border-paper-2 bg-paper-0 px-4 font-parkBody text-sm text-surface-grey-2 hover:border-core-green focus-visible:outline-2 focus-visible:outline-core-green">
         {paused ? <PlayIcon size={16} /> : <PauseIcon size={16} />}{paused ? "Play" : "Pause"}
@@ -30,13 +30,12 @@ export function SourceGallery() {
           {RENT_SOURCES.map(source => <a key={source.id} href={source.url} target="_blank" rel="noreferrer" tabIndex={duplicate ? -1 : undefined} className="source-gallery-card rounded-2xl border border-paper-2 bg-paper-0 p-4 transition-colors hover:border-core-green focus-visible:outline-2 focus-visible:outline-core-green">
             <SourceLogo source={source} />
             <p className="font-parkDisplay mt-3 min-h-10 text-sm font-bold leading-5 text-text-standard">{source.name}</p>
-            <p className="font-parkBody mt-1 text-xs text-surface-grey-2">{source.editions.length} archived {source.editions.length === 1 ? "edition" : "editions"}</p>
           </a>)}
         </div>)}
       </div>
     </div>
     <div className="mt-3 flex flex-wrap items-center justify-between gap-x-5 gap-y-1">
-      <p className="font-parkBody text-xs leading-relaxed text-surface-grey-2">Source attribution, not a partnership or endorsement. Archive entries are separate from authenticated oracle observations.</p>
+      <p className="font-parkBody text-xs leading-relaxed text-surface-grey-2">Source attribution, not a partnership or endorsement.</p>
       <Link to="/docs/sources" className="inline-flex min-h-11 items-center gap-2 rounded-lg font-parkBody text-sm font-semibold text-core-green hover:underline focus-visible:outline-2 focus-visible:outline-core-green">Explore the source archive <ArrowRightIcon size={16} /></Link>
     </div>
   </section>;

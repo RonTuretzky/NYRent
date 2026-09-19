@@ -64,6 +64,7 @@ export function Walkthrough() {
       <h2 className="font-parkDisplay font-bold text-xl text-text-standard">What you’re watching</h2>
       <p className="font-parkBody text-surface-grey-2 mt-3">These are actual contract calls on an isolated local chain running the RentSafe contracts and Uniswap v4. The wallet funds are synthetic, and the future settlement email is signed with the test key. Local time advances to show the entire lifecycle, including the claim deadline.</p>
       <p className="font-parkBody text-surface-grey-2 mt-3">The public market is on Polygon. Its real September 2027 settlement has not happened. The recording uses a larger local liquidity pool so the complete 3,000 RENT example can execute; a quote on the public pool depends on its own available liquidity.</p>
+      <p className="font-parkBody text-surface-grey-2 mt-3">The liquidity form has been simplified since this recording: enter RENT only, and matching USDC is calculated automatically. The backing and trading flows shown here are unchanged.</p>
     </Card>
 
     <section ref={polygonSection} className="scroll-mt-24 overflow-hidden rounded-3xl border border-paper-2 bg-paper-0 shadow-sm" aria-label="Polygon market walkthrough recording">

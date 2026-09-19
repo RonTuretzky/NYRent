@@ -16,10 +16,17 @@ The journey:
 
 1. Through the UI, the insurer deposits 1,000 test USDC and receives exactly 1,000 RENT, with 1,000 USDC held in escrow.
 2. The insurer adds a real v4 LP position with a separate RENT/USDC budget. Escrow stays unchanged.
-3. A target of 3 RENT is quoted as less than 1 USDC of spend, not 3 USDC. The renter buys with 1 USDC and sells 1 RENT back. Token balances and actual stablecoin movements are checked on-chain. The history chart must show both real swap markers; both expanded table rows must match the actual Swap transaction hashes and prices derived from their event data.
+3. A target of 3 RENT is quoted as less than 1 USDC of spend, not 3 USDC. The renter buys with 1 USDC and sells 1 RENT back. Token balances and actual stablecoin movements are checked on-chain. The history chart must show both real swap markers; both visible swap cards must match the actual Swap transaction hashes and prices derived from their event data.
 4. At the September 2027 observation boundary, UI buys and LP removal are disabled; contract reads show closed trading and locked LP withdrawal. A direct token transfer simulation also reverts.
 5. The browser verifies the synthetic September 2027 signature, submits it to the real DKIM oracle, and settles the real market. Base $92.88 and strikes $95.67/$100.31 with settlement $97.99 produce exactly 50% payout.
 6. Settlement unlocks LP removal. The insurer and renter redeem their actual RENT holdings through the UI and receive the exact integer payout.
 7. After the claim deadline, the original insurer withdraws exactly the remaining escrow; the market's currency balance and accounted escrow both reach zero.
 
 `verified-lifecycle.json` records checked amounts, not a deployment announcement. Screenshots capture the live local trading history, signed settlement, and final residual withdrawal.
+
+Responsive checks use `mobile.config.ts` and `mobile-content.config.ts` in this
+directory, covering 360, 390 and 768 pixels. `story.config.ts` checks all nine
+presenter screens at 1366×768, 1920×1080 and phone size, shared calculations and
+keyboard navigation. Its setup builds an additional private, unconfigured
+application at `/unconfigured/` to exercise labeled fallback values. Run these
+configurations sequentially: each owns the same isolated ports.

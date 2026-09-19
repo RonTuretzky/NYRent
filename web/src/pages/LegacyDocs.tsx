@@ -457,8 +457,8 @@ export function LegacyDocs() {
         <p className="font-parkBody text-surface-grey-2 mt-1">
           RentSafe pays you when the reported rent number goes up. This page
           is the full disclosure behind that sentence: exactly which rent
-          number settles the market (an index of Manhattan office rent —
-          commercial, not residential), how the signed newsletter is verified,
+          number settles the market (Manhattan office rent), how the signed
+          newsletter is verified,
           what is trusted, and how to check everything yourself. The{" "}
           <Link to="/" className="underline decoration-dotted">
             home page
@@ -931,8 +931,7 @@ export function LegacyDocs() {
 
       <p className="font-parkBody text-xs text-surface-grey-2">
         Unaudited software. Fully collateralized — use tiny
-        amounts. The index is commercial office rent (CompStak via CRE Daily),
-        not residential.
+        amounts.
       </p>
     </div>
   );

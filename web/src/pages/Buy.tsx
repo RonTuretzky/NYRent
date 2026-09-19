@@ -703,8 +703,7 @@ export function Buy() {
             className="mt-3 font-parkBody text-xs text-surface-grey"
             data-testid="index-disclosure"
           >
-            This index tracks Manhattan office rent (commercial, not
-            residential). Full details on the{" "}
+            Full details on the{" "}
             <Link className="underline" to={`/market/${seriesId}`}>
               market page
             </Link>{" "}

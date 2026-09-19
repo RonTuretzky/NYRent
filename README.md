@@ -29,11 +29,16 @@ Checkout separates the current spot conversion from the executable pool quote,
 shows chain-specific balances, and blocks orders with more than 10% output
 shortfall from spot (including fees). Calculators exclude escrow yield.
 
+[Story](https://rentsafe.nyc/#/story) provides nine read-only presenter screens,
+with keyboard reveals, deep links, fullscreen, speaker notes and a touch layout.
+Its insurer calculations and price forecast reuse the application's shared math.
+Liquidity provision accepts one RENT amount and calculates the matching USDC;
+the submitted transaction respects the reviewed RENT ceiling and USDC maximum.
+
 The [indexed newsletter sources](https://rentsafe.nyc/#/docs/sources) catalog links
 14 historical editions from seven publications. A logo gallery appears above the
-footer. These archive excerpts are research evidence; the live market uses the
-separate authenticated CRE Daily office-rent observation. Several newsletters
-quote the same underlying datasets, so publication count is not independent-feed
+footer. The catalog preserves publication dates and original source lineage.
+Several newsletters quote the same underlying datasets, so publication count is not independent-feed
 count. Local logo assets retain their origin URLs in
 `web/public/sources/logo-provenance.json`.
 

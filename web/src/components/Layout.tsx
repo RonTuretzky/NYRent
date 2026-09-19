@@ -18,6 +18,7 @@ type NavDestination = { to: string; label: string };
 type NavItem = NavDestination | { label: string; children: NavDestination[] };
 const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Home" },
+  { to: "/story", label: "Story" },
   { label: "For renters / insurers", children: [
     { to: "/renter", label: "Renter" },
     { to: "/insurer", label: "Insurer" },
@@ -394,12 +395,8 @@ export function Layout() {
       <Toasts />
       <div className="mt-10">
         <div className="max-w-6xl w-full mx-auto px-4 sm:px-6"><SourceGallery /></div>
-        <p className="font-parkBody text-xs text-surface-grey-2 text-center max-w-6xl w-full mx-auto px-4 sm:px-6 pb-1">
-          RentSafe is built by Decentral Park. The contracts have not been audited.
-        </p>
         <p className="font-parkBody text-xs text-surface-grey-2 text-center max-w-6xl w-full mx-auto px-4 sm:px-6 pb-4">
-          The rent index that settles this market tracks Manhattan office
-          rent (commercial, not residential).
+          RentSafe is built by Decentral Park. The contracts have not been audited.
         </p>
         <Footer />
       </div>

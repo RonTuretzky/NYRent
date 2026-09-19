@@ -45,11 +45,13 @@ test("mobile v4 forms, wallet states, navigation and recordings fit at 360, 390 
       await fits(creator, creator.getByRole("button", { name: "Deposit and mint RENT", exact: true }), 44);
       await clickReady(creator, "Deposit and mint RENT");
       await expect.poll(() => rentBalance(CREATOR)).toBe(1000n * UNIT);
-      const rentLimit = creator.getByLabel("RENT deposit limit", { exact: true });
-      const cashLimit = creator.getByLabel("USDC deposit limit", { exact: true });
+      const rentLimit = creator.getByLabel("RENT to add", { exact: true });
+      const cashLimit = creator.getByTestId("liquidity-usdc-required");
       await fits(creator, rentLimit, 44); await fits(creator, cashLimit, 44);
-      await rentLimit.fill("500"); await cashLimit.fill("142.5");
-      await expect(creator.getByTestId("liquidity-deposit-preview")).toContainText("unused tokens stay in your wallet");
+      await rentLimit.fill("500");
+      await expect(cashLimit).toHaveText("142.5 USDC");
+      await expect(creator.getByTestId("liquidity-deposit-controls").locator("input")).toHaveCount(1);
+      await expect(creator.getByTestId("liquidity-deposit-preview")).toContainText("Unused tokens stay in your wallet");
       await fits(creator, creator.getByRole("button", { name: "Add liquidity", exact: true }), 44);
       await clickReady(creator, "Add liquidity"); await expect.poll(lpBalance).toBeGreaterThan(0n);
       await dismissToasts(creator); await noOverflow(creator);
@@ -104,8 +106,8 @@ test("mobile v4 forms, wallet states, navigation and recordings fit at 360, 390 
 
       await creator.goto("/#/insurer");
       await fits(creator, creator.getByTestId("liquidity-price"));
-      await fits(creator, creator.getByLabel("RENT deposit limit", { exact: true }), 44);
-      await fits(creator, creator.getByLabel("USDC deposit limit", { exact: true }), 44);
+      await fits(creator, creator.getByLabel("RENT to add", { exact: true }), 44);
+      await fits(creator, creator.getByTestId("liquidity-usdc-required"), 44);
       await noOverflow(creator);
 
       await buyer.goto("/#/docs");

@@ -167,11 +167,6 @@ export function SeriesDetail() {
                 </Button>
               </Link>
             </div>
-            <p className="font-parkBody text-xs text-surface-grey">
-              This market settles on an index of Manhattan office rent
-              (commercial, not residential) — the details are in the terms
-              below.
-            </p>
             {paused && now <= s.saleEnd && !s.settled ? (
               <p className="font-parkBody text-xs text-system-warning font-bold">
                 Sales are paused by the market creator right now. Settlement
@@ -305,9 +300,7 @@ export function SeriesDetail() {
               <p className="font-parkBody text-xs text-surface-grey mt-3">
                 What settles this market: the average effective Manhattan
                 office rent ($/SF) printed in CRE Daily's Market Snapshot
-                newsletter, whose DKIM signature is verified on-chain. It is a
-                commercial rent index — related to, but not the same as,
-                residential rent.
+                newsletter, whose DKIM signature is verified on-chain.
               </p>
             </Card>
           </div>

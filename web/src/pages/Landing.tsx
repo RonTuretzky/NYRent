@@ -112,8 +112,7 @@ export function Landing() {
               ({d.currency.symbol})
             </span>
           ))}
-          . The index behind it tracks Manhattan office rent (commercial, not
-          residential).
+          .
         </p>
       </section>
 

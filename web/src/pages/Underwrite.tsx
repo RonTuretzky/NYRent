@@ -649,8 +649,7 @@ export function Underwrite() {
         </h2>
         <p className="font-parkBody text-sm text-surface-grey-2 mb-4">
           Terms are immutable once created — no setter exists at all. The
-          index your market settles on tracks Manhattan office rent
-          (commercial, not residential).
+          index your market settles on tracks Manhattan office rent ($/SF).
         </p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Strike low ($/SF)" hint="payout starts above this">

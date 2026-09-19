@@ -35,6 +35,7 @@ const Docs = lazy(() => import("./pages/Docs").then((m) => ({ default: m.Docs })
 const UniswapGuide = lazy(() => import("./pages/UniswapGuide").then((m) => ({ default: m.UniswapGuide })));
 const Walkthrough = lazy(() => import("./pages/Walkthrough").then((m) => ({ default: m.Walkthrough })));
 const SourcesGuide = lazy(() => import("./pages/SourcesGuide").then((m) => ({ default: m.SourcesGuide })));
+const Story = lazy(() => import("./pages/Story").then((m) => ({ default: m.Story })));
 const LegacyLanding = lazy(() => import("./pages/Landing").then((m) => ({ default: m.Landing })));
 const LegacyDocs = lazy(() => import("./pages/LegacyDocs").then((m) => ({ default: m.LegacyDocs })));
 
@@ -68,6 +69,8 @@ export default function App() {
           <ActiveDeploymentProvider>
             <HashRouter>
               <Routes>
+                <Route path="/story" element={suspend(<Story />)} />
+                <Route path="/story/:step" element={suspend(<Story />)} />
                 <Route element={<Layout />}>
                   <Route path="/" element={<MarketOverview />} />
                   <Route path="/insurer" element={<InsurerDashboard />} />

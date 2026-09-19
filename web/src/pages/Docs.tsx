@@ -13,7 +13,7 @@ export function Docs() {
   const v4 = V4_DEPLOYMENTS[String(deployment.chainId)];
   return <div className="max-w-3xl min-w-0 mx-auto space-y-6 [&_p]:leading-relaxed [&_li]:leading-relaxed">
     <header><h1 className="font-parkDisplay font-bold text-2xl leading-tight sm:text-3xl">How Manhattan Rent Cover works</h1>
-      <p className="font-parkBody text-surface-grey-2 mt-2">One market follows the CRE Daily Manhattan Office Rent average effective rent index, measured in dollars per square foot. It tracks office rents, not residential leases.</p>
+      <p className="font-parkBody text-surface-grey-2 mt-2">Contract reference: CRE Daily’s Manhattan Office Rent average effective rent, quoted in dollars per square foot.</p>
     </header>
     <div className="grid gap-4 sm:grid-cols-3">
       <Link to="/docs/uniswap" className="group rounded-2xl border border-paper-2 bg-paper-1 p-5 transition-colors hover:border-core-green focus-visible:outline-2 focus-visible:outline-core-green">
@@ -31,7 +31,7 @@ export function Docs() {
       <Link to="/docs/sources" className="group rounded-2xl border border-paper-2 bg-paper-1 p-5 transition-colors hover:border-core-green focus-visible:outline-2 focus-visible:outline-core-green">
         <NewspaperIcon size={28} className="text-core-green" weight="bold" />
         <h2 className="font-parkDisplay mt-3 text-lg font-bold">The source archive</h2>
-        <p className="font-parkBody mt-2 text-sm text-surface-grey-2">The seven publications we indexed, their editions and the live oracle source.</p>
+        <p className="font-parkBody mt-2 text-sm text-surface-grey-2">The seven publications we indexed, their editions and original data sources.</p>
         <span className="font-parkBody mt-4 inline-block text-sm font-semibold text-core-green">Explore the evidence →</span>
       </Link>
     </div>
@@ -54,7 +54,7 @@ export function Docs() {
     <Card><h2 className="font-parkDisplay font-bold text-xl">PLATFORM, INSURER and RENTER</h2>
       <ul className="font-parkBody mt-3 space-y-3 list-disc pl-5">
         <li><strong>PLATFORM</strong> specifies the index, oracle rules, coverage band and windows. The terms become immutable when the market is created. Backing stays in the escrow contract until claims and the residual withdrawal.</li>
-        <li><strong>INSURER</strong> supplies the backing: one dollar-stable unit per RENT. The market creator chooses the opening price when the pool is initialized. Insurers can then provide separate RENT/stablecoin liquidity at the pool's existing price. The maximum RENT and USDC inputs are deposit budgets, not controls for resetting the price. Trading payments become pool inventory; LP fees and assets belong to the liquidity position rather than arriving directly in the insurer's wallet. For example, backing 1,000 RENT takes 1,000 USDC in escrow, and supplying them to a full-range pool at $0.285 needs roughly 285 more USDC. Retained and pool-held RENT still carries a redemption claim.</li>
+        <li><strong>INSURER</strong> supplies the backing: one dollar-stable unit per RENT. The market creator chooses the opening price when the pool is initialized. Insurers can then provide separate RENT/stablecoin liquidity at the pool's existing price. Enter RENT only; matching USDC is calculated automatically, with a displayed maximum including 1% price tolerance. Adding liquidity does not reset the price. Trading payments become pool inventory; LP fees and assets belong to the liquidity position rather than arriving directly in the insurer's wallet. For example, backing 1,000 RENT takes 1,000 USDC in escrow, and supplying them to a full-range pool at $0.285 needs roughly 285 more USDC. Retained and pool-held RENT still carries a redemption claim.</li>
         <li><strong>RENTER</strong> pays a premium, receives RENT, and can claim r times the token balance after settlement. Trading out before observation depends on an enabled trading pool and available liquidity; the fixed-rate fallback has no resale flow.</li>
       </ul>
     </Card>
@@ -71,7 +71,7 @@ export function Docs() {
     </Card>
     <Card><h2 className="font-parkDisplay font-bold text-xl">Status and risks</h2>
       <p className="font-parkBody mt-3">A fixed-rate quote is labeled as such and is not a v4 pool price. Calculators do not submit transactions. Bankr automation is dormant.</p>
-      <p className="font-parkBody mt-3">The contracts have not been audited. Office rent can diverge from your lease; stablecoins, contracts, the publisher's signing key and liquidity introduce additional risks. Use tiny amounts. A secondary-market exit depends on available liquidity.</p>
+      <p className="font-parkBody mt-3">The contracts have not been audited. Stablecoins, contracts, the publisher's signing key and liquidity introduce additional risks. Use tiny amounts. A secondary-market exit depends on available liquidity.</p>
     </Card>
   </div>;
 }

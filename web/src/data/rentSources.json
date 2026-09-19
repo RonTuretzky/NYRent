@@ -3,7 +3,7 @@
     "id": "cre-daily",
     "name": "CRE Daily New York",
     "url": "https://www.credaily.com/newsletters/new-york/",
-    "description": "Residential rent coverage in the research archive. Separately, CRE Daily’s signed Manhattan office-rent snapshot is the source used by the live contract.",
+    "description": "Rent coverage and market reporting, with indexed Manhattan and NYC rental figures.",
     "logo": "/sources/cre-daily.png",
     "logoKind": "Small publication icon",
     "darkLogo": false,

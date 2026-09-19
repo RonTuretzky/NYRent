@@ -27,15 +27,20 @@ test("real v4 UI: backed mint, LP, buy/sell, blackout, DKIM settlement, payout a
   });
 
   await test.step("insurer funds real v4 liquidity, distinct from escrow", async () => {
-    await insurer.getByLabel("RENT deposit limit", {exact: true}).fill("100000");
-    await insurer.getByLabel("USDC deposit limit", {exact: true}).fill("142.5");
-    // Only the matching amounts need funding, even when an upper limit exceeds the wallet balance.
-    await expect(insurer.getByRole("button", {name: "Add liquidity", exact: true})).toBeEnabled();
-    await insurer.getByLabel("RENT deposit limit", {exact: true}).fill("500");
-    await expect(insurer.getByTestId("liquidity-price")).toContainText("Changing the deposit limits does not change it");
-    await expect(insurer.getByTestId("liquidity-deposit-preview")).toContainText("unused tokens stay in your wallet");
+    await insurer.getByLabel("RENT to add", {exact: true}).fill("100000");
+    await expect(insurer.getByRole("button", {name: "Add liquidity", exact: true})).toBeDisabled();
+    await expect(insurer.getByTestId("liquidity-funds-warning")).toContainText("Not enough RENT");
+    await insurer.getByLabel("RENT to add", {exact: true}).fill("500");
+    await expect(insurer.getByTestId("liquidity-deposit-controls").locator("input")).toHaveCount(1);
+    await expect(insurer.getByTestId("liquidity-usdc-required")).toHaveText("142.5 USDC");
+    await expect(insurer.getByTestId("liquidity-usdc-maximum")).toHaveText("143.925 USDC");
+    await expect(insurer.getByTestId("liquidity-price")).toContainText("Adding liquidity does not set a new price");
+    await expect(insurer.getByTestId("liquidity-deposit-preview")).toContainText("Unused tokens stay in your wallet");
+    const beforeRent = await rentBalance(CREATOR), beforeCash = await cashBalance(CREATOR);
     await clickReady(insurer, "Add liquidity");
     await expect.poll(lpBalance).toBeGreaterThan(0n);
+    expect(beforeRent - await rentBalance(CREATOR)).toBe(500n * UNIT);
+    expect(beforeCash - await cashBalance(CREATOR)).toBe(142_500000n);
     expect(await balance(d.currency, d.market)).toBe(1000n * UNIT);
     receipts.liquidity = (await lpBalance()).toString();
   });
@@ -53,6 +58,9 @@ test("real v4 UI: backed mint, LP, buy/sell, blackout, DKIM settlement, payout a
     await empty.getByRole("button", {name: "Sell", exact: true}).click();
     await expect(empty.getByTestId("insufficient-funds")).toContainText("No RENT on");
     await expect(empty.getByRole("button", {name: "Confirm trade", exact: true})).toBeDisabled();
+    await empty.goto("/#/insurer");
+    await expect(empty.getByTestId("liquidity-funds-warning")).toContainText("USDC to cover the displayed maximum");
+    await expect(empty.getByRole("button", {name: "Add liquidity", exact: true})).toBeDisabled();
     await emptyWalletContext.close();
   });
 

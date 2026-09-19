@@ -61,8 +61,8 @@ test("record the complete backed RENT lifecycle with captions", async ({ browser
     await expect.poll(() => rentBalance(CREATOR)).toBe(50000n * UNIT);
     expect(await balance(d.currency, d.market)).toBe(50000n * UNIT);
     await hold(page, 5); await dismissToasts(page);
-    await fill(page, page.getByLabel("RENT deposit limit", { exact: true }), "45000");
-    await fill(page, page.getByLabel("USDC deposit limit", { exact: true }), "12825");
+    await fill(page, page.getByLabel("RENT to add", { exact: true }), "45000");
+    await expect(page.getByTestId("liquidity-usdc-required")).toContainText("12,825");
     await say(page, "Seed Uniswap separately with RENT and USDC. Trading uses pool inventory; the 50,000 USDC backing stays in escrow.");
     await hold(page, 6);
     await click(page, page.getByRole("button", { name: "Add liquidity", exact: true }));

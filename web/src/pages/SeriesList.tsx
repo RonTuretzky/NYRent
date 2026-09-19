@@ -274,10 +274,6 @@ export function SeriesList() {
             </Link>
             .
           </p>
-          <p className="font-parkBody text-xs text-surface-grey mt-1">
-            The index behind every market tracks Manhattan office rent
-            (commercial, not residential).
-          </p>
         </div>
         {toggle}
       </header>

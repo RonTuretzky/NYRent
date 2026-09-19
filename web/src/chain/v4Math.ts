@@ -64,7 +64,38 @@ export function fullRangeLiquidity(sqrt: bigint, maximum0: bigint, maximum1: big
   return (l0 < l1 ? l0 : l1) * 99n / 100n;
 }
 
-export function fullRangeAmounts(sqrt: bigint, liquidity: bigint): readonly [bigint, bigint] {
+export function fullRangeAmounts(sqrt: bigint, liquidity: bigint, roundUp = false): readonly [bigint, bigint] {
   const p = sqrt < SQRT_LOWER ? SQRT_LOWER : sqrt > SQRT_UPPER ? SQRT_UPPER : sqrt;
-  return [liquidity * (SQRT_UPPER - p) * Q96 / (p * SQRT_UPPER), liquidity * (p - SQRT_LOWER) / Q96];
+  const divide = (numerator: bigint, denominator: bigint) => roundUp ? (numerator + denominator - 1n) / denominator : numerator / denominator;
+  return [divide(liquidity * (SQRT_UPPER - p) * Q96, p * SQRT_UPPER), divide(liquidity * (p - SQRT_LOWER), Q96)];
+}
+
+export const LIQUIDITY_SLIPPAGE_BPS = 100;
+export interface FullRangeDeposit {
+  liquidity: bigint;
+  rentAmount: bigint;
+  cashAmount: bigint;
+  rentMaximum: bigint;
+  cashMaximum: bigint;
+}
+
+/**
+ * Size a full-range position from RENT alone. Adding liquidity rounds token
+ * debits up, exactly as v4's SqrtPriceMath does. The entered RENT amount remains
+ * a hard ceiling; only the matching cash side gets the displayed 1% allowance.
+ */
+export function quoteFullRangeDeposit(sqrt: bigint, rentMaximum: bigint, rentIs0: boolean, slippageBps = LIQUIDITY_SLIPPAGE_BPS): FullRangeDeposit | null {
+  if (!Number.isInteger(slippageBps) || slippageBps < 0 || slippageBps > 500) throw new Error("Invalid liquidity slippage");
+  const maxTokenAmount = (1n << 128n) - 1n;
+  if (sqrt <= SQRT_LOWER || sqrt >= SQRT_UPPER || rentMaximum <= 0n || rentMaximum > maxTokenAmount) return null;
+  const liquidity = rentIs0
+    ? rentMaximum * sqrt * SQRT_UPPER / (Q96 * (SQRT_UPPER - sqrt))
+    : rentMaximum * Q96 / (sqrt - SQRT_LOWER);
+  if (liquidity <= 0n || liquidity >= (1n << 127n)) return null;
+  const [amount0, amount1] = fullRangeAmounts(sqrt, liquidity, true);
+  const rentAmount = rentIs0 ? amount0 : amount1;
+  const cashAmount = rentIs0 ? amount1 : amount0;
+  const cashMaximum = (cashAmount * BigInt(10000 + slippageBps) + 9999n) / 10000n;
+  if (rentAmount > rentMaximum || cashAmount <= 0n || cashMaximum > maxTokenAmount) return null;
+  return { liquidity, rentAmount, cashAmount, rentMaximum, cashMaximum };
 }

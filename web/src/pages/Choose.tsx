@@ -238,11 +238,6 @@ export function Choose() {
           Three quick questions, then we point you at the best-priced open
           protection on {deployment.name} — sized to your rent.
         </p>
-        <p className="font-parkBody text-xs text-surface-grey mt-1">
-          Heads-up: payouts follow an index of Manhattan office rent
-          (commercial, not residential) — a barometer for the market, not
-          your exact lease.
-        </p>
       </header>
 
       {!onResult ? (
@@ -382,8 +377,7 @@ export function Choose() {
             </Button>
           </div>
           <p className="font-parkBody text-xs text-surface-grey mt-4">
-            You can change the amount on the next screen. Reminder: the index
-            tracks Manhattan office rent (commercial, not residential).
+            You can change the amount on the next screen.
           </p>
         </Card>
       )}
