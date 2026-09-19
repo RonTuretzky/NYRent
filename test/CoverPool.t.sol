@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IERC1155Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import {IERC20Errors, IERC1155Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
@@ -33,11 +33,11 @@ contract NonReceiver {}
 contract AcceptingRecipient is ERC1155Holder {}
 
 /// @dev Reenters the pool from the ERC-1155 mint acceptance callback of the
-///      {CoverPool.buyProtectionFor} entrypoint.
+///      {CoverPool.buyProtectionFor} entrypoint, through every guarded surface.
 contract ReentrantRecipient {
     CoverPool internal immutable pool;
     TestUSDC internal immutable usdc;
-    uint8 internal mode; // 0 = buyProtectionFor, 1 = buyProtection, 2 = settle
+    uint8 internal mode; // 0 buyProtectionFor, 1 buyProtection, 2 settle, 3 createSeries, 4 cancelSeries, 5 withdrawResidual
     bool internal reentered;
 
     constructor(CoverPool pool_, TestUSDC usdc_) {
@@ -54,20 +54,31 @@ contract ReentrantRecipient {
     function onERC1155Received(address, address, uint256 seriesId, uint256, bytes calldata) external returns (bytes4) {
         if (!reentered) {
             reentered = true;
-            // must revert: reentrant on any pool entrypoint, settle included
-            if (mode == 0) pool.buyProtectionFor(seriesId, 1, type(uint256).max, address(this));
-            else if (mode == 1) pool.buyProtection(seriesId, 1, type(uint256).max);
-            else pool.settle(seriesId, 0);
+            // must revert: reentrant on any pool entrypoint
+            if (mode == 0) {
+                pool.buyProtectionFor(seriesId, 1, type(uint256).max, address(this));
+            } else if (mode == 1) {
+                pool.buyProtection(seriesId, 1, type(uint256).max);
+            } else if (mode == 2) {
+                pool.settle(seriesId, 0);
+            } else if (mode == 3) {
+                uint64 t = uint64(block.timestamp);
+                pool.createSeries(8800, 9600, 2850, t + 1 days, t + 1 days, t + 2 days, t + 3 days, 1e6);
+            } else if (mode == 4) {
+                pool.cancelSeries(seriesId);
+            } else {
+                pool.withdrawResidual(seriesId);
+            }
         }
         return this.onERC1155Received.selector;
     }
 }
 
 /// @notice CoverPool scenario matrix at the 6-decimals USDC deployment currency:
-///         create/buy/settle/redeem/withdraw, window and clamp edges, pause semantics,
-///         solvency, the two-step sponsor handoff (with cancel), {buyProtectionFor}
-///         recipient minting, the per-series pause, plus fuzz. Invariants live in
-///         {CoverPoolInvariantTest}.
+///         permissionless create-with-escrow, buy/settle/redeem math, window and clamp
+///         edges, per-series (creator-only) pause, addCapacity/cancel/withdrawResidual
+///         lifecycles, multi-creator isolation, {buyProtectionFor} recipient minting,
+///         plus fuzz. Invariants live in {CoverPoolInvariantTest}.
 contract CoverPoolTest is Test {
     uint64 internal constant T0 = 1_789_000_000; // base clock for all series
 
@@ -87,16 +98,17 @@ contract CoverPoolTest is Test {
     CoverToken internal token;
     CoverPool internal pool;
 
-    address internal sponsor = makeAddr("sponsor");
+    address internal creator = makeAddr("creator");
+    address internal rival = makeAddr("rival"); // a second, unrelated series creator
     address internal alice = makeAddr("alice");
     address internal bob = makeAddr("bob");
 
     function setUp() public {
         vm.warp(T0);
-        obsStart = T0 - 10 days;
-        obsEnd = T0 + 10 days;
-        saleEnd = obsEnd;
-        redeemEnd = obsEnd + 30 days;
+        saleEnd = T0 + 10 days;
+        obsStart = saleEnd; // saleEnd ≤ obsStart is an on-chain invariant now
+        obsEnd = T0 + 20 days;
+        redeemEnd = T0 + 50 days;
 
         usdc = new TestUSDC();
         oracle = new MockObservationOracle();
@@ -104,13 +116,16 @@ contract CoverPoolTest is Test {
         uint64 nonce = vm.getNonce(address(this));
         address predictedPool = vm.computeCreateAddress(address(this), nonce + 1);
         token = new CoverToken(predictedPool, usdc.decimals());
-        pool = new CoverPool(usdc, token, IObservationOracle(address(oracle)), sponsor);
+        pool = new CoverPool(usdc, token, IObservationOracle(address(oracle)));
         assertEq(address(pool), predictedPool);
 
-        usdc.mint(sponsor, 1_000 * ONE);
+        usdc.mint(creator, 10_000 * ONE);
+        usdc.mint(rival, 10_000 * ONE);
         usdc.mint(alice, 1_000 * ONE);
         usdc.mint(bob, 1_000 * ONE);
-        vm.prank(sponsor);
+        vm.prank(creator);
+        usdc.approve(address(pool), type(uint256).max);
+        vm.prank(rival);
         usdc.approve(address(pool), type(uint256).max);
         vm.prank(alice);
         usdc.approve(address(pool), type(uint256).max);
@@ -119,13 +134,12 @@ contract CoverPoolTest is Test {
     }
 
     function _createDefault() internal returns (uint256 id) {
-        vm.prank(sponsor);
-        id = pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
+        id = _createAs(creator, CAP);
     }
 
-    function _fund(uint256 amt) internal {
-        vm.prank(sponsor);
-        pool.fundPool(amt);
+    function _createAs(address who, uint128 cap) internal returns (uint256 id) {
+        vm.prank(who);
+        id = pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, cap);
     }
 
     function _buy(address who, uint256 id, uint256 maxClaim) internal returns (uint256 premium) {
@@ -140,14 +154,19 @@ contract CoverPoolTest is Test {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // createSeries
+    // createSeries: permissionless, escrow pull
     // ─────────────────────────────────────────────────────────────────────────
 
-    function test_createSeries_storesParams() public {
-        uint256 id = _createDefault();
+    function test_createSeries_storesParamsAndPullsEscrow() public {
+        uint256 creatorPre = usdc.balanceOf(creator);
+        vm.prank(creator);
+        vm.expectEmit(true, true, true, true);
+        emit CoverPool.SeriesCreated(0, creator, LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
+        uint256 id = pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
         assertEq(id, 0);
         assertEq(pool.seriesCount(), 1);
         CoverPool.Series memory s = pool.series(0);
+        assertEq(s.creator, creator);
         assertEq(s.strikeLowCents, LOW);
         assertEq(s.strikeHighCents, HIGH);
         assertEq(s.premiumRateBps, RATE);
@@ -155,29 +174,87 @@ contract CoverPoolTest is Test {
         assertEq(s.obsStart, obsStart);
         assertEq(s.obsEnd, obsEnd);
         assertEq(s.redeemEnd, redeemEnd);
-        assertEq(s.capacity, CAP);
+        assertEq(s.escrow, CAP);
         assertEq(s.sold, 0);
+        assertEq(s.premiumsAccrued, 0);
+        assertEq(s.paidOut, 0);
+        assertEq(s.withdrawn, 0);
         assertFalse(s.settled);
+        assertFalse(s.cancelled);
+        assertFalse(s.residualWithdrawn);
+        assertEq(creatorPre - usdc.balanceOf(creator), CAP, "escrow pulled from the creator");
+        assertEq(usdc.balanceOf(address(pool)), CAP, "escrow held by the pool");
     }
 
-    function test_createSeries_onlySponsor() public {
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
+    function test_createSeries_anyoneCanCreate() public {
+        uint256 a = _createAs(creator, CAP);
+        uint256 b = _createAs(rival, 2 * CAP);
+        uint256 c = _createAs(alice, uint128(ONE));
+        assertEq(pool.seriesCount(), 3);
+        assertEq(pool.series(a).creator, creator);
+        assertEq(pool.series(b).creator, rival);
+        assertEq(pool.series(c).creator, alice);
+        assertEq(usdc.balanceOf(address(pool)), 3 * uint256(CAP) + ONE);
     }
 
     function test_createSeries_validations() public {
-        vm.startPrank(sponsor);
+        vm.startPrank(creator);
         vm.expectRevert(abi.encodeWithSelector(CoverPool.InvalidParams.selector, "strikes"));
         pool.createSeries(HIGH, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
+        vm.expectRevert(abi.encodeWithSelector(CoverPool.InvalidParams.selector, "strikes"));
+        pool.createSeries(0, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
+        vm.expectRevert(abi.encodeWithSelector(CoverPool.InvalidParams.selector, "premiumRate"));
+        pool.createSeries(LOW, HIGH, 10_001, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
+        // saleEnd must be strictly in the future
         vm.expectRevert(abi.encodeWithSelector(CoverPool.InvalidParams.selector, "saleEnd"));
-        pool.createSeries(LOW, HIGH, RATE, obsEnd + 1, obsStart, obsEnd, redeemEnd, CAP);
+        pool.createSeries(LOW, HIGH, RATE, T0, obsStart, obsEnd, redeemEnd, CAP);
+        vm.expectRevert(abi.encodeWithSelector(CoverPool.InvalidParams.selector, "saleEnd"));
+        pool.createSeries(LOW, HIGH, RATE, T0 - 1, obsStart, obsEnd, redeemEnd, CAP);
+        // the informed-trading rule saleEnd ≤ obsStart is enforced on-chain
+        vm.expectRevert(abi.encodeWithSelector(CoverPool.InvalidParams.selector, "windows"));
+        pool.createSeries(LOW, HIGH, RATE, obsStart + 1, obsStart, obsEnd, redeemEnd, CAP);
         vm.expectRevert(abi.encodeWithSelector(CoverPool.InvalidParams.selector, "windows"));
         pool.createSeries(LOW, HIGH, RATE, saleEnd, obsEnd, obsEnd, redeemEnd, CAP);
         vm.expectRevert(abi.encodeWithSelector(CoverPool.InvalidParams.selector, "windows"));
-        pool.createSeries(LOW, HIGH, RATE, obsStart, obsStart, obsEnd, obsEnd, CAP);
+        pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, obsEnd, CAP);
+        // the claim window has an on-chain floor: redeemEnd ≥ obsEnd + MIN_REDEEM_WINDOW
+        vm.expectRevert(abi.encodeWithSelector(CoverPool.InvalidParams.selector, "claimWindow"));
+        pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, obsEnd + 1, CAP);
+        vm.expectRevert(abi.encodeWithSelector(CoverPool.InvalidParams.selector, "claimWindow"));
+        pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, obsEnd + 7 days - 1, CAP);
         vm.expectRevert(abi.encodeWithSelector(CoverPool.InvalidParams.selector, "capacity"));
         pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, 0);
         vm.stopPrank();
+        assertEq(pool.seriesCount(), 0, "nothing appended");
+        // premiumRateBps == 1e4 is the inclusive bound
+        vm.prank(creator);
+        pool.createSeries(LOW, HIGH, 10_000, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
+        assertEq(pool.series(0).premiumRateBps, 10_000);
+        // redeemEnd == obsEnd + MIN_REDEEM_WINDOW is the inclusive bound
+        assertEq(pool.MIN_REDEEM_WINDOW(), 7 days);
+        vm.prank(creator);
+        uint256 minWindowId = pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, obsEnd + 7 days, CAP);
+        assertEq(pool.series(minWindowId).redeemEnd, obsEnd + 7 days);
+    }
+
+    function test_createSeries_withoutAllowance_reverts() public {
+        address mallory = makeAddr("mallory");
+        usdc.mint(mallory, CAP);
+        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(pool), 0, CAP));
+        vm.prank(mallory);
+        pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
+        assertEq(pool.seriesCount(), 0, "nothing appended");
+        assertEq(usdc.balanceOf(address(pool)), 0, "nothing pulled");
+    }
+
+    function test_createSeries_withoutBalance_reverts() public {
+        address pauper = makeAddr("pauper");
+        vm.prank(pauper);
+        usdc.approve(address(pool), type(uint256).max);
+        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, pauper, 0, CAP));
+        vm.prank(pauper);
+        pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
+        assertEq(pool.seriesCount(), 0, "nothing appended");
     }
 
     function test_series_unknownIdReverts() public {
@@ -191,29 +268,57 @@ contract CoverPoolTest is Test {
 
     function test_quote_math() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         (uint256 premium, uint16 rateBps, uint256 capacityLeft, uint256 issuableNow) = pool.quote(id, ONE);
         assertEq(premium, 0.285e6);
         assertEq(rateBps, RATE);
         assertEq(capacityLeft, CAP);
-        // x - x*rate ≤ free → x ≤ 10e6 * 1e4 / 7150
-        assertEq(issuableNow, (10 * ONE * 1e4) / (1e4 - RATE));
+        assertEq(issuableNow, CAP, "1:1 escrow backing: the whole remaining capacity is issuable");
+        _buy(alice, id, 40 * ONE);
+        (,, capacityLeft, issuableNow) = pool.quote(id, ONE);
+        assertEq(capacityLeft, 60 * ONE);
+        assertEq(issuableNow, 60 * ONE);
+    }
+
+    function test_quote_issuableNowZeroWhenClosed() public {
+        // paused
+        uint256 a = _createDefault();
+        vm.prank(creator);
+        pool.setSeriesPaused(a, true);
+        (,, uint256 capacityLeft, uint256 issuableNow) = pool.quote(a, ONE);
+        assertEq(capacityLeft, CAP, "capacity is still reported");
+        assertEq(issuableNow, 0, "paused series issues nothing");
+        // settled
+        uint256 b = _createDefault();
+        _settleAt(b, obsStart, 9000);
+        (,,, issuableNow) = pool.quote(b, ONE);
+        assertEq(issuableNow, 0, "settled series issues nothing");
+        // cancelled: no phantom capacity either — the refund zeroed the escrow
+        uint256 c = _createDefault();
+        vm.prank(creator);
+        pool.cancelSeries(c);
+        (,, capacityLeft, issuableNow) = pool.quote(c, ONE);
+        assertEq(capacityLeft, 0, "cancelled series reports no escrow-backed capacity");
+        assertEq(issuableNow, 0, "cancelled series issues nothing");
+        // past saleEnd
+        uint256 d = _createDefault();
+        vm.warp(saleEnd + 1);
+        (,,, issuableNow) = pool.quote(d, ONE);
+        assertEq(issuableNow, 0, "closed sale issues nothing");
     }
 
     function test_buy_mintsAndPullsPremium() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         uint256 premium = _buy(alice, id, ONE);
         assertEq(premium, 0.285e6);
         assertEq(token.balanceOf(alice, id), ONE);
-        assertEq(usdc.balanceOf(address(pool)), 10 * ONE + premium);
-        assertEq(pool.series(id).sold, ONE);
-        assertEq(pool.reservedOf(id), ONE);
+        assertEq(usdc.balanceOf(address(pool)), CAP + premium);
+        CoverPool.Series memory s = pool.series(id);
+        assertEq(s.sold, ONE);
+        assertEq(s.premiumsAccrued, premium, "premium accrues to the series bucket");
     }
 
     function test_buy_slippageGuard() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         vm.expectRevert(abi.encodeWithSelector(CoverPool.PremiumTooHigh.selector, 0.285e6, 0.284e6));
         vm.prank(alice);
         pool.buyProtection(id, ONE, 0.284e6);
@@ -221,34 +326,18 @@ contract CoverPoolTest is Test {
 
     function test_buy_capacityExceeded() public {
         uint256 id = _createDefault();
-        _fund(1_000 * ONE);
         vm.expectRevert(CoverPool.CapacityExceeded.selector);
         vm.prank(alice);
         pool.buyProtection(id, uint256(CAP) + 1, type(uint256).max);
-    }
-
-    function test_buy_solvencyGuard_unfundedPool() public {
-        uint256 id = _createDefault();
-        // no funding: premium (28.5%) alone cannot back a 100% claim
-        vm.expectRevert(CoverPool.Insolvent.selector);
-        vm.prank(alice);
-        pool.buyProtection(id, ONE, type(uint256).max);
-    }
-
-    function test_buy_solvencyGuard_exactBoundary() public {
-        uint256 id = _createDefault();
-        _fund(0.715e6); // 1 - 0.285: premium tops the backing up to exactly 100%
-        _buy(alice, id, ONE);
-        assertEq(pool.freeCapital(), 0);
-        // any further claim cannot be backed
-        vm.expectRevert(CoverPool.Insolvent.selector);
+        // the full escrow is sellable, and then nothing more
+        _buy(alice, id, CAP);
+        vm.expectRevert(CoverPool.CapacityExceeded.selector);
         vm.prank(bob);
-        pool.buyProtection(id, ONE, type(uint256).max);
+        pool.buyProtection(id, 4, type(uint256).max);
     }
 
     function test_buy_afterSaleEnd_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         vm.warp(saleEnd + 1);
         vm.expectRevert(CoverPool.SaleClosed.selector);
         vm.prank(alice);
@@ -257,31 +346,25 @@ contract CoverPoolTest is Test {
 
     function test_buy_atSaleEnd_ok() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         vm.warp(saleEnd);
         _buy(alice, id, ONE);
     }
 
     function test_buy_afterSettle_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
-        _settleAt(id, T0, 9000);
+        _settleAt(id, obsStart, 9000);
         vm.expectRevert(CoverPool.SaleClosed.selector);
         vm.prank(alice);
         pool.buyProtection(id, ONE, type(uint256).max);
     }
 
-    function test_buy_whenPaused_reverts_thenUnpause() public {
+    function test_buy_afterCancel_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
-        vm.prank(sponsor);
-        pool.setSalesPaused(true);
-        vm.expectRevert(CoverPool.SalesArePaused.selector);
+        vm.prank(creator);
+        pool.cancelSeries(id);
+        vm.expectRevert(CoverPool.SeriesClosed.selector);
         vm.prank(alice);
         pool.buyProtection(id, ONE, type(uint256).max);
-        vm.prank(sponsor);
-        pool.setSalesPaused(false);
-        _buy(alice, id, ONE);
     }
 
     function test_buy_zeroAmount_reverts() public {
@@ -293,7 +376,6 @@ contract CoverPoolTest is Test {
 
     function test_buy_premiumRoundsToZero_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         // at 2850 bps, any maxClaim ≤ 3 micro-units computes premium 0 → no free cover
         for (uint256 dust = 1; dust <= 3; ++dust) {
             vm.expectRevert(CoverPool.PremiumRoundsToZero.selector);
@@ -307,6 +389,17 @@ contract CoverPoolTest is Test {
         vm.prank(alice);
         pool.buyProtection(id, 4, type(uint256).max);
         assertEq(token.balanceOf(alice, id), 4);
+    }
+
+    function test_buy_zeroRateSeries_isFree() public {
+        vm.prank(creator);
+        uint256 id = pool.createSeries(LOW, HIGH, 0, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
+        uint256 alicePre = usdc.balanceOf(alice);
+        vm.prank(alice);
+        pool.buyProtection(id, ONE, 0); // zero-rate: the dust guard does not apply
+        assertEq(token.balanceOf(alice, id), ONE);
+        assertEq(usdc.balanceOf(alice), alicePre, "no premium pulled");
+        assertEq(pool.series(id).premiumsAccrued, 0);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -337,34 +430,34 @@ contract CoverPoolTest is Test {
     function test_settle_clampEdges() public {
         // cents == low → 0
         uint256 a = _createDefault();
-        _settleAt(a, T0, LOW);
+        _settleAt(a, obsStart, LOW);
         assertEq(pool.series(a).payoutRatioWad, 0);
         // cents just below low → 0
         uint256 b = _createDefault();
-        _settleAt(b, T0, LOW - 1);
+        _settleAt(b, obsStart, LOW - 1);
         assertEq(pool.series(b).payoutRatioWad, 0);
         // cents == high → 1e18
         uint256 c = _createDefault();
-        _settleAt(c, T0, HIGH);
+        _settleAt(c, obsStart, HIGH);
         assertEq(pool.series(c).payoutRatioWad, 1e18);
         // cents above high → 1e18
         uint256 d = _createDefault();
-        _settleAt(d, T0, HIGH + 500);
+        _settleAt(d, obsStart, HIGH + 500);
         assertEq(pool.series(d).payoutRatioWad, 1e18);
         // midpoint: (9288-8800)/(9600-8800) = 61%
         uint256 e = _createDefault();
-        _settleAt(e, T0, 9288);
+        _settleAt(e, obsStart, 9288);
         assertEq(pool.series(e).payoutRatioWad, 0.61e18);
         // one cent above low: 1/800 of 1e18
         uint256 f = _createDefault();
-        _settleAt(f, T0, LOW + 1);
+        _settleAt(f, obsStart, LOW + 1);
         assertEq(pool.series(f).payoutRatioWad, uint256(1e18) / 800);
     }
 
     function test_settle_onceOnly_firstWins() public {
         uint256 id = _createDefault();
-        _settleAt(id, T0, 9288);
-        uint256 second = oracle.push(T0 + 1, HIGH, bytes32("later"));
+        _settleAt(id, obsStart, 9288);
+        uint256 second = oracle.push(obsStart + 1, HIGH, bytes32("later"));
         vm.expectRevert(CoverPool.AlreadySettled.selector);
         pool.settle(id, second);
         assertEq(pool.series(id).payoutRatioWad, 0.61e18, "first observation stays");
@@ -372,10 +465,10 @@ contract CoverPoolTest is Test {
 
     function test_settle_storesProvenance() public {
         uint256 id = _createDefault();
-        uint256 obsIndex = oracle.push(T0 + 5, 9288, bytes32("prov"));
+        uint256 obsIndex = oracle.push(obsStart + 5, 9288, bytes32("prov"));
         pool.settle(id, obsIndex);
         CoverPool.Series memory s = pool.series(id);
-        assertEq(s.observationT, T0 + 5);
+        assertEq(s.observationT, obsStart + 5);
         assertEq(s.emailId, bytes32("prov"));
     }
 
@@ -384,13 +477,21 @@ contract CoverPoolTest is Test {
         pool.settle(7, 0);
     }
 
+    function test_settle_cancelledSeries_reverts() public {
+        uint256 id = _createDefault();
+        vm.prank(creator);
+        pool.cancelSeries(id);
+        uint256 obsIndex = oracle.push(obsStart, 9288, bytes32("dead"));
+        vm.expectRevert(CoverPool.SeriesClosed.selector);
+        pool.settle(id, obsIndex);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // redeem
     // ─────────────────────────────────────────────────────────────────────────
 
     function test_redeem_beforeSettle_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         _buy(alice, id, ONE);
         vm.expectRevert(CoverPool.NotSettled.selector);
         vm.prank(alice);
@@ -399,9 +500,8 @@ contract CoverPoolTest is Test {
 
     function test_redeem_paysRatio_andPartials() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         _buy(alice, id, 2 * ONE);
-        _settleAt(id, T0, 9288); // 61%
+        _settleAt(id, obsStart, 9288); // 61%
         uint256 before = usdc.balanceOf(alice);
         vm.prank(alice);
         pool.redeem(id, ONE);
@@ -411,26 +511,25 @@ contract CoverPoolTest is Test {
         pool.redeem(id, ONE);
         assertEq(usdc.balanceOf(alice) - before, 1.22e6);
         assertEq(token.balanceOf(alice, id), 0);
-        assertEq(pool.redeemedPayout(id), 1.22e6);
+        assertEq(pool.series(id).paidOut, 1.22e6);
     }
 
     function test_redeem_zeroRatio_burnsForNothing() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         _buy(alice, id, ONE);
-        _settleAt(id, T0, LOW); // ratio 0
+        _settleAt(id, obsStart, LOW); // ratio 0
         uint256 before = usdc.balanceOf(alice);
         vm.prank(alice);
         pool.redeem(id, ONE);
         assertEq(usdc.balanceOf(alice), before);
         assertEq(token.balanceOf(alice, id), 0);
+        assertEq(pool.series(id).paidOut, 0);
     }
 
     function test_redeem_afterRedeemEnd_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         _buy(alice, id, ONE);
-        _settleAt(id, T0, 9288);
+        _settleAt(id, obsStart, 9288);
         vm.warp(redeemEnd + 1);
         vm.expectRevert(CoverPool.RedeemWindowClosed.selector);
         vm.prank(alice);
@@ -439,9 +538,8 @@ contract CoverPoolTest is Test {
 
     function test_redeem_atRedeemEnd_ok() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         _buy(alice, id, ONE);
-        _settleAt(id, T0, 9288);
+        _settleAt(id, obsStart, 9288);
         vm.warp(redeemEnd);
         vm.prank(alice);
         pool.redeem(id, ONE);
@@ -449,88 +547,339 @@ contract CoverPoolTest is Test {
 
     function test_redeem_neverBlockedByPause() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         _buy(alice, id, ONE);
-        _settleAt(id, T0, 9288);
-        vm.prank(sponsor);
-        pool.setSalesPaused(true);
+        _settleAt(id, obsStart, 9288);
+        vm.prank(creator);
+        pool.setSeriesPaused(id, true);
         vm.prank(alice);
         pool.redeem(id, ONE); // must not revert
     }
 
     function test_redeem_moreThanBalance_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         _buy(alice, id, ONE);
-        _settleAt(id, T0, 9288);
+        _settleAt(id, obsStart, 9288);
         vm.expectRevert(); // ERC1155InsufficientBalance from the token burn
         vm.prank(alice);
         pool.redeem(id, 2 * ONE);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // fund / withdrawExcess / reserve accounting
+    // addCapacity
     // ─────────────────────────────────────────────────────────────────────────
 
-    function test_withdraw_soldReservedBeforeSettlement() public {
+    function test_addCapacity_growsEscrowAndSellsBeyondOriginalCap() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
-        uint256 premium = _buy(alice, id, 4 * ONE);
-        // reserved = sold (4); free = 10 + premium - 4
-        assertEq(pool.freeCapital(), 6 * ONE + premium);
-        vm.prank(sponsor);
-        vm.expectRevert(
-            abi.encodeWithSelector(CoverPool.InsufficientFreeCapital.selector, 6 * ONE + premium + 1, 6 * ONE + premium)
-        );
-        pool.withdrawExcess(6 * ONE + premium + 1);
-        vm.prank(sponsor);
-        pool.withdrawExcess(6 * ONE + premium);
-        assertEq(usdc.balanceOf(address(pool)), 4 * ONE, "exactly the reserve remains");
+        _buy(alice, id, CAP); // the original escrow is fully sold
+        vm.prank(creator);
+        vm.expectEmit(true, true, true, true);
+        emit CoverPool.CapacityAdded(id, creator, 10 * ONE, CAP + 10 * ONE);
+        pool.addCapacity(id, uint128(10 * ONE));
+        assertEq(pool.series(id).escrow, CAP + 10 * ONE);
+        assertEq(usdc.balanceOf(address(pool)), CAP + 10 * ONE + (uint256(CAP) * RATE) / 1e4);
+        _buy(bob, id, 10 * ONE); // the top-up is sellable
+        assertEq(pool.series(id).sold, CAP + 10 * ONE);
     }
 
-    function test_withdraw_ratioReservedAfterSettlement() public {
+    function test_addCapacity_afterEarlySettle_reverts() public {
+        // early-settlement edge: with saleEnd == obsStart, the oracle's +1 day
+        // future-t tolerance lets a qualifying observation settle the series while
+        // the sale is still open. Sales are then shut forever, so a top-up could
+        // never be sold — the pool refuses the dead escrow instead of stranding it.
         uint256 id = _createDefault();
-        _fund(10 * ONE);
+        _settleAt(id, obsStart, 9288); // block.timestamp == T0 ≤ saleEnd: sale still open
+        assertTrue(block.timestamp <= pool.series(id).saleEnd, "settled during the sale");
+        vm.expectRevert(CoverPool.AlreadySettled.selector);
+        vm.prank(creator);
+        pool.addCapacity(id, uint128(ONE));
+    }
+
+    function test_addCapacity_afterSaleEnd_reverts() public {
+        uint256 id = _createDefault();
+        vm.warp(saleEnd); // at saleEnd still allowed
+        vm.prank(creator);
+        pool.addCapacity(id, uint128(ONE));
+        vm.warp(saleEnd + 1);
+        vm.expectRevert(CoverPool.SaleClosed.selector);
+        vm.prank(creator);
+        pool.addCapacity(id, uint128(ONE));
+    }
+
+    function test_addCapacity_onlyCreator() public {
+        uint256 id = _createDefault();
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        pool.addCapacity(id, uint128(ONE));
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        vm.prank(rival);
+        pool.addCapacity(id, uint128(ONE));
+    }
+
+    function test_addCapacity_zeroOrCancelled_reverts() public {
+        uint256 id = _createDefault();
+        vm.expectRevert(CoverPool.ZeroAmount.selector);
+        vm.prank(creator);
+        pool.addCapacity(id, 0);
+        vm.prank(creator);
+        pool.cancelSeries(id);
+        vm.expectRevert(CoverPool.SeriesClosed.selector);
+        vm.prank(creator);
+        pool.addCapacity(id, uint128(ONE));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // cancelSeries
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_cancel_unsold_refundsFullEscrow() public {
+        uint256 id = _createDefault();
+        uint256 creatorPre = usdc.balanceOf(creator);
+        vm.prank(creator);
+        vm.expectEmit(true, true, true, true);
+        emit CoverPool.SeriesCancelled(id, creator, CAP);
+        pool.cancelSeries(id);
+        assertEq(usdc.balanceOf(creator) - creatorPre, CAP, "full escrow refunded");
+        assertEq(usdc.balanceOf(address(pool)), 0);
+        CoverPool.Series memory s = pool.series(id);
+        assertTrue(s.cancelled);
+        assertTrue(s.residualWithdrawn, "cancel consumes the one-shot exit latch");
+        assertEq(s.escrow, 0, "refund zeroes the escrow: the series backs nothing");
+        assertEq(s.withdrawn, 0, "the cancel refund is booked by zeroing escrow, not via withdrawn");
+    }
+
+    function test_cancel_onlyCreator() public {
+        uint256 id = _createDefault();
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        pool.cancelSeries(id);
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        vm.prank(rival);
+        pool.cancelSeries(id);
+    }
+
+    function test_cancel_matrix_soldSettledOrCancelled() public {
+        // sold > 0: no cancel, even for the creator
+        uint256 a = _createDefault();
+        _buy(alice, a, ONE);
+        vm.expectRevert(CoverPool.AlreadySold.selector);
+        vm.prank(creator);
+        pool.cancelSeries(a);
+        // settled: no cancel
+        uint256 b = _createDefault();
+        _settleAt(b, obsStart, 9288);
+        vm.expectRevert(CoverPool.AlreadySettled.selector);
+        vm.prank(creator);
+        pool.cancelSeries(b);
+        // already cancelled: no double refund
+        uint256 c = _createDefault();
+        vm.startPrank(creator);
+        pool.cancelSeries(c);
+        vm.expectRevert(CoverPool.SeriesClosed.selector);
+        pool.cancelSeries(c);
+        vm.stopPrank();
+    }
+
+    function test_cancel_unsoldAfterSaleEnd_stillWorks() public {
+        uint256 id = _createDefault();
+        vm.warp(redeemEnd + 1); // nothing was ever sold; the creator recovers late
+        uint256 creatorPre = usdc.balanceOf(creator);
+        vm.prank(creator);
+        pool.cancelSeries(id);
+        assertEq(usdc.balanceOf(creator) - creatorPre, CAP);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // withdrawResidual
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_withdrawResidual_beforeRedeemEnd_reverts() public {
+        uint256 id = _createDefault();
+        vm.expectRevert(CoverPool.RedeemWindowOpen.selector);
+        vm.prank(creator);
+        pool.withdrawResidual(id);
+        vm.warp(redeemEnd); // still open AT redeemEnd (redeem is allowed there)
+        vm.expectRevert(CoverPool.RedeemWindowOpen.selector);
+        vm.prank(creator);
+        pool.withdrawResidual(id);
+    }
+
+    function test_withdrawResidual_onlyCreator() public {
+        uint256 id = _createDefault();
+        vm.warp(redeemEnd + 1);
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        pool.withdrawResidual(id);
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        vm.prank(rival);
+        pool.withdrawResidual(id);
+    }
+
+    function test_withdrawResidual_unsettledSeries_returnsEscrowAndPremiums() public {
+        // UNSETTLED FALLBACK: no qualifying observation ever lands — holders can never
+        // redeem, and after redeemEnd the whole escrow + premiums release to the creator.
+        uint256 id = _createDefault();
         uint256 premium = _buy(alice, id, 4 * ONE);
-        _settleAt(id, T0, 9288); // 61% → reserved drops to 2.44
-        assertEq(pool.reservedOf(id), 2.44e6);
-        assertEq(pool.freeCapital(), 10 * ONE + premium - 2.44e6);
-        // partial redemption further reduces the reserve
+        vm.warp(redeemEnd + 1);
+        vm.expectRevert(CoverPool.NotSettled.selector); // the claim units are worthless
         vm.prank(alice);
         pool.redeem(id, ONE);
-        assertEq(pool.reservedOf(id), 2.44e6 - 0.61e6);
+        uint256 creatorPre = usdc.balanceOf(creator);
+        vm.prank(creator);
+        vm.expectEmit(true, true, true, true);
+        emit CoverPool.ResidualWithdrawn(id, creator, CAP + premium);
+        pool.withdrawResidual(id);
+        assertEq(usdc.balanceOf(creator) - creatorPre, CAP + premium);
+        assertEq(usdc.balanceOf(address(pool)), 0, "series bucket fully drained");
     }
 
-    function test_withdraw_fullReleaseAfterRedeemEnd() public {
+    function test_withdrawResidual_exactAmounts_unredeemedClaimsRelease() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
-        uint256 premium = _buy(alice, id, 4 * ONE);
-        _settleAt(id, T0, 9288);
+        uint256 premium = _buy(alice, id, 4 * ONE); // 1.14
+        _settleAt(id, obsStart, 9288); // 61%
+        vm.prank(alice);
+        pool.redeem(id, ONE); // 0.61 paid; 3 claim units never redeemed
         vm.warp(redeemEnd + 1);
-        assertEq(pool.reservedOf(id), 0, "reserves release after redeemEnd");
-        uint256 balance = 10 * ONE + premium;
-        assertEq(pool.freeCapital(), balance);
-        vm.prank(sponsor);
-        pool.withdrawExcess(balance);
+        uint256 creatorPre = usdc.balanceOf(creator);
+        vm.prank(creator);
+        pool.withdrawResidual(id);
+        // escrow + premiums − paidOut: the 3 unredeemed units' 1.83 stays with the creator
+        assertEq(usdc.balanceOf(creator) - creatorPre, CAP + premium - 0.61e6);
         assertEq(usdc.balanceOf(address(pool)), 0);
+        assertEq(pool.series(id).withdrawn, CAP + premium - 0.61e6);
     }
 
-    function test_fund_onlySponsor_andZeroGuard() public {
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.fundPool(1);
-        vm.prank(sponsor);
-        vm.expectRevert(CoverPool.ZeroAmount.selector);
-        pool.fundPool(0);
+    function test_withdrawResidual_oneShot() public {
+        uint256 id = _createDefault();
+        vm.warp(redeemEnd + 1);
+        vm.startPrank(creator);
+        pool.withdrawResidual(id);
+        vm.expectRevert(CoverPool.ResidualAlreadyWithdrawn.selector);
+        pool.withdrawResidual(id);
+        vm.stopPrank();
     }
 
-    function test_withdraw_onlySponsor() public {
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.withdrawExcess(1);
+    function test_withdrawResidual_afterCancel_reverts() public {
+        uint256 id = _createDefault();
+        vm.prank(creator);
+        pool.cancelSeries(id); // the refund consumed the one-shot residual
+        vm.warp(redeemEnd + 1);
+        vm.expectRevert(CoverPool.SeriesClosed.selector);
+        vm.prank(creator);
+        pool.withdrawResidual(id);
     }
 
-    function test_pause_onlySponsor() public {
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.setSalesPaused(true);
+    /// @dev REGRESSION (double-drain): the two creator exits are strictly mutually
+    ///      exclusive in BOTH orders. An unsold, unsettled series past `redeemEnd`
+    ///      takes its residual once; the follow-up cancel MUST revert instead of
+    ///      paying the escrow a second time out of a sibling creator's bucket.
+    function test_withdrawResidualThenCancel_reverts_siblingEscrowUntouched() public {
+        uint256 victimId = _createAs(rival, CAP); // the sibling escrow that must survive
+        uint256 id = _createDefault(); // unsold, unsettled
+        uint256 id2 = _createAs(rival, CAP); // exercised in the reverse order below
+        vm.prank(rival);
+        pool.cancelSeries(id2); // refund taken while unsold — books already closed
+        vm.warp(redeemEnd + 1);
+
+        uint256 creatorPre = usdc.balanceOf(creator);
+        vm.startPrank(creator);
+        pool.withdrawResidual(id); // pays escrow + premiums (= CAP) exactly once
+        vm.expectRevert(CoverPool.ResidualAlreadyWithdrawn.selector);
+        pool.cancelSeries(id); // the second exit MUST NOT pay again
+        vm.stopPrank();
+        assertEq(usdc.balanceOf(creator) - creatorPre, CAP, "creator paid exactly once");
+
+        // conservation invariant: Σ (escrow + premiums − paidOut − withdrawn) == balance
+        uint256 total;
+        for (uint256 i = 0; i < pool.seriesCount(); ++i) {
+            CoverPool.Series memory s = pool.series(i);
+            total += uint256(s.escrow) + s.premiumsAccrued - s.paidOut - s.withdrawn;
+        }
+        assertEq(usdc.balanceOf(address(pool)), total, "conservation holds across the blocked double exit");
+
+        // the second creator's escrow is untouched and still fully backs its series
+        assertEq(pool.series(victimId).escrow, CAP, "sibling escrow intact");
+        assertEq(usdc.balanceOf(address(pool)), CAP, "pool still holds exactly the sibling's bucket");
+
+        // and the reverse order stays blocked too (see test_withdrawResidual_afterCancel_reverts)
+        vm.expectRevert(CoverPool.SeriesClosed.selector);
+        vm.prank(rival);
+        pool.withdrawResidual(id2);
+    }
+
+    function test_lateSettle_afterRedeemEnd_doesNotReopenRedemption() public {
+        // settle has no deadline, but a late settlement cannot reopen redemption or
+        // shrink the residual — the pre-B fallback semantics, preserved.
+        uint256 id = _createDefault();
+        uint256 premium = _buy(alice, id, 4 * ONE);
+        vm.warp(redeemEnd + 1);
+        _settleAt(id, obsEnd, HIGH); // ratio 1e18, but the window is shut
+        vm.expectRevert(CoverPool.RedeemWindowClosed.selector);
+        vm.prank(alice);
+        pool.redeem(id, ONE);
+        uint256 creatorPre = usdc.balanceOf(creator);
+        vm.prank(creator);
+        pool.withdrawResidual(id);
+        assertEq(usdc.balanceOf(creator) - creatorPre, CAP + premium);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Multi-creator isolation
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_multiCreator_isolation_fullDrainNeverTouchesSibling() public {
+        // interleaved: A creates, alice maxes A out, B creates, bob buys some of B
+        uint128 capA = uint128(10 * ONE);
+        uint128 capB = uint128(20 * ONE);
+        uint256 a = _createAs(creator, capA);
+        uint256 premiumA = _buy(alice, a, capA); // A's escrow fully sold
+        uint256 b = _createAs(rival, capB);
+        uint256 premiumB = _buy(bob, b, 5 * ONE);
+
+        // A settles at full payout: alice's claims consume A's ENTIRE escrow
+        _settleAt(a, obsStart, HIGH); // ratio 1e18
+        vm.prank(alice);
+        pool.redeem(a, capA);
+        assertEq(pool.series(a).paidOut, capA);
+
+        // B's bucket is untouched: escrow + premiums all still in the pool
+        assertEq(usdc.balanceOf(address(pool)), premiumA + capB + premiumB, "B's bucket intact after A drained");
+
+        // B settles worthless; bob's redemption pays zero out of B
+        uint256 obsB = oracle.push(obsStart + 1, LOW, bytes32("b-zero"));
+        pool.settle(b, obsB);
+        vm.prank(bob);
+        pool.redeem(b, 5 * ONE);
+
+        // residuals: each creator gets exactly their own bucket, nothing more
+        vm.warp(redeemEnd + 1);
+        uint256 aPre = usdc.balanceOf(creator);
+        uint256 bPre = usdc.balanceOf(rival);
+        vm.prank(creator);
+        pool.withdrawResidual(a);
+        vm.prank(rival);
+        pool.withdrawResidual(b);
+        assertEq(usdc.balanceOf(creator) - aPre, premiumA, "A: escrow fully claimed, premiums only");
+        assertEq(usdc.balanceOf(rival) - bPre, capB + premiumB, "B: full escrow + premiums back");
+        assertEq(usdc.balanceOf(address(pool)), 0, "conservation: both buckets sum to the pool");
+    }
+
+    function test_multiCreator_leversAreCreatorScoped() public {
+        uint256 a = _createAs(creator, CAP);
+        uint256 b = _createAs(rival, CAP);
+        vm.startPrank(creator);
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        pool.setSeriesPaused(b, true);
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        pool.addCapacity(b, uint128(ONE));
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        pool.cancelSeries(b);
+        vm.stopPrank();
+        vm.startPrank(rival);
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        pool.setSeriesPaused(a, true);
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        pool.cancelSeries(a);
+        vm.warp(redeemEnd + 1);
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        pool.withdrawResidual(a);
+        vm.stopPrank();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -539,7 +888,6 @@ contract CoverPoolTest is Test {
 
     function test_token_transfersDisabled() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         _buy(alice, id, ONE);
         vm.prank(alice);
         vm.expectRevert(CoverToken.TransfersDisabled.selector);
@@ -582,182 +930,11 @@ contract CoverPoolTest is Test {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Two-step sponsor handoff
-    // ─────────────────────────────────────────────────────────────────────────
-
-    function test_constructor_zeroSponsor_reverts() public {
-        vm.expectRevert(CoverPool.ZeroAddress.selector);
-        new CoverPool(usdc, token, IObservationOracle(address(oracle)), address(0));
-    }
-
-    function test_transferSponsorship_onlySponsor() public {
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.transferSponsorship(alice);
-    }
-
-    function test_transferSponsorship_renounceDisallowed() public {
-        vm.prank(sponsor);
-        vm.expectRevert(CoverPool.ZeroAddress.selector);
-        pool.transferSponsorship(address(0));
-    }
-
-    function test_sponsorHandoff_happyPath() public {
-        address agent = makeAddr("agent");
-        vm.prank(sponsor);
-        vm.expectEmit(true, true, true, true);
-        emit CoverPool.SponsorshipTransferStarted(sponsor, agent);
-        pool.transferSponsorship(agent);
-        assertEq(pool.sponsor(), sponsor, "no handover before accept");
-        assertEq(pool.pendingSponsor(), agent);
-
-        vm.prank(agent);
-        vm.expectEmit(true, true, true, true);
-        emit CoverPool.SponsorshipTransferred(sponsor, agent);
-        pool.acceptSponsorship();
-        assertEq(pool.sponsor(), agent);
-        assertEq(pool.pendingSponsor(), address(0), "pending slot cleared");
-    }
-
-    function test_acceptSponsorship_onlyPending() public {
-        // no handoff in flight: nobody may accept
-        vm.prank(alice);
-        vm.expectRevert(CoverPool.NotPendingSponsor.selector);
-        pool.acceptSponsorship();
-        // handoff in flight: neither a stranger nor the current sponsor may accept
-        address agent = makeAddr("agent");
-        vm.prank(sponsor);
-        pool.transferSponsorship(agent);
-        vm.prank(alice);
-        vm.expectRevert(CoverPool.NotPendingSponsor.selector);
-        pool.acceptSponsorship();
-        vm.prank(sponsor);
-        vm.expectRevert(CoverPool.NotPendingSponsor.selector);
-        pool.acceptSponsorship();
-    }
-
-    function test_sponsorHandoff_pendingOverwrite() public {
-        address first = makeAddr("first");
-        address second = makeAddr("second");
-        vm.startPrank(sponsor);
-        pool.transferSponsorship(first);
-        pool.transferSponsorship(second); // overwrites the in-flight handoff
-        vm.stopPrank();
-        assertEq(pool.pendingSponsor(), second);
-        vm.prank(first);
-        vm.expectRevert(CoverPool.NotPendingSponsor.selector);
-        pool.acceptSponsorship();
-        vm.prank(second);
-        pool.acceptSponsorship();
-        assertEq(pool.sponsor(), second);
-    }
-
-    function test_cancelSponsorshipTransfer_clearsPending() public {
-        address agent = makeAddr("agent");
-        vm.prank(sponsor);
-        pool.transferSponsorship(agent);
-        assertEq(pool.pendingSponsor(), agent);
-
-        vm.prank(sponsor);
-        vm.expectEmit(true, true, true, true);
-        emit CoverPool.SponsorshipTransferCanceled(sponsor, agent);
-        pool.cancelSponsorshipTransfer();
-        assertEq(pool.pendingSponsor(), address(0), "pending slot cleared");
-        assertEq(pool.sponsor(), sponsor, "sponsor unchanged");
-
-        // the canceled pending sponsor can no longer accept
-        vm.prank(agent);
-        vm.expectRevert(CoverPool.NotPendingSponsor.selector);
-        pool.acceptSponsorship();
-    }
-
-    function test_cancelSponsorshipTransfer_onlySponsor() public {
-        address agent = makeAddr("agent");
-        vm.prank(sponsor);
-        pool.transferSponsorship(agent);
-        // neither a stranger nor the pending sponsor itself may cancel
-        vm.prank(alice);
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.cancelSponsorshipTransfer();
-        vm.prank(agent);
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.cancelSponsorshipTransfer();
-    }
-
-    function test_cancelSponsorshipTransfer_noHandoffInFlight_reverts() public {
-        vm.prank(sponsor);
-        vm.expectRevert(CoverPool.NoHandoffInFlight.selector);
-        pool.cancelSponsorshipTransfer();
-    }
-
-    function test_sponsorHandoff_pendingHasNoLeversBeforeAccept() public {
-        address agent = makeAddr("agent");
-        vm.prank(sponsor);
-        pool.transferSponsorship(agent);
-        vm.startPrank(agent);
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.fundPool(1);
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.setSalesPaused(true);
-        vm.stopPrank();
-    }
-
-    function test_sponsorHandoff_oldSponsorLockedOut() public {
-        uint256 id = _createDefault();
-        address agent = makeAddr("agent");
-        vm.prank(sponsor);
-        pool.transferSponsorship(agent);
-        vm.prank(agent);
-        pool.acceptSponsorship();
-
-        vm.startPrank(sponsor);
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.fundPool(1);
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.withdrawExcess(1);
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.setSalesPaused(true);
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.setSeriesPaused(id, true);
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.transferSponsorship(sponsor);
-        vm.expectRevert(CoverPool.NotSponsor.selector);
-        pool.cancelSponsorshipTransfer();
-        vm.stopPrank();
-    }
-
-    function test_sponsorHandoff_leversWorkForNewSponsor() public {
-        address agent = makeAddr("agent");
-        usdc.mint(agent, 100 * ONE);
-        vm.prank(agent);
-        usdc.approve(address(pool), type(uint256).max);
-
-        vm.prank(sponsor);
-        pool.transferSponsorship(agent);
-        vm.prank(agent);
-        pool.acceptSponsorship();
-
-        vm.startPrank(agent);
-        uint256 id = pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
-        pool.fundPool(10 * ONE);
-        pool.setSalesPaused(true);
-        pool.setSalesPaused(false);
-        pool.setSeriesPaused(id, true);
-        pool.setSeriesPaused(id, false);
-        pool.withdrawExcess(10 * ONE);
-        pool.transferSponsorship(sponsor); // and can hand back
-        vm.stopPrank();
-        assertEq(pool.pendingSponsor(), sponsor);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // buyProtectionFor (recipient minting; cover stays soulbound)
     // ─────────────────────────────────────────────────────────────────────────
 
     function test_buyFor_mintsToRecipient_pullsPremiumFromPayer() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         uint256 premium = (ONE * RATE) / 1e4;
         uint256 alicePre = usdc.balanceOf(alice);
         uint256 bobPre = usdc.balanceOf(bob);
@@ -774,7 +951,6 @@ contract CoverPoolTest is Test {
 
     function test_buyFor_zeroRecipient_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         vm.expectRevert(CoverPool.ZeroAddress.selector);
         vm.prank(alice);
         pool.buyProtectionFor(id, ONE, type(uint256).max, address(0));
@@ -782,10 +958,9 @@ contract CoverPoolTest is Test {
 
     function test_buyFor_recipientRedeems_payerCannot() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         vm.prank(alice);
         pool.buyProtectionFor(id, ONE, type(uint256).max, bob);
-        _settleAt(id, T0, 9288); // 61%
+        _settleAt(id, obsStart, 9288); // 61%
         vm.expectRevert(); // ERC1155InsufficientBalance: the payer holds no claim units
         vm.prank(alice);
         pool.redeem(id, ONE);
@@ -797,7 +972,6 @@ contract CoverPoolTest is Test {
 
     function test_buyFor_coverStaysSoulbound() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         vm.prank(alice);
         pool.buyProtectionFor(id, ONE, type(uint256).max, bob);
         vm.prank(bob);
@@ -807,7 +981,6 @@ contract CoverPoolTest is Test {
 
     function test_buyFor_nonReceiverContract_reverts_fundsUntouched() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         NonReceiver stranded = new NonReceiver();
         uint256 alicePre = usdc.balanceOf(alice);
         uint256 poolPre = usdc.balanceOf(address(pool));
@@ -822,7 +995,6 @@ contract CoverPoolTest is Test {
 
     function test_buyFor_acceptingContractRecipient_ok() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         AcceptingRecipient holder = new AcceptingRecipient();
         vm.prank(alice);
         pool.buyProtectionFor(id, ONE, type(uint256).max, address(holder));
@@ -831,7 +1003,6 @@ contract CoverPoolTest is Test {
 
     function test_buyFor_reentrancyBlocked() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         ReentrantRecipient attacker = new ReentrantRecipient(pool, usdc);
         usdc.mint(address(attacker), 5 * ONE);
         vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
@@ -840,7 +1011,6 @@ contract CoverPoolTest is Test {
 
     function test_buyFor_reentrancyBlocked_viaWrapper() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         ReentrantRecipient attacker = new ReentrantRecipient(pool, usdc);
         usdc.mint(address(attacker), 5 * ONE);
         vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
@@ -849,9 +1019,8 @@ contract CoverPoolTest is Test {
 
     function test_settle_reentrancyBlocked_fromMintCallback() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         // a qualifying observation already exists; settling mid-purchase must still fail
-        oracle.push(T0, 9288, bytes32("mid-buy"));
+        oracle.push(obsStart, 9288, bytes32("mid-buy"));
         ReentrantRecipient attacker = new ReentrantRecipient(pool, usdc);
         usdc.mint(address(attacker), 5 * ONE);
         vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
@@ -859,18 +1028,46 @@ contract CoverPoolTest is Test {
         assertFalse(pool.series(id).settled, "no settlement happened");
     }
 
+    function test_createSeries_reentrancyBlocked_fromMintCallback() public {
+        uint256 id = _createDefault();
+        ReentrantRecipient attacker = new ReentrantRecipient(pool, usdc);
+        usdc.mint(address(attacker), 5 * ONE);
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        attacker.attack(id, ONE, 3);
+        assertEq(pool.seriesCount(), 1, "no series appended");
+    }
+
+    function test_cancelSeries_reentrancyBlocked_fromMintCallback() public {
+        uint256 id = _createDefault();
+        ReentrantRecipient attacker = new ReentrantRecipient(pool, usdc);
+        usdc.mint(address(attacker), 5 * ONE);
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        attacker.attack(id, ONE, 4);
+        assertFalse(pool.series(id).cancelled, "no cancel happened");
+    }
+
+    function test_withdrawResidual_reentrancyBlocked_fromMintCallback() public {
+        uint256 id = _createDefault();
+        ReentrantRecipient attacker = new ReentrantRecipient(pool, usdc);
+        usdc.mint(address(attacker), 5 * ONE);
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        attacker.attack(id, ONE, 5);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
-    // Per-series pause vs global pause
+    // Per-series pause (creator-only; no global pause exists)
     // ─────────────────────────────────────────────────────────────────────────
 
-    function test_setSeriesPaused_onlySponsor() public {
+    function test_setSeriesPaused_onlyCreator() public {
         uint256 id = _createDefault();
-        vm.expectRevert(CoverPool.NotSponsor.selector);
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        pool.setSeriesPaused(id, true);
+        vm.expectRevert(CoverPool.NotCreator.selector);
+        vm.prank(alice);
         pool.setSeriesPaused(id, true);
     }
 
     function test_setSeriesPaused_unknownSeries_reverts() public {
-        vm.prank(sponsor);
         vm.expectRevert(CoverPool.InvalidSeries.selector);
         pool.setSeriesPaused(0, true);
     }
@@ -878,8 +1075,7 @@ contract CoverPoolTest is Test {
     function test_seriesPause_blocksOnlyThatSeries() public {
         uint256 a = _createDefault();
         uint256 b = _createDefault();
-        _fund(10 * ONE);
-        vm.prank(sponsor);
+        vm.prank(creator);
         pool.setSeriesPaused(a, true);
         assertTrue(pool.seriesPaused(a));
         assertFalse(pool.seriesPaused(b));
@@ -893,58 +1089,40 @@ contract CoverPoolTest is Test {
         // the sibling series keeps selling
         _buy(alice, b, ONE);
         // unpause reopens the series
-        vm.prank(sponsor);
+        vm.prank(creator);
         pool.setSeriesPaused(a, false);
         _buy(alice, a, ONE);
     }
 
-    function test_globalPause_blocksUnpausedSeries() public {
-        uint256 a = _createDefault();
-        uint256 b = _createDefault();
-        _fund(10 * ONE);
-        vm.prank(sponsor);
-        pool.setSalesPaused(true);
+    function test_seriesPause_crossCreatorMatrix() public {
+        uint256 a = _createAs(creator, CAP);
+        uint256 b = _createAs(rival, CAP);
+        vm.prank(creator);
+        pool.setSeriesPaused(a, true);
+        // rival's series keeps selling while creator's is paused
+        _buy(alice, b, ONE);
         vm.expectRevert(CoverPool.SalesArePaused.selector);
         vm.prank(alice);
         pool.buyProtection(a, ONE, type(uint256).max);
+        // and vice versa
+        vm.prank(creator);
+        pool.setSeriesPaused(a, false);
+        vm.prank(rival);
+        pool.setSeriesPaused(b, true);
+        _buy(alice, a, ONE);
         vm.expectRevert(CoverPool.SalesArePaused.selector);
         vm.prank(alice);
-        pool.buyProtectionFor(b, ONE, type(uint256).max, bob);
-    }
-
-    function test_bothPauses_mustBothClear() public {
-        uint256 id = _createDefault();
-        _fund(10 * ONE);
-        vm.startPrank(sponsor);
-        pool.setSalesPaused(true);
-        pool.setSeriesPaused(id, true);
-        vm.stopPrank();
-        vm.expectRevert(CoverPool.SalesArePaused.selector);
-        vm.prank(alice);
-        pool.buyProtection(id, ONE, type(uint256).max);
-        // clearing only the global switch is not enough
-        vm.prank(sponsor);
-        pool.setSalesPaused(false);
-        vm.expectRevert(CoverPool.SalesArePaused.selector);
-        vm.prank(alice);
-        pool.buyProtection(id, ONE, type(uint256).max);
-        // clearing the series switch reopens the sale
-        vm.prank(sponsor);
-        pool.setSeriesPaused(id, false);
-        _buy(alice, id, ONE);
+        pool.buyProtection(b, ONE, type(uint256).max);
     }
 
     function test_seriesPause_neverBlocksSettleOrRedeem() public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
         _buy(alice, id, ONE);
-        vm.startPrank(sponsor);
+        vm.prank(creator);
         pool.setSeriesPaused(id, true);
-        pool.setSalesPaused(true);
-        vm.stopPrank();
-        _settleAt(id, T0, 9288); // settle ignores both switches
+        _settleAt(id, obsStart, 9288); // settle ignores the pause
         vm.prank(alice);
-        pool.redeem(id, ONE); // redeem ignores both switches
+        pool.redeem(id, ONE); // redeem ignores the pause
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -954,82 +1132,80 @@ contract CoverPoolTest is Test {
     /// @dev Payout ratio is the documented clamp for any cents value.
     function testFuzz_settle_ratioClamp(uint32 cents) public {
         uint256 id = _createDefault();
-        _settleAt(id, T0, cents);
+        _settleAt(id, obsStart, cents);
         uint256 ratio = pool.series(id).payoutRatioWad;
         if (cents <= LOW) assertEq(ratio, 0);
         else if (cents >= HIGH) assertEq(ratio, 1e18);
         else assertEq(ratio, (uint256(cents - LOW) * 1e18) / (HIGH - LOW));
     }
 
-    /// @dev Any funded buy leaves the pool solvent, and full redemption after any
-    ///      settlement can always be paid.
-    function testFuzz_buySettleRedeem_solvent(uint96 maxClaimRaw, uint32 cents, uint96 fundingRaw) public {
+    /// @dev Full circle for any single buy: the claim is always payable out of the
+    ///      series escrow, and afterwards the creator's residual closes the bucket to
+    ///      exactly zero — per-series conservation.
+    function testFuzz_buySettleRedeem_fullCircle(uint96 maxClaimRaw, uint32 cents) public {
         uint256 maxClaim = bound(uint256(maxClaimRaw), 1, CAP);
-        uint256 funding = bound(uint256(fundingRaw), 0, 900 * ONE);
         uint256 id = _createDefault();
-        if (funding > 0) _fund(funding);
 
         uint256 premium = (maxClaim * RATE) / 1e4;
         vm.prank(alice);
-        try pool.buyProtection(id, maxClaim, premium) {
-            assertGt(premium, 0, "zero-premium buys must revert");
-            assertGe(usdc.balanceOf(address(pool)), pool.totalReserved(), "solvency after buy");
-        } catch {
-            // either the dust guard (premium rounds to zero) or the solvency guard
-            assertTrue(
-                premium == 0 || funding + premium < maxClaim, "only dust or insolvency may block a capacity-ok buy"
-            );
+        if (premium == 0) {
+            vm.expectRevert(CoverPool.PremiumRoundsToZero.selector);
+            pool.buyProtection(id, maxClaim, premium);
             return;
         }
+        pool.buyProtection(id, maxClaim, premium);
 
-        _settleAt(id, T0, cents);
+        _settleAt(id, obsStart, cents);
         uint256 owed = (maxClaim * pool.series(id).payoutRatioWad) / 1e18;
         uint256 before = usdc.balanceOf(alice);
         vm.prank(alice);
         pool.redeem(id, maxClaim);
         assertEq(usdc.balanceOf(alice) - before, owed, "full claim paid");
-        assertGe(usdc.balanceOf(address(pool)), pool.totalReserved(), "solvency after redeem");
+
+        vm.warp(redeemEnd + 1);
+        uint256 creatorPre = usdc.balanceOf(creator);
+        vm.prank(creator);
+        pool.withdrawResidual(id);
+        assertEq(usdc.balanceOf(creator) - creatorPre, CAP + premium - owed, "residual = escrow + premium - payout");
+        assertEq(usdc.balanceOf(address(pool)), 0, "bucket closes to zero");
     }
 
     /// @dev buyProtectionFor: for any recipient-minted purchase, the payer funds the
-    ///      premium, the recipient holds exactly the claim, and solvency holds.
-    function testFuzz_buyFor_payerRecipientSplit(uint96 maxClaimRaw, uint96 fundingRaw) public {
+    ///      premium and the recipient holds exactly the claim.
+    function testFuzz_buyFor_payerRecipientSplit(uint96 maxClaimRaw) public {
         uint256 maxClaim = bound(uint256(maxClaimRaw), 1, CAP);
-        uint256 funding = bound(uint256(fundingRaw), 0, 900 * ONE);
         uint256 id = _createDefault();
-        if (funding > 0) _fund(funding);
 
         uint256 premium = (maxClaim * RATE) / 1e4;
         uint256 alicePre = usdc.balanceOf(alice);
         vm.prank(alice);
-        try pool.buyProtectionFor(id, maxClaim, premium, bob) {
-            assertGt(premium, 0, "zero-premium buys must revert");
-            assertEq(alicePre - usdc.balanceOf(alice), premium, "payer paid");
-            assertEq(token.balanceOf(bob, id), maxClaim, "recipient holds");
-            assertEq(token.balanceOf(alice, id), 0);
-            assertGe(usdc.balanceOf(address(pool)), pool.totalReserved(), "solvency after buyFor");
-        } catch {
-            assertTrue(
-                premium == 0 || funding + premium < maxClaim, "only dust or insolvency may block a capacity-ok buyFor"
-            );
+        if (premium == 0) {
+            vm.expectRevert(CoverPool.PremiumRoundsToZero.selector);
+            pool.buyProtectionFor(id, maxClaim, premium, bob);
+            return;
         }
+        pool.buyProtectionFor(id, maxClaim, premium, bob);
+        assertEq(alicePre - usdc.balanceOf(alice), premium, "payer paid");
+        assertEq(token.balanceOf(bob, id), maxClaim, "recipient holds");
+        assertEq(token.balanceOf(alice, id), 0);
+        assertEq(pool.series(id).premiumsAccrued, premium);
     }
 
-    /// @dev Sponsor can never withdraw into the reserve.
-    function testFuzz_withdraw_neverBreaksSolvency(uint96 withdrawRaw) public {
+    /// @dev Escrow can never be over-sold, whatever the top-up sequence.
+    function testFuzz_addCapacity_soldNeverExceedsEscrow(uint96 topUpRaw, uint96 buyRaw) public {
         uint256 id = _createDefault();
-        _fund(10 * ONE);
-        _buy(alice, id, 4 * ONE);
-        uint256 amt = bound(uint256(withdrawRaw), 0, 20 * ONE);
-        uint256 free = pool.freeCapital();
-        if (amt > free) {
-            vm.expectRevert(abi.encodeWithSelector(CoverPool.InsufficientFreeCapital.selector, amt, free));
-            vm.prank(sponsor);
-            pool.withdrawExcess(amt);
+        uint128 topUp = uint128(bound(uint256(topUpRaw), 1, 1_000 * ONE));
+        vm.prank(creator);
+        pool.addCapacity(id, topUp);
+        uint256 escrow = uint256(CAP) + topUp;
+        uint256 buyAmt = bound(uint256(buyRaw), 4, escrow + ONE);
+        vm.prank(alice);
+        if (buyAmt > escrow) {
+            vm.expectRevert(CoverPool.CapacityExceeded.selector);
+            pool.buyProtection(id, buyAmt, type(uint256).max);
         } else {
-            vm.prank(sponsor);
-            pool.withdrawExcess(amt);
-            assertGe(usdc.balanceOf(address(pool)), pool.totalReserved());
+            pool.buyProtection(id, buyAmt, type(uint256).max);
+            assertLe(pool.series(id).sold, escrow);
         }
     }
 }

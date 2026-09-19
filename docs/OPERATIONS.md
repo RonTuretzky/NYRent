@@ -1,8 +1,10 @@
 # Operations
 
 Runbooks for deploying the contracts, recording a settlement email, and recovering from the
-failure modes the protocol documents. Contract interfaces are frozen in [SPEC.md](SPEC.md);
-trust boundaries in [PROTOCOL.md](PROTOCOL.md).
+failure modes the protocol documents. Trust boundaries live in [PROTOCOL.md](PROTOCOL.md);
+the Uniswap pay-with-any-token wiring in [UNISWAP.md](UNISWAP.md). ([SPEC.md](SPEC.md) is the
+frozen legacy record of the original v1 build and no longer describes the deployed
+interfaces.)
 
 ## Environment
 
@@ -10,13 +12,20 @@ Copy `.env.example` to `.env` (gitignored) and fill:
 
 | Variable | Meaning |
 |---|---|
-| `DEPLOYER_PRIVATE_KEY` | Deployer/sponsor key. **Never committed, never echoed.** The real deployer is `0x6636A1CCBdf54485067304C1a590DE016DeaD9F0`. |
+| `DEPLOYER_PRIVATE_KEY` | Deployer key (in the retired v1 also the pool sponsor; the current pool has no roles). **Never committed, never echoed.** The real deployer is `0x6636A1CCBdf54485067304C1a590DE016DeaD9F0`. |
 | `GNOSIS_RPC_URL` | Gnosis RPC, e.g. `https://rpc.gnosischain.com` |
 
 No private key ever appears in the repository, CI logs, or `deployment.json`. Local e2e uses only
 the publicly known Anvil dev accounts.
 
-## Deploy runbook (Gnosis, chainId 100)
+## Deploy runbook (Gnosis, chainId 100) — Legacy (retired v1)
+
+> **Legacy (retired v1).** This runbook and its gas table record the 2026-09-18 execution
+> against the SPONSOR-model contracts (fund/withdraw levers, demo series created at deploy).
+> It is preserved as history; nothing below is how the current permissionless version deploys.
+> For the current procedure see the [Arbitrum deployment (current)](#arbitrum-deployment-current)
+> runbook — same script on any chain, and **mainnet deploys create no series** (the agent, or
+> any underwriter, escrows capacity and calls the permissionless `createSeries` afterwards).
 
 1. **Preconditions.**
    - `forge --version` ≥ 1.5, solc 0.8.26 per `foundry.toml`.
@@ -74,16 +83,11 @@ the publicly known Anvil dev accounts.
    `cast rpc anvil_setCode 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 0x --rpc-url <fork>`.
    The real deployer key has no delegation; this is fork-only.
 
-   The script deploys `CredailyRentOracle` → `CoverToken`+`CoverPool` (CREATE-address precompute
-   for the circular immutable) → `SwapAndBuyRouter` against the chain's Uniswap SwapRouter02
-   (on Gnosis: `0xc6D25285D5C5b62b7ca26D6092751A145D50e9Be`) → creates the demo series (strikes
-   9288/10088, 1133 bps premium, `saleEnd = obsStart` 2026-10-03 12:16:50 UTC, `obsEnd`
-   2026-11-02, `redeemEnd` 2026-12-02, capacity 0.5 currency units at the currency's live
-   decimals) and asserts the deployed state, router wiring (`pool`/`swapRouter`/`usdc`/`weth9`)
-   included. Broadcast output is etherform-compatible
-   (`broadcast/Deploy.s.sol/100/run-latest.json`). The gas table above is the measured cost of
-   the 2026-09-18 executed run (the legacy contract version, no router); a re-run today deploys
-   the current single-version stack and prices slightly differently — simulate first, as always.
+   The gas table above is the measured cost of the 2026-09-18 executed run (the retired v1
+   sponsor-model contracts, no router, demo series created at deploy). A re-run today deploys
+   the current permissionless stack — oracle → token → pool → router, **zero series on
+   mainnet** — and prices differently; simulate first, as always. Broadcast output is
+   etherform-compatible (`broadcast/Deploy.s.sol/100/run-latest.json`).
 
 3. **Record addresses.** Write `web/src/deployment.json`
    (`{ chainId, oracle, pool, token, currency, seriesIds }`) from the broadcast file and update
@@ -109,10 +113,11 @@ the publicly known Anvil dev accounts.
 
 The runbook above was executed against Gnosis mainnet; all three contracts are Sourcify
 `exact_match` verified. **This deployment predates the current contract version** — its
-`CoverPool` has an immutable sponsor and no `buyProtectionFor`, per-series pause, or
-`SwapAndBuyRouter` — and it remains live on-chain as a documented legacy artifact only. The
-codebase carries exactly one contract version (the current `src/CoverPool.sol`); any new
-deployment, on any chain, uses it.
+`CoverPool` is the sponsor model (immutable sponsor holding fund/withdraw/pause levers, a
+shared capital pot, no `buyProtectionFor`, no `SwapAndBuyRouter`), where the current version
+is fully permissionless with per-series creator escrow and no roles at all — and it remains
+live on-chain as a documented legacy artifact only. The codebase carries exactly one contract
+version (the current `src/CoverPool.sol`); any new deployment, on any chain, uses it.
 
 | Contract | Address |
 |---|---|
@@ -171,8 +176,9 @@ the series observation window.
 
    If the oracle already knows the email (`AlreadyRecorded`), the tooling skips straight to
    `settle` — recording is global, one settlement email can settle many series.
-4. **After settlement.** Buyers redeem on `/redeem/:id` until `redeemEnd`; after `redeemEnd` the
-   sponsor's residual reserves become withdrawable (`/sponsor`). Settlement gas for the real
+4. **After settlement.** Buyers redeem on `/redeem/:id` until `redeemEnd`; after `redeemEnd`
+   each series creator's residual (`escrow − paidOut + premiumsAccrued`) becomes withdrawable
+   through the one-shot `withdrawResidual(seriesId)`. Settlement gas for the real
    fixture: `submitObservation` executes in 3,854,631 gas (`RealEmail.t.sol` `--gas-report`;
    `extractSnapshot` alone is 1,619,795 for the 102 KB body) and costs 4,177,060 gas as an
    on-chain transaction (measured on a Gnosis fork — the difference is calldata intrinsic gas
@@ -186,10 +192,13 @@ the series observation window.
 | 5174 | `vite preview` of the built app (e2e; `npm --prefix web run preview`) |
 | 5173 | `vite` dev server (manual development) |
 
-`npm run e2e` at the repo root orchestrates the whole loop: Anvil → `Deploy.s.sol` with the
-well-known Anvil dev key #0 → currency seeding → `vite build && vite preview` → the Playwright
-journey/failure suites. See [TESTING.md](TESTING.md) and `e2e/README.md`. Local runs write a
-temporary `web/src/deployment.json` (restored afterwards) and never touch Gnosis or real keys.
+`npm run e2e` at the repo root orchestrates the whole loop: Anvil (clock pinned with
+`--timestamp` before the fixture email's signed `t` — required now that `saleEnd ≤ obsStart`
+is a contract rule and only local chains get a demo series, escrowed inline by the dev key) →
+`Deploy.s.sol` with the well-known Anvil dev key #0 → currency seeding → `vite build && vite
+preview` → the Playwright journey/failure suites. See [TESTING.md](TESTING.md) and
+`e2e/README.md`. Local runs write a temporary `web/src/deployment.json` (restored afterwards)
+and never touch mainnet chains or real keys.
 
 ## Recovery
 
@@ -207,18 +216,27 @@ temporary `web/src/deployment.json` (restored afterwards) and never touch Gnosis
 - **Transaction reverted:** the app decodes custom errors (`AlreadyRecorded`, `BadSignature`,
   `BadBodyHash`, `AnchorNotUnique`, window/solvency errors) into human-readable copy; the same
   names appear in `cast` traces. Reread series state before retrying.
-- **RPC down / wrong network:** the app prompts a RainbowKit switch to Gnosis; headless tooling
-  takes `GNOSIS_RPC_URL` from env — point it at any healthy Gnosis RPC.
-- **Sponsor liquidity:** `withdrawExcess` can never take reserved collateral; if a withdraw
-  reverts, the amount exceeds `freeCapital()` — wait for `redeemEnd` or unsold capacity.
+- **RPC down / wrong network:** the app prompts a RainbowKit switch; headless tooling takes
+  its RPC URL from env — point it at any healthy endpoint for the deployment's chain.
+- **Creator liquidity:** escrow backing sold cover is untouchable while claims are live. A
+  reverting `withdrawResidual` means the claim window is still open (`RedeemWindowOpen`) or
+  the one-shot already happened (`ResidualAlreadyWithdrawn`); `cancelSeries` refunds only
+  while `sold == 0`. There is nothing else to unlock — wait for `redeemEnd`.
 
 ## Agent runbook (daily rent-scout, `agent/`)
 
 The `agent/` package (own `package.json`, Node ≥ 22, `viem` as its only dependency) is the
-autonomous sponsor: real collectors (CRE Daily web archive, Kalshi, CRE reports, the on-chain
-oracle) → deterministic policy (`agent/policy/decide.mjs`, pure + clamped) → Gnosis executors
-(`agent/executors/direct.mjs`). Full architecture, policy-constant table, and a worked example
-live in [`agent/README.md`](../agent/README.md).
+autonomous reference underwriter: real collectors (CRE Daily web archive, Kalshi, CRE reports,
+the on-chain oracle) → deterministic policy (`agent/policy/decide.mjs`, pure + clamped) →
+executors (`agent/executors/direct.mjs`). Full architecture, policy-constant table, and a
+worked example live in [`agent/README.md`](../agent/README.md).
+
+> Against the CURRENT permissionless pool the agent holds no role at all: it is one underwriter
+> wallet among any number, escrowing its own capital inside `createSeries` and managing only
+> its own series (pause / addCapacity / cancel / residual). The executor specifics below that
+> name sponsor levers (`fundPool`, `setSalesPaused`, `withdrawExcess`) describe the agent as
+> built against the retired v1 Gnosis pool, which remains live as a legacy artifact; the
+> `agent/` workflow owns updating them.
 
 ### Dry run (default — never touches the chain, no key needed)
 
@@ -249,9 +267,9 @@ morning send) and uploads `agent/runs/*.json`. Scheduled runs **never** execute.
 To allow on-chain execution (operator opt-in, per run):
 
 1. Add the repository secret `DEPLOYER_PRIVATE_KEY` (Settings → Secrets and variables →
-   Actions). This is the CoverPool sponsor key — same hygiene as the deploy runbook:
-   never committed, never echoed; the workflow passes it via step `env` only and fails fast if
-   it is missing.
+   Actions). This is the agent's underwriter wallet key (v1: the pool sponsor key) — same
+   hygiene as the deploy runbook: never committed, never echoed; the workflow passes it via
+   step `env` only and fails fast if it is missing.
 2. Trigger the workflow manually: Actions → agent-daily → *Run workflow* → set `execute=true`.
    Exit `2` (acted) is mapped to success; exit `3` (policy refused) fails the run — read the
    uploaded run report before retrying.
@@ -262,9 +280,9 @@ To allow on-chain execution (operator opt-in, per run):
 
 ### Bankr (optional, strictly advisory)
 
-Bankr has **no Gnosis support**, so Bankr can never execute the Gnosis pool (a sponsor handoff
-to an agent wallet is a two-step `transferSponsorship`/`acceptSponsorship` on-chain action —
-see the trust-model notes in the Arbitrum runbook below). With the `BANKR_API_KEY` secret/env
+Bankr has **no Gnosis support**, so Bankr can never execute against the Gnosis pools (and the
+current permissionless pool has no role to hand over in any case — an "agent takeover" is just
+a different wallet underwriting its own series). With the `BANKR_API_KEY` secret/env
 set, `agent/executors/bankr.mjs` adds: a pre-execution
 second opinion on the Plan via `api.bankr.bot` (approve/caution/veto — recorded, non-blocking
 unless `BANKR_ADVISORY_BLOCKING=1`), a post-execution operator notification, and an optional
@@ -272,17 +290,19 @@ tiny Base-chain mirror (double-gated: also needs `BANKR_MIRROR=1`). `BANKR_LLM_K
 OpenAI-compatible `llm.bankr.bot` gateway for the advisory prompt. Without the key everything
 degrades to `{enabled:false}` no-ops — Bankr can never block Direct execution.
 
-## Arbitrum deployment
+## Arbitrum deployment (current)
 
-Runbook for `script/Deploy.s.sol` on **Arbitrum One, chainId 42161** — the same single script
-and the same single contract version as the Gnosis runbook above ({CredailyRentOracle} with the
-same pinned CRE Daily key, {CoverToken}, {CoverPool}, {SwapAndBuyRouter}); only the per-chain
-defaults differ.
+Runbook for `script/Deploy.s.sol` on **Arbitrum One, chainId 42161** — the permissionless
+contract version ({CredailyRentOracle} with the same pinned CRE Daily key, {CoverToken}, the
+no-roles {CoverPool}, {SwapAndBuyRouter}). The same single script serves every chain; only the
+per-chain defaults differ. **Mainnet deploys create no series**: the stack ships empty and the
+first series comes from whoever escrows capital through the permissionless `createSeries` —
+the reference agent, or any underwriter (the postflight asserts `seriesCount() == 0` and that
+no sponsor/owner-era selector answers on the pool).
 
 **Six decimals.** The pool currency on Arbitrum is native (Circle-issued) USDC — **6 decimals,
-not 18**. The pool math is decimal-agnostic, but every human-entered amount (fund, capacity,
-max-claim, premium) is in 6-dec units: `500000` = 0.5 USDC. The deploy script derives the demo
-capacity from the currency's live `decimals()`, never from a hardcoded unit.
+not 18**. The pool math is decimal-agnostic, but every human-entered amount (escrow capacity,
+max-claim, premium) is in 6-dec units: `500000` = 0.5 USDC.
 
 1. **Preconditions.**
    - `forge --version` ≥ 1.5, solc 0.8.26 per `foundry.toml`; `ARBITRUM_RPC_URL` set, e.g.
@@ -322,27 +342,29 @@ capacity from the currency's live `decimals()`, never from a hardcoded unit.
    | Deploy `CoverToken` | 1,899,861 |
    | Deploy `CoverPool` | 2,833,532 |
    | Deploy `SwapAndBuyRouter` | 1,021,742 |
-   | `createSeries` (demo) | 46,965 |
-   | **Estimated total** | **9,713,813** |
+   | **Estimated total** | **≈ 9,666,848** |
 
    At the observed ~0.04 gwei Arbitrum gas price the whole run priced at **≈ 0.00039 ETH**.
-   (The same dry run against Gnosis estimates 8,758,794 gas total — ≈ 1.7e-10 xDAI at the
-   observed fork gas price.)
+   (Figures from the 2026-09-19 dry run of the immediately preceding contract version; the
+   permissionless `CoverPool` differs by a few storage fields and drops the demo-series
+   transaction entirely, so re-simulate for exact numbers — the same dry run against Gnosis
+   estimated ≈ 8.7M gas total, ≈ 1.7e-10 xDAI at the observed fork gas price.)
 
    The script deploys `CredailyRentOracle` → `CoverToken`+`CoverPool` (CREATE-address
    precompute for the circular immutable) → `SwapAndBuyRouter` against SwapRouter02 (the router
    reads the pool currency from `pool.currency()` — a currency mismatch is impossible by
-   construction) → the demo series, then asserts the deployed state: wiring, sponsor, series
-   parameters, and the router's `pool`/`swapRouter`/`usdc`/`weth9` targets (the `weth9` check
+   construction) — **and nothing else on mainnet: zero series** — then asserts the deployed
+   state: wiring, `seriesCount() == 0`, the absence of every sponsor/owner-era selector on the
+   pool, and the router's `pool`/`swapRouter`/`usdc`/`weth9` targets (the `weth9` check
    re-reads `SwapRouter02.WETH9()` by RPC, so a wrong router override cannot pass postflight).
    Broadcast output is etherform-compatible (`broadcast/Deploy.s.sol/42161/run-latest.json`).
 
-3. **Demo series (mirror of live Gnosis legacy series 1).** Strikes 9288/10088 cents ($92.88 →
-   payout 0, $100.88 → payout 1), premium 1133 bps, `saleEnd = obsStart` (2026-10-03 12:16:50
-   UTC — no informed trading: sales close when the observation window opens), `obsEnd`
-   2026-11-02, `redeemEnd` 2026-12-02, capacity 0.5 USDC (`500000` six-dec units). The live
-   Gnosis series 1 capacity is exactly 0.500335 units; the mirror deliberately rounds to 0.5 —
-   every other parameter matches the live series exactly.
+3. **First series (post-deploy, permissionless).** The deployer holds no role, so opening the
+   market is an ordinary underwriter action from any wallet: approve the pool for the capacity,
+   then `createSeries(strikes, rateBps, saleEnd, obsStart, obsEnd, redeemEnd, capacity)` — the
+   capacity is escrowed 1:1 in the same transaction, and `saleEnd ≤ obsStart` (all timestamps
+   future and ordered) is enforced on-chain. The reference agent prices and opens the standard
+   monthly series this way (see the agent runbook above); a human with `cast` can do the same.
 
 4. **Record addresses and verify sources.** As in the Gnosis runbook: write the deployment
    record from the broadcast file, then Sourcify with `--chain 42161` (Blockscout at
@@ -353,22 +375,25 @@ capacity from the currency's live `decimals()`, never from a hardcoded unit.
 
 5. **Local rehearsal.** The same script serves anvil (chainId 31337) — and any other chain
    without pinned defaults: with no `CURRENCY` override it deploys the `LocalWXDAI` stand-in
-   (18 decimals — capacity scales to 0.5e18 automatically) and skips the router unless
-   `UNISWAP_ROUTER` points at deployed code.
+   (18 decimals) and skips the router unless `UNISWAP_ROUTER` points at deployed code. Local
+   chains are the ONE place the script still creates the demo series (escrowed inline by the
+   broadcaster, window derived from the chain clock) so the e2e loop has something to buy —
+   spawn anvil with the pinned `--timestamp` (see the local-stack section) or the script
+   reverts rather than mint a series the fixture email could never settle.
 
-### Sponsor handoff trust model (agent takeover runbook)
+### Underwriter trust model (Option B — no roles, no handoff)
 
-The sponsor role moves via the two-step `transferSponsorship(newSponsor)` →
-`acceptSponsorship()` handoff; `cancelSponsorshipTransfer()` aborts an in-flight handoff in one
-transaction, and renouncing to the zero address is disallowed. Two facts to internalize before
-handing a pool to an agent wallet:
+There is no sponsor role and therefore no takeover runbook: an "agent takeover" is just a
+different wallet underwriting its own series. Facts to internalize before running an
+underwriter wallet (agent or human):
 
-- **The handoff transfers the levers, not any capital guarantee.** Until `acceptSponsorship`
-  lands, the OUTGOING sponsor keeps every lever: it can `withdrawExcess` all free capital,
-  pause sales globally or per series, or overwrite/cancel the pending handoff. Reserved backing
-  for sold cover is untouchable either way. The incoming sponsor must verify `freeCapital()`,
-  `salesPaused` and the relevant `seriesPaused` flags **immediately after** accepting, and fund
-  the pool only once the handoff has completed.
-- **Capacity mirror deviation.** Off-chain mirrors of pool capacity (dashboards, agent policy
-  constants) drift from `series().capacity − sold` the moment anyone buys; always re-read
+- **Capital commits at creation.** `createSeries`/`addCapacity` escrow real funds immediately;
+  the only ways back out are `cancelSeries` (whole escrow, but only while `sold == 0`) and the
+  one-shot `withdrawResidual` after `redeemEnd`. Once a single unit is sold, the escrow is
+  locked for the full window — size series accordingly.
+- **Levers are per-series and cannot protect capital.** Pausing sales stops new premium income,
+  nothing else; no lever moves escrow backing sold cover. There is no global pause and no
+  other wallet that can intervene, for good or ill.
+- **Capacity mirror deviation.** Off-chain mirrors of series capacity (dashboards, agent policy
+  constants) drift from `series().escrow − sold` the moment anyone buys; always re-read
   on-chain state before acting, exactly like the agent executor already does.

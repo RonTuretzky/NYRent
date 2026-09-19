@@ -15,7 +15,7 @@ import {ICoverPool, ISwapRouter02, IWETH9, SwapAndBuyRouter} from "../src/SwapAn
 ///         USDC) plus the real Uniswap SwapRouter02, WETH and ARB. Buys cover paying in
 ///         WETH (ERC-20 and native ETH) and in ARB through real pools, proves the
 ///         failure legs revert atomically, and runs the real-email full lifecycle
-///         (oracle → settle at ratio 0.61 → redeem → withdraw) on Nitro. Skips itself
+///         (oracle → settle at ratio 0.61 → redeem → residual) on Nitro. Skips itself
 ///         when no network is available: `setUp` probes `ARBITRUM_RPC_URL` (default:
 ///         the public arb1 endpoint) and every test is gated on the fork having been
 ///         created.
@@ -45,8 +45,7 @@ contract RouterForkTest is Test {
     uint32 internal constant LOW = 8800;
     uint32 internal constant HIGH = 9600;
     uint16 internal constant RATE = 2850;
-    uint128 internal constant CAP = 50_000e6;
-    uint256 internal constant FUND = 50_000e6;
+    uint128 internal constant CAP = 50_000e6; // escrowed 1:1 by the creator
     uint256 internal constant MAX_CLAIM = 500e6; // 500 USDC of max claim
     uint256 internal constant PREMIUM = 142_500_000; // MAX_CLAIM × 2850 / 1e4
 
@@ -62,7 +61,7 @@ contract RouterForkTest is Test {
     SwapAndBuyRouter internal router;
     uint256 internal seriesId;
 
-    address internal sponsor = makeAddr("sponsor");
+    address internal creator = makeAddr("creator");
     address internal buyer = makeAddr("buyer");
 
     function setUp() public {
@@ -79,24 +78,23 @@ contract RouterForkTest is Test {
         uint64 nonce = vm.getNonce(address(this));
         address predictedPool = vm.computeCreateAddress(address(this), nonce + 1);
         token = new CoverToken(predictedPool, 6);
-        pool = new CoverPool(IERC20(USDC), token, IObservationOracle(address(oracle)), sponsor);
+        pool = new CoverPool(IERC20(USDC), token, IObservationOracle(address(oracle)));
         assertEq(address(pool), predictedPool);
 
         router = new SwapAndBuyRouter(ISwapRouter02(SWAP_ROUTER_02), ICoverPool(address(pool)));
 
-        deal(USDC, sponsor, FUND);
-        vm.startPrank(sponsor);
+        deal(USDC, creator, CAP);
+        vm.startPrank(creator);
         IERC20(USDC).approve(address(pool), type(uint256).max);
-        pool.fundPool(FUND);
         seriesId = pool.createSeries(
             LOW,
             HIGH,
             RATE,
-            uint64(block.timestamp + 30 days), // saleEnd: open now
-            uint64(block.timestamp - 1),
+            uint64(block.timestamp + 30 days), // saleEnd: open now, ≤ obsStart
             uint64(block.timestamp + 30 days),
             uint64(block.timestamp + 60 days),
-            CAP
+            uint64(block.timestamp + 90 days),
+            CAP // pulled from the creator as the series escrow
         );
         vm.stopPrank();
     }
@@ -154,7 +152,7 @@ contract RouterForkTest is Test {
         assertGt(amountIn, 0, "swap consumed nothing");
         assertLt(amountIn, 1 ether, "no dust to refund");
         assertEq(token.balanceOf(buyer, seriesId), MAX_CLAIM, "cover minted to buyer");
-        assertEq(IERC20(USDC).balanceOf(address(pool)), FUND + PREMIUM, "premium in pool");
+        assertEq(IERC20(USDC).balanceOf(address(pool)), uint256(CAP) + PREMIUM, "premium in pool");
         assertEq(IERC20(WETH).balanceOf(buyer), 1 ether - amountIn, "dust refunded");
         assertEq(pool.series(seriesId).sold, uint128(MAX_CLAIM), "sold accounted");
         assertEq(IERC20(WETH).allowance(address(router), SWAP_ROUTER_02), 0, "swap allowance reset");
@@ -170,7 +168,7 @@ contract RouterForkTest is Test {
         assertGt(amountIn, 0, "swap consumed nothing");
         assertEq(buyer.balance, 0, "eth fully wrapped");
         assertEq(token.balanceOf(buyer, seriesId), MAX_CLAIM, "cover minted to buyer");
-        assertEq(IERC20(USDC).balanceOf(address(pool)), FUND + PREMIUM, "premium in pool");
+        assertEq(IERC20(USDC).balanceOf(address(pool)), uint256(CAP) + PREMIUM, "premium in pool");
         assertEq(IERC20(WETH).balanceOf(buyer), 1 ether - amountIn, "dust refunded in WETH");
         _assertRouterEmpty();
     }
@@ -186,7 +184,7 @@ contract RouterForkTest is Test {
         assertGt(amountIn, 0, "swap consumed nothing");
         assertLt(amountIn, 5_000e18, "no dust to refund");
         assertEq(token.balanceOf(buyer, seriesId), MAX_CLAIM, "cover minted to buyer");
-        assertEq(IERC20(USDC).balanceOf(address(pool)), FUND + PREMIUM, "premium in pool");
+        assertEq(IERC20(USDC).balanceOf(address(pool)), uint256(CAP) + PREMIUM, "premium in pool");
         assertEq(IERC20(ARB).balanceOf(buyer), 5_000e18 - amountIn, "dust refunded");
         _assertRouterEmpty();
     }
@@ -207,12 +205,12 @@ contract RouterForkTest is Test {
         assertEq(IERC20(WETH).balanceOf(buyer), 1 ether, "nothing spent");
         assertEq(token.balanceOf(buyer, seriesId), 0, "nothing minted");
         assertEq(pool.series(seriesId).sold, 0, "nothing sold");
-        assertEq(IERC20(USDC).balanceOf(address(pool)), FUND, "no premium taken");
+        assertEq(IERC20(USDC).balanceOf(address(pool)), CAP, "no premium taken");
         _assertRouterEmpty();
     }
 
     function test_fork_pausedSeriesRevertsWithoutSpending() public onlyForked {
-        vm.prank(sponsor);
+        vm.prank(creator);
         pool.setSeriesPaused(seriesId, true);
         _wrap(buyer, 1 ether);
         bytes memory path = _wethPath();
@@ -223,7 +221,7 @@ contract RouterForkTest is Test {
 
         assertEq(IERC20(WETH).balanceOf(buyer), 1 ether, "nothing spent");
         assertEq(token.balanceOf(buyer, seriesId), 0, "nothing minted");
-        assertEq(IERC20(USDC).balanceOf(address(pool)), FUND, "no premium taken");
+        assertEq(IERC20(USDC).balanceOf(address(pool)), CAP, "no premium taken");
         _assertRouterEmpty();
     }
 
@@ -250,27 +248,35 @@ contract RouterForkTest is Test {
     }
 
     /// @notice Full real-email lifecycle against the pool on the Arbitrum fork, in
-    ///         6-dec USDC units: a series whose observation window contains the real
-    ///         `t`, buy → oracle submit → settle at ratio 0.61e18 → redeem 61% →
-    ///         sponsor withdraw. Mirrors the (mock-currency) unit lifecycle in
-    ///         {RealEmailTest.test_fullLifecycle_ratio61_buyRedeemWithdraw}.
+    ///         6-dec USDC units: a series created BEFORE the fixture's signed `t`
+    ///         (saleEnd ≤ obsStart is on-chain now), buy → oracle submit → settle at
+    ///         ratio 0.61e18 → redeem 61% → creator residual withdrawal. Mirrors the
+    ///         (mock-currency) unit lifecycle in
+    ///         {RealEmailTest.test_fullLifecycle_ratio61_buyRedeemResidual}.
     function test_fork_fullLifecycle_realEmail_ratio61() public onlyForked {
         bytes memory headers = vm.readFileBinary("fixtures/credaily-2026-09-17/signed-headers.bin");
         bytes memory body = vm.readFileBinary("fixtures/credaily-2026-09-17/canon-body.bin");
         bytes memory sig = vm.readFileBinary("fixtures/credaily-2026-09-17/sig.bin");
 
-        // Series whose observation window contains the fixture's signed t.
-        vm.prank(sponsor);
+        // Rewind the fork clock to before the fixture's signed t: the series must be
+        // created (and bought) before its observation window opens.
+        vm.warp(REAL_T - 2 days);
+        uint64 obsStartReal = REAL_T - 1 days;
+        uint64 redeemEndReal = REAL_T + 30 days;
+        deal(USDC, creator, CAP);
+        vm.startPrank(creator);
+        IERC20(USDC).approve(address(pool), CAP);
         uint256 realSeries = pool.createSeries(
             LOW,
             HIGH,
             RATE,
-            uint64(block.timestamp + 1 days), // saleEnd: open now, ≤ obsEnd
-            REAL_T - 1,
-            uint64(block.timestamp + 1 days),
-            uint64(block.timestamp + 30 days),
+            obsStartReal, // saleEnd == obsStart: open now, shut before the email lands
+            obsStartReal,
+            REAL_T + 1 days,
+            redeemEndReal,
             CAP
         );
+        vm.stopPrank();
 
         // buyer takes 500 USDC of max claim during the sale (premium 28.5%)
         deal(USDC, buyer, PREMIUM);
@@ -279,9 +285,10 @@ contract RouterForkTest is Test {
         pool.buyProtection(realSeries, MAX_CLAIM, PREMIUM);
         vm.stopPrank();
         assertEq(token.balanceOf(buyer, realSeries), MAX_CLAIM);
-        assertEq(pool.reservedOf(realSeries), MAX_CLAIM, "pre-settlement reserved = sold");
+        assertEq(pool.series(realSeries).sold, uint128(MAX_CLAIM), "sold accounted");
 
         // the real email settles the series: (9288-8800)/(9600-8800) = 0.61
+        vm.warp(REAL_T); // the email's own signing time
         oracle.submitObservation(headers, body, sig);
         pool.settle(realSeries, 0);
         CoverPool.Series memory s = pool.series(realSeries);
@@ -300,14 +307,13 @@ contract RouterForkTest is Test {
         pool.redeem(realSeries, MAX_CLAIM);
         assertEq(IERC20(USDC).balanceOf(buyer), owed, "payout = 61%");
         assertEq(token.balanceOf(buyer, realSeries), 0);
-        assertEq(pool.reservedOf(realSeries), 0, "fully redeemed");
+        assertEq(pool.series(realSeries).paidOut, owed, "fully redeemed");
 
-        // sponsor withdraw math: everything left is free capital now
-        uint256 free = pool.freeCapital();
-        assertEq(free, FUND + PREMIUM - owed, "free = funding + premium - payout");
-        vm.prank(sponsor);
-        pool.withdrawExcess(free);
-        assertEq(IERC20(USDC).balanceOf(sponsor), free);
-        assertEq(IERC20(USDC).balanceOf(address(pool)), 0, "pool fully drained");
+        // creator residual: escrow + premium − payout, once the claim window shuts
+        vm.warp(redeemEndReal + 1);
+        vm.prank(creator);
+        pool.withdrawResidual(realSeries);
+        assertEq(IERC20(USDC).balanceOf(creator), uint256(CAP) + PREMIUM - owed, "residual math");
+        assertEq(IERC20(USDC).balanceOf(address(pool)), CAP, "only the setUp series escrow remains");
     }
 }

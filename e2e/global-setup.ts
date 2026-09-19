@@ -1,11 +1,17 @@
 // Owns the whole local stack for the browser suite (SPEC §7):
-//   1. Anvil on 127.0.0.1:8547 (chainId 31337)
+//   1. Anvil on 127.0.0.1:8547 (chainId 31337), clock pinned to ANVIL_START_TS
+//      (2026-09-10, BEFORE the fixture email's signed t=1789642464): the deploy
+//      script derives the demo series window from block.timestamp with
+//      saleEnd = obsStart = now + 36h, so buys happen at start time and the
+//      journey warps past obsStart/fixture-t (support/helpers.ts `warpTo`)
+//      before settling — `saleEnd <= obsStart` is a CONTRACT invariant now.
 //   2. `forge script script/Deploy.s.sol:Deploy` broadcast with Anvil's WELL-KNOWN
 //      dev key #0 — never the real deployer. Foundry writes to out-e2e/cache-e2e,
-//      which the teardown deletes.
+//      which the teardown deletes. On this non-mainnet chain the script also
+//      escrows and creates demo series 0 (0.02 LocalWXDAI capacity) inline.
 //   3. web/src/deployment.json written from the broadcast (previous copy backed up
 //      and restored in teardown)
-//   4. currency seeding: wraps native coin for sponsor + buyer (the local currency
+//   4. currency seeding: wraps native coin for creator + buyer (the local currency
 //      deployed on 31337 must be WETH9-style, see e2e/README.md)
 //   5. `vite build` + `vite preview` on 127.0.0.1:5174 (web/'s preview script)
 import { spawn, spawnSync, type SpawnSyncOptions } from "node:child_process";
@@ -17,6 +23,7 @@ import { foundry } from "viem/chains";
 import {
   ACCOUNTS,
   ANVIL_KEY_0,
+  ANVIL_START_TS,
   DEPLOYMENT_PATH,
   PREVIEW_URL,
   RPC_URL,
@@ -68,10 +75,19 @@ export default async function globalSetup(): Promise<void> {
   fs.rmSync(DEPLOYMENT_BAK, { force: true });
   if (fs.existsSync(DEPLOYMENT_PATH)) fs.copyFileSync(DEPLOYMENT_PATH, DEPLOYMENT_BAK);
 
-  // 1. Anvil (kept for the whole suite; killed in teardown).
+  // 1. Anvil (kept for the whole suite; killed in teardown). The clock starts at
+  //    ANVIL_START_TS, ~7.4 days BEFORE the fixture email's signed t: the sale of
+  //    demo series 0 is open now and the journey warps forward to settle.
   const anvil = spawn(
     "anvil",
-    ["--host", "127.0.0.1", "--port", "8547", "--chain-id", "31337", "--gas-limit", "30000000", "--silent"],
+    [
+      "--host", "127.0.0.1",
+      "--port", "8547",
+      "--chain-id", "31337",
+      "--gas-limit", "30000000",
+      "--timestamp", ANVIL_START_TS.toString(),
+      "--silent",
+    ],
     { cwd: ROOT, detached: true, stdio: "ignore" },
   );
   anvil.unref();
@@ -116,7 +132,7 @@ export default async function globalSetup(): Promise<void> {
     JSON.stringify({ chainId: 31337, oracle, pool, token, currency, seriesIds: [0] }, null, 2) + "\n",
   );
 
-  // 4. Seed: wrap native coin for the sponsor and the buyer (WETH9-style deposit).
+  // 4. Seed: wrap native coin for the creator and the buyer (WETH9-style deposit).
   for (const account of ACCOUNTS) {
     const hash = await walletClient.writeContract({
       address: currency,

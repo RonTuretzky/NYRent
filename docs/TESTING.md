@@ -1,17 +1,21 @@
 # Testing — the scenario matrix
 
-Four suites, four kinds of evidence. The real-email suites prove the system accepts the one
+Five suites, five kinds of evidence. The real-email suites prove the system accepts the one
 authentic message we have; the tamper suites prove it rejects everything else; the pool suites
-prove the money math under adversarial sequencing; the browser suite proves a user can actually
-do it. None of them mock the cryptography: every accepted email in any suite carries a real
-RSA-SHA256 signature (CRE Daily's, or the clearly labeled test keypair's).
+prove the per-series money math under adversarial multi-actor sequencing; the fork suites prove
+the same flows against real chains and real Uniswap pools; the browser suite proves a user can
+actually do it. None of them mock the cryptography: every accepted email in any suite carries a
+real RSA-SHA256 signature (CRE Daily's, or the clearly labeled test keypair's).
 
 ## How to run
 
 ```sh
-# Contracts (Foundry): real email, tampers, pool fuzz + invariants
+# Contracts (Foundry): real email, tampers, multi-creator pool matrix, invariants
 forge test -vv
 forge test --gas-report --match-contract RealEmail    # settlement gas figure
+
+# Arbitrum One live-fork suite (skips itself without network; ARBITRUM_RPC_URL optional)
+forge test --match-contract RouterForkTest -vv
 
 # emailkit (Node test runner): goldens + tampers against the fixtures
 npm --prefix web test                                 # = node --test src/lib/emailkit.test.ts
@@ -22,12 +26,14 @@ npm --prefix e2e exec playwright install chromium     # first time only
 ```
 
 The e2e run is self-contained: Playwright's global setup spawns Anvil on `127.0.0.1:8547`
-(chainId 31337), deploys `script/Deploy.s.sol:Deploy` with the well-known Anvil dev key #0
-(never the real deployer), wraps local currency for the test wallets, writes a temporary
-`web/src/deployment.json`, then `vite build` + `vite preview` on `127.0.0.1:5174`. Teardown kills
-both processes, restores `deployment.json` and removes the `out-e2e/`/`cache-e2e/` build dirs.
-Details and the injected-wallet design: `e2e/README.md`; UI hooks the suite relies on:
-`web/E2E.md`.
+(chainId 31337, clock pinned with `--timestamp` BEFORE the fixture email's signed `t` — the
+on-chain `saleEnd ≤ obsStart` rule means the journey buys first and warps forward to settle),
+deploys `script/Deploy.s.sol:Deploy` with the well-known Anvil dev key #0 (never the real
+deployer) — which on a local chain escrows and creates demo series 0 inline — wraps local
+currency for the test wallets, writes a temporary `web/src/deployment.json`, then `vite build`
++ `vite preview` on `127.0.0.1:5174`. Teardown kills both processes, restores
+`deployment.json` and removes the `out-e2e/`/`cache-e2e/` build dirs. Details and the
+injected-wallet design: `e2e/README.md`; UI hooks the suite relies on: `web/E2E.md`.
 
 ## Scenario matrix
 
@@ -37,8 +43,8 @@ Details and the injected-wallet design: `e2e/README.md`; UI hooks the suite reli
 |---|---|
 | Submit the real fixture (`vm.readFileBinary` of the three `.bin`s) | Recorded: `t=1789642464`, `cents=9288`, `emailId=sha256(canon-body)` exact |
 | Settle the demo series (strikes 8800/9600) against it | `payoutRatioWad = 0.61e18` exactly |
-| Buy 0.01 max-claim (premium 2850 bps) then redeem after settlement | Redeem pays exactly 61% of max claim |
-| Sponsor accounting across the lifecycle | fund → reserved → post-redeem `freeCapital` withdraw math exact |
+| The full permissionless circle | creator escrows at `createSeries` → buy 0.01 (premium 28.5%) → settle → redeem exactly 61% → `withdrawResidual` pays escrow + premium − payout, one-shot, pool drains to zero |
+| Net-flow accounting | creator ends at ±(premium − payout), buyer mirrors it exactly |
 | Gas | Settlement path measured with `--gas-report`; figure documented, target <3M for `extractSnapshot` on the 102 KB body |
 
 ### `test/TamperEmail.t.sol` — everything else fails closed
@@ -63,17 +69,55 @@ Checked-in goldens mean `forge test` needs no ffi.
 | Body with a second `Manhattan Office Rent` anchor | `AnchorNotUnique` |
 | Value with overflow digits (≥ 2^31 cents) | rejected |
 
-### `test/CoverPool.t.sol` — money math, fuzz and invariants
+### `test/CoverPool.t.sol` — the multi-creator matrix
+
+Two independent creators (`creator`, `rival`) plus two buyers, at the 6-decimals USDC
+deployment currency:
 
 | Scenario | Expectation |
 |---|---|
-| Invariant under random fund/buy/settle/redeem/withdraw sequences | `Σ reserved ≤ balance` always (solvency) |
-| Pause during every phase | never blocks `redeem` |
-| Capacity and `maxPremium` slippage bounds | exceeded ⇒ revert |
-| `redeemEnd` passage | reserves release to `freeCapital` |
-| Settle window edges | accepted at `t == obsStart` and `t == obsEnd`, rejected at ±1 |
-| Clamp edges | `cents == low` ⇒ 0, `== high` ⇒ 1e18, below/above ⇒ clamped |
-| Immutability | no series setter exists; terms fixed from creation |
+| `createSeries` by anyone | escrow pulled 1:1 from the caller at creation; caller recorded as creator; no allowance/balance ⇒ whole creation reverts, nothing appended |
+| Creation validations | strikes ordered+nonzero, `premiumRateBps ≤ 1e4` (10 000 inclusive), `saleEnd` strictly future, **`saleEnd ≤ obsStart` on-chain**, windows ordered, capacity > 0 |
+| Buy math | premium accrues to the SERIES bucket; the full escrow is sellable with no extra funding (1:1 backing); over-capacity ⇒ revert |
+| `PremiumRoundsToZero` | dust claims revert on priced series; a zero-rate series sells at premium 0 (guard rate-gated) |
+| Per-series pause | creator-only, scoped to its own series; sibling and rival series keep selling; never blocks settle/redeem; no global pause exists |
+| `addCapacity` | creator-only top-up before/at `saleEnd`, sellable immediately; blocked after `saleEnd`/cancel |
+| `cancelSeries` | full refund only while `sold == 0` and unsettled; permanently closes buy/settle/top-up; one-shot with `withdrawResidual` |
+| `withdrawResidual` | blocked through `redeemEnd` inclusive; pays `escrow − paidOut + premiums`; one-shot; creator-only |
+| Unsettled fallback | no qualifying observation ⇒ redeem reverts `NotSettled` forever; after `redeemEnd` the creator recovers escrow + premiums; a LATE settle cannot reopen redemption |
+| Multi-creator isolation | one series drained at ratio 1.0 leaves the sibling's bucket untouched; residuals return exactly each creator's own bucket; pool sums to zero |
+| Reentrancy | mint-callback reentry blocked on all six guarded surfaces (`buyProtectionFor`, `buyProtection`, `settle`, `createSeries`, `cancelSeries`, `withdrawResidual`) |
+| Settle window/clamp edges | accepted at `t == obsStart`/`obsEnd`, rejected at ±1; ratio clamp exact at low/high/midpoint |
+| Fuzz | full circle: any buy → any settlement → redeem → residual closes the bucket to exactly zero; sold never exceeds escrow under any top-up sequence |
+
+### `test/Invariant.t.sol` — randomized multi-actor sequences
+
+A handler drives three creators and three buyers through create / addCapacity / buy / buyFor /
+settle / redeem / cancel / withdrawResidual / pause / warp in fuzzer-chosen order; creator-only
+calls are pranked as each series' own creator so sequences exercise real transitions.
+
+| Invariant | Statement |
+|---|---|
+| Conservation | `Σ (escrow + premiumsAccrued − paidOut − withdrawn) == currency.balanceOf(pool)` at all times |
+| Per-series solvency | `sold ≤ escrow`, `premiumsAccrued ≤ sold`, `paidOut ≤ sold × ratio` (0 while unsettled) |
+| Ratio/cancel bounds | ratio ∈ [0, 1e18], zero until settled; a cancelled series never settled, never sold, refunded exactly its escrow |
+| Soulbound supply | per series, Σ holder balances == sold − redeemed units (positions can only mint and burn) |
+| Withdrawals bounded | `withdrawn + paidOut ≤ escrow + premiumsAccrued`; `withdrawn` moves only through cancel/residual |
+
+### `test/RouterFork.t.sol` — live Arbitrum One fork
+
+The full fixture (pinned-key oracle → token → pool on native USDC → `SwapAndBuyRouter` against
+the real SwapRouter02) on a `createSelectFork` of Arbitrum One; skips itself without network.
+
+| Scenario | Expectation |
+|---|---|
+| Pay in WETH / native ETH / ARB (2-hop via WETH) | exact-output through real Uniswap pools; cover minted to the buyer; dust refunded; router balances zero |
+| Slippage / paused series | atomic revert, nothing spent, nothing minted |
+| Real email on Nitro | the 2026-09-17 fixture DKIM-verifies via modexp on Arbitrum |
+| Full lifecycle | fork clock rewound before the fixture `t` (the on-chain `saleEnd ≤ obsStart` rule), buy → settle 0.61 → redeem → creator residual; the setUp series' escrow is untouched |
+
+(`test/ReviewFixes.t.sol` keeps the adversarial-review regressions: RSA representative ≥ n
+rejected, from-line suffix rule, reentrancy guard.)
 
 ### `web` JS suite (`node --test`) — emailkit
 
@@ -89,14 +133,14 @@ Checked-in goldens mean `forge test` needs no ffi.
 
 | Spec | Scenario |
 |---|---|
-| `journey.spec.ts` | Connect the injected test wallet (EIP-1193/EIP-6963 shim, no extension), sponsor funds the pool, buyer pays premium and mints cover, uploads the **real** fixture `.eml` on `/settle` (preflight all green), records + settles on-chain, redeems 61%, sponsor withdraws excess. Chain-side numbers re-checked over RPC with viem, not just from the UI. |
+| `journey.spec.ts` | Connect the injected test wallet (EIP-1193/EIP-6963 shim, no extension), buyer pays premium and mints cover on the locally created demo series, warps past the observation start, uploads the **real** fixture `.eml` on `/settle` (preflight all green), records + settles on-chain, redeems 61%. Chain-side numbers re-checked over RPC with viem, not just from the UI. |
 | `failures.spec.ts` | A tampered `.eml` (value edited) shows exactly the failing body-hash check and blocks submission; a non-email file shows a friendly error; buying over capacity is disabled client-side; a wallet on the wrong chain gets the wrong-network banner and recovers after switching. |
 
 ## What each suite does *not* show
 
 Foundry tests exercise contracts with fixture bytes, not the browser. The emailkit suite proves
 parsing parity with the contracts' policy but runs no EVM. The Playwright suite runs on Anvil
-with instant blocks and unlocked dev accounts — it is not a Gnosis gas or latency measurement.
-The mainnet lifecycle script (`scripts/e2e-mainnet.mjs`, operator-run) is the only real-network
+with instant blocks and unlocked dev accounts — it is not a gas or latency measurement. The
+mainnet lifecycle script (`scripts/e2e-mainnet.mjs`, operator-run) is the only real-network
 evidence; its results are recorded in [VERIFICATION.md](VERIFICATION.md)/[OPERATIONS.md](OPERATIONS.md)
 when the deployment happens.

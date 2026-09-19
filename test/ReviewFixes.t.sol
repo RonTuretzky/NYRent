@@ -93,20 +93,19 @@ contract ReviewFixesTest is Test {
     function _reentrancyFixture() internal returns (CoverPool pool, TestERC20 wxdai) {
         wxdai = new TestERC20();
         MockObservationOracle mockOracle = new MockObservationOracle();
-        address sponsor = makeAddr("sponsor");
+        address creator = makeAddr("creator");
 
         uint64 nonce = vm.getNonce(address(this));
         address predictedPool = vm.computeCreateAddress(address(this), nonce + 1);
         CoverToken token = new CoverToken(predictedPool, wxdai.decimals());
-        pool = new CoverPool(wxdai, token, IObservationOracle(address(mockOracle)), sponsor);
+        pool = new CoverPool(wxdai, token, IObservationOracle(address(mockOracle)));
         assertEq(address(pool), predictedPool);
 
         uint64 t0 = uint64(block.timestamp);
-        vm.startPrank(sponsor);
-        wxdai.mint(sponsor, 10 ether);
+        vm.startPrank(creator);
+        wxdai.mint(creator, 10 ether);
         wxdai.approve(address(pool), type(uint256).max);
-        pool.fundPool(10 ether);
-        pool.createSeries(8800, 9600, 2850, t0 + 10 days, t0, t0 + 10 days, t0 + 40 days, 10 ether);
+        pool.createSeries(8800, 9600, 2850, t0 + 10 days, t0 + 10 days, t0 + 20 days, t0 + 40 days, 10 ether);
         vm.stopPrank();
     }
 

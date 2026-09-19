@@ -11,8 +11,9 @@ import {DkimHarness, TestERC20} from "./utils/Helpers.sol";
 
 /// @notice End-to-end against the REAL CRE Daily email fixture
 ///         (fixtures/credaily-2026-09-17/): submitObservation on the real-modulus
-///         oracle, demo-series settlement at ratio 0.61e18, buy → redeem at 61%,
-///         sponsor withdraw math, and the settlement gas number.
+///         oracle, demo-series settlement at ratio 0.61e18, the full permissionless
+///         circle (creator escrows → buy → settle → redeem at 61% → residual
+///         withdrawal) with exact amounts, and the settlement gas number.
 contract RealEmailTest is Test {
     // ground truth from fixtures/credaily-2026-09-17/meta.json (VERIFIED locally)
     uint64 internal constant REAL_T = 1789642464;
@@ -24,8 +25,12 @@ contract RealEmailTest is Test {
     uint16 internal constant RATE_BPS = 2850;
     uint64 internal constant OBS_START = 1_788_220_800; // 2026-09-01 00:00 UTC
     uint64 internal constant OBS_END = 1_790_812_740; // 2026-09-30 23:59 UTC
+    uint64 internal constant SALE_END = OBS_START; // saleEnd ≤ obsStart: on-chain invariant
     uint64 internal constant REDEEM_END = OBS_END + 90 days;
     uint128 internal constant CAPACITY = 0.02 ether;
+
+    // the series must exist before the observation window opens
+    uint64 internal constant CREATE_T = OBS_START - 7 days;
 
     bytes internal headers;
     bytes internal body;
@@ -36,7 +41,7 @@ contract RealEmailTest is Test {
     CoverToken internal token;
     CoverPool internal pool;
 
-    address internal sponsor = makeAddr("sponsor");
+    address internal creator = makeAddr("creator");
     address internal buyer = makeAddr("buyer");
 
     function setUp() public {
@@ -44,7 +49,7 @@ contract RealEmailTest is Test {
         body = vm.readFileBinary("fixtures/credaily-2026-09-17/canon-body.bin");
         sig = vm.readFileBinary("fixtures/credaily-2026-09-17/sig.bin");
 
-        vm.warp(REAL_T); // the email's own signing time
+        vm.warp(CREATE_T); // before the sale closes; tests warp to REAL_T to observe
 
         oracle = new CredailyRentOracle(CredailyKey.MODULUS);
         wxdai = new TestERC20();
@@ -52,18 +57,20 @@ contract RealEmailTest is Test {
         uint64 nonce = vm.getNonce(address(this));
         address predictedPool = vm.computeCreateAddress(address(this), nonce + 1);
         token = new CoverToken(predictedPool, wxdai.decimals());
-        pool = new CoverPool(wxdai, token, IObservationOracle(address(oracle)), sponsor);
+        pool = new CoverPool(wxdai, token, IObservationOracle(address(oracle)));
         assertEq(address(pool), predictedPool, "CREATE precompute");
 
-        vm.prank(sponsor);
-        pool.createSeries(STRIKE_LOW, STRIKE_HIGH, RATE_BPS, OBS_END, OBS_START, OBS_END, REDEEM_END, CAPACITY);
-
-        wxdai.mint(sponsor, 1 ether);
+        wxdai.mint(creator, 1 ether);
         wxdai.mint(buyer, 1 ether);
-        vm.prank(sponsor);
+        vm.prank(creator);
         wxdai.approve(address(pool), type(uint256).max);
         vm.prank(buyer);
         wxdai.approve(address(pool), type(uint256).max);
+
+        // the creator escrows the full capacity at creation — permissionless, no roles
+        vm.prank(creator);
+        pool.createSeries(STRIKE_LOW, STRIKE_HIGH, RATE_BPS, SALE_END, OBS_START, OBS_END, REDEEM_END, CAPACITY);
+        assertEq(wxdai.balanceOf(address(pool)), CAPACITY, "escrow pulled at creation");
     }
 
     function _submitReal() internal returns (uint256 gasUsed) {
@@ -77,6 +84,7 @@ contract RealEmailTest is Test {
     }
 
     function test_submitObservation_realEmail() public {
+        vm.warp(REAL_T); // the email's own signing time
         vm.expectEmit(true, true, true, true);
         emit CredailyRentOracle.ObservationRecorded(0, REAL_T, REAL_CENTS, sha256(body), address(this));
         uint256 gasUsed = _submitReal();
@@ -104,24 +112,23 @@ contract RealEmailTest is Test {
         assertLt(gasUsed, 3_000_000, "SPEC target: < 3M gas for the 102 KB fixture");
     }
 
-    function test_fullLifecycle_ratio61_buyRedeemWithdraw() public {
-        // sponsor capitalizes the pool
-        vm.prank(sponsor);
-        pool.fundPool(0.02 ether);
-
+    function test_fullLifecycle_ratio61_buyRedeemResidual() public {
         // buyer takes 0.01 WXDAI of max claim during the sale (premium 28.5%)
         uint256 maxClaim = 0.01 ether;
         uint256 premium = (maxClaim * RATE_BPS) / 1e4;
         vm.prank(buyer);
         pool.buyProtection(0, maxClaim, premium);
         assertEq(token.balanceOf(buyer, 0), maxClaim);
-        assertEq(wxdai.balanceOf(address(pool)), 0.02 ether + premium);
-        assertEq(pool.reservedOf(0), maxClaim, "pre-settlement reserved = sold");
+        assertEq(wxdai.balanceOf(address(pool)), CAPACITY + premium);
+        CoverPool.Series memory s = pool.series(0);
+        assertEq(s.sold, maxClaim, "sold accounted");
+        assertEq(s.premiumsAccrued, premium, "premium in the series bucket");
 
         // the real email settles the series: (9288-8800)/(9600-8800) = 0.61
+        vm.warp(REAL_T); // the email's own signing time
         _submitReal();
         pool.settle(0, 0);
-        CoverPool.Series memory s = pool.series(0);
+        s = pool.series(0);
         assertTrue(s.settled);
         assertEq(s.payoutRatioWad, 0.61e18, "ratio");
         assertEq(s.observationT, REAL_T);
@@ -131,29 +138,38 @@ contract RealEmailTest is Test {
         vm.expectRevert(CoverPool.AlreadySettled.selector);
         pool.settle(0, 0);
 
-        // post-settlement reserve drops to sold × ratio
-        uint256 owed = (maxClaim * 0.61e18) / 1e18;
-        assertEq(pool.reservedOf(0), owed, "post-settlement reserved");
-
         // redeem pays 61%
+        uint256 owed = (maxClaim * 0.61e18) / 1e18;
         uint256 before = wxdai.balanceOf(buyer);
         vm.prank(buyer);
         pool.redeem(0, maxClaim);
         assertEq(wxdai.balanceOf(buyer) - before, owed, "payout = 61%");
         assertEq(token.balanceOf(buyer, 0), 0);
-        assertEq(pool.reservedOf(0), 0, "fully redeemed");
+        assertEq(pool.series(0).paidOut, owed);
 
-        // sponsor withdraw math: everything left is free capital now
-        uint256 free = pool.freeCapital();
-        assertEq(free, 0.02 ether + premium - owed, "free = funding + premium - payout");
-        uint256 sponsorBefore = wxdai.balanceOf(sponsor);
-        vm.prank(sponsor);
-        pool.withdrawExcess(free);
-        assertEq(wxdai.balanceOf(sponsor) - sponsorBefore, free);
+        // the residual is locked until the claim window shuts
+        vm.expectRevert(CoverPool.RedeemWindowOpen.selector);
+        vm.prank(creator);
+        pool.withdrawResidual(0);
+
+        // after redeemEnd the creator collects escrow + premium − payout, one-shot
+        vm.warp(REDEEM_END + 1);
+        uint256 creatorBefore = wxdai.balanceOf(creator);
+        vm.prank(creator);
+        pool.withdrawResidual(0);
+        assertEq(wxdai.balanceOf(creator) - creatorBefore, CAPACITY + premium - owed, "residual math");
         assertEq(wxdai.balanceOf(address(pool)), 0, "pool fully drained");
+        vm.expectRevert(CoverPool.ResidualAlreadyWithdrawn.selector);
+        vm.prank(creator);
+        pool.withdrawResidual(0);
+
+        // full circle: the creator ends up ±premium/payout, the buyer mirrors it
+        assertEq(wxdai.balanceOf(creator), 1 ether + premium - owed, "creator net = premium - payout");
+        assertEq(wxdai.balanceOf(buyer), 1 ether - premium + owed, "buyer net = payout - premium");
     }
 
     function test_replay_reverts() public {
+        vm.warp(REAL_T);
         _submitReal();
         vm.expectRevert(CredailyRentOracle.AlreadyRecorded.selector);
         oracle.submitObservation(headers, body, sig);

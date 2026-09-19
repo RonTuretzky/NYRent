@@ -1,7 +1,7 @@
 # NY Rent Cover
 
-Fully collateralized protection against Manhattan office rent staying high, on Gnosis Chain,
-settled by an email. The oracle input is CRE Daily's "Market Snapshot" newsletter
+Fully collateralized, fully permissionless protection against Manhattan office rent staying
+high, settled by an email. The oracle input is CRE Daily's "Market Snapshot" newsletter
 (**Manhattan Office Rent · Avg Effective $/SF**, CompStak data), verified **entirely on-chain**:
 RSA-SHA256 DKIM signature, body hash and template parsing all execute in the EVM against an
 immutable pinned key. No committee, no price feed, no trusted server, no ZK ceremony.
@@ -13,21 +13,29 @@ immutable pinned key. No committee, no price feed, no trusted server, no ZK cere
 Recorded guides for every flow — fund, buy (WXDAI or USDC.e via Uniswap v3), settle, redeem,
 withdraw — are on the app's [in-app guides](https://ronturetzky.github.io/nyrent-cover/#/docs).
 
-- A **sponsor** collateralizes a series (payout 0 at/below $88.00, 1 at/above $96.00 for the
-  demo) and earns premiums.
+- **Anyone underwrites** — there are no roles at all. `createSeries` escrows the creator's own
+  capital 1:1 as that series' backing (payout 0 at/below $88.00, 1 at/above $96.00 for the
+  demo strikes) and premiums accrue to that series alone; the creator's only levers are
+  pausing its own sales, topping up escrow before the sale ends, cancelling while unsold, and
+  the one-shot residual withdrawal after the claim window.
 - A **buyer** pays a premium (28.50% of max claim in the demo) and mints non-transferable
-  ERC-1155 cover units, 1 unit = 1 WXDAI-wei of max claim.
+  ERC-1155 cover units, 1 unit = 1 currency-wei of max claim — backed 1:1 by escrow at the
+  moment of purchase. Sales always close before the observation window opens
+  (`saleEnd ≤ obsStart` is enforced on-chain), so nobody can buy against an email that may
+  already exist.
 - **Anyone** may submit an authentic snapshot email to the oracle and settle a series whose
   observation window contains the email's signed timestamp. The 2026-09-17 issue printed
   **$92.88 / SF** ⇒ payout ratio **61%** between the demo strikes.
-- Buyers **redeem** `amount × ratio`; after the redeem window, residual reserves release to the
-  sponsor.
+- Buyers **redeem** `amount × ratio` out of the series escrow; after the redeem window, the
+  residual (escrow − payouts + premiums) releases to the series creator.
 
-Interfaces are frozen in [docs/SPEC.md](docs/SPEC.md). The settlement statement, trust boundaries
-and limitations (template drift, key rotation, informed-trading caveat of the demo series) are in
-[docs/PROTOCOL.md](docs/PROTOCOL.md). The full evidence chain for the pinned DKIM key — DNS
+The settlement statement, trust boundaries, permissionless market structure and limitations
+(template drift, key rotation, caveat-emptor series pricing) are in
+[docs/PROTOCOL.md](docs/PROTOCOL.md); the pay-with-any-token Uniswap integration in
+[docs/UNISWAP.md](docs/UNISWAP.md). The full evidence chain for the pinned DKIM key — DNS
 record, fingerprints, Gmail `dkim=pass`, reproducible local verification — is in
-[docs/VERIFICATION.md](docs/VERIFICATION.md).
+[docs/VERIFICATION.md](docs/VERIFICATION.md). ([docs/SPEC.md](docs/SPEC.md) is the frozen
+legacy record of the original sponsor-model build.)
 
 **Unaudited. Experimental. The demo series uses tiny amounts of real WXDAI; use tiny amounts.**
 

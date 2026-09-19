@@ -2,13 +2,33 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, type Page } from "@playwright/test";
-import { createPublicClient, createWalletClient, http, parseAbi } from "viem";
+import { createPublicClient, createTestClient, createWalletClient, http, parseAbi } from "viem";
 import { foundry } from "viem/chains";
 
 export const RPC_URL = "http://127.0.0.1:8547";
 export const PREVIEW_URL = "http://127.0.0.1:5174"; // web/'s preview script pins 5174
 export const CHAIN_ID = 31337;
 export const CHAIN_ID_HEX = "0x7a69";
+
+/**
+ * The local chain's clock base (SPEC §7, Option B): anvil starts at 2026-09-10,
+ * ~7.4 days BEFORE the fixture email's signed t. The deploy script pins demo
+ * series 0 to saleEnd = obsStart = ANVIL_START_TS + 36h, obsEnd = obsStart + 30d,
+ * so the sale is open at journey time and the fixture t sits inside the window.
+ */
+export const ANVIL_START_TS = 1789000000n;
+
+/** Signed DKIM t= of the real fixture email (2026-09-17; ground truth, meta.json). */
+export const FIXTURE_T = 1789642464n;
+
+/**
+ * Where the journey warps between its BUY and SETTLE steps: just past the fixture
+ * t (mirrors test/RealEmail.t.sol). This is after demo series 0's obsStart
+ * (start + 36h — sale closed, observation window open) and satisfies the oracle's
+ * `t <= block.timestamp + 1 day` rule; it stays far inside obsEnd and redeemEnd,
+ * so record/settle/redeem all work at this time.
+ */
+export const SETTLE_WARP_TS = 1789700000n;
 
 /** Anvil's publicly known dev accounts — local test chain only, never real funds. */
 export const ACCOUNTS = [
@@ -44,6 +64,21 @@ export const deployment = (): Deployment =>
 
 export const publicClient = createPublicClient({ chain: foundry, transport: http(RPC_URL) });
 export const walletClient = createWalletClient({ chain: foundry, transport: http(RPC_URL) });
+export const testClient = createTestClient({ chain: foundry, mode: "anvil", transport: http(RPC_URL) });
+
+/**
+ * Warp the local anvil clock to an ABSOLUTE unix timestamp and mine one block so
+ * `block.timestamp` observes it immediately. Forward-only (anvil rejects going
+ * back). The Option B journey MUST call `await warpTo(SETTLE_WARP_TS)` between its
+ * BUY and SETTLE steps: demo series 0 stops selling at obsStart (= anvil start +
+ * 36h, contract rule saleEnd <= obsStart) and the fixture email can only be
+ * recorded once the chain clock is within 1 day of its signed t, so buys happen
+ * at start time and settlement happens after the warp.
+ */
+export async function warpTo(timestamp: bigint): Promise<void> {
+  await testClient.setNextBlockTimestamp({ timestamp });
+  await testClient.mine({ blocks: 1 });
+}
 
 // Frozen SPEC §2 signatures only. The Integrate phase compiles the real ABIs; these
 // minimal fragments keep the suite independent of Foundry build artifacts.
