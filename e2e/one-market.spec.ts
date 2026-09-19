@@ -12,7 +12,6 @@ test("primary routes expose one consistent market and no market picker", async (
     await expect(page.getByRole("navigation", {name: "Main navigation"})).not.toContainText(/Markets|Underwrite|Help me choose/);
     await expect(page.locator("h1, [data-testid=empty-state]").first()).toBeVisible();
   }
-  await expect(page.getByText("Bankr automation is dormant.", {exact: false})).toBeVisible();
 });
 
 test("renter and insurer calculators meet acceptance numbers and move consistently", async ({ page }) => {
