@@ -125,10 +125,8 @@ estimate at 1 gwei.
 ### CI path (etherform)
 
 `.github/workflows/cicd.yml` calls
-`RonTuretzky/etherform/.github/workflows/_foundry-cicd.yml@main` — a fork of
-`BreadchainCoop/etherform` that only bumps `foundry-rs/foundry-toolchain` v1.8.0 → v1.9.1
-(upstream's pin runs `bash foundryup`, which breaks now that foundryup is a Rust binary;
-repoint at upstream once it merges the same bump). Every push/PR runs
+`BreadchainCoop/etherform/.github/workflows/_foundry-cicd.yml@main` (foundryup breakage
+fixed upstream in etherform PR #60) — every push/PR runs
 `forge build`, `forge test`, `forge fmt --check`. `.github/deploy-networks.json` maps chainId 100
 to `https://gnosis.blockscout.com` so an operator-triggered deploy run resolves the explorer.
 PR-triggered deploys are deliberately **off** (`deploy-on-pr` unset): mainnet xDAI deploys stay a
