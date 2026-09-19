@@ -17,7 +17,8 @@ test("real v4 UI: backed mint, LP, buy/sell, blackout, DKIM settlement, payout a
     await insurer.goto("/#/insurer");
     await connectWallet(insurer);
     await expect(insurer.getByTestId("v4-market-actions")).toBeVisible();
-    await expect(insurer.getByTestId("market-strip")).not.toContainText("demo");
+    await expect(insurer.getByTestId("market-strip")).toHaveCount(0);
+    await expect(insurer.locator("main")).not.toContainText(/\bdemo\b/i);
     await insurer.getByLabel("Collateral (USDC)", {exact: true}).fill("1000");
     await clickReady(insurer, "Deposit and mint RENT");
     await expect.poll(() => rentBalance(CREATOR)).toBe(1000n * UNIT);

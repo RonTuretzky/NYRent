@@ -7,7 +7,6 @@ import { CaretDownIcon, ListIcon, XIcon } from "@phosphor-icons/react";
 import { DEPLOYMENTS, useActiveDeployment } from "../chain/registry";
 import { NotDeployedBanner, WrongNetworkBanner } from "./Banners";
 import { Toasts } from "./Toasts";
-import { MarketStrip } from "./MarketStrip";
 
 /** Legacy multi-market nav entries stay hidden unless explicitly re-exposed
  * (the routes themselves are always registered). */
@@ -383,7 +382,6 @@ export function Layout() {
         <AppNavbar />
       </div>
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-8">
-        <MarketStrip />
         <Outlet />
       </main>
       <Toasts />

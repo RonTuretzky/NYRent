@@ -13,9 +13,9 @@ export function ActiveMarketAction({ action, children }: { action: "buy" | "sett
   if (market.isLoading) return <Card><LoadingSkeleton lines={3} /></Card>;
   if (market.isDemo && market.rpcError) return <RpcDownState />;
   if (market.isDemo) return (
-    <EmptyState title={`${action === "buy" ? "Buy RENT" : action === "settle" ? "Settle this market" : "Redeem RENT"} · demo preview`}>
+    <EmptyState title={`${action === "buy" ? "Buy RENT" : action === "settle" ? "Settle this market" : "Redeem RENT"}`}>
       This market is not configured for transactions on the selected network yet.
-      The calculators show labeled examples; a matching on-chain market is required to {action}.
+      Select a network with an active RENT market to {action}.
     </EmptyState>
   );
   if (market.source === "v4" && action !== "settle") {

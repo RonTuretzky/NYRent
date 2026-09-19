@@ -9,7 +9,7 @@ accuracy corrections and the distinction between tested code and deployment.
 | Requirement | Implementation / evidence |
 |---|---|
 | Preserve office-rent index and DKIM verification | Original `CredailyRentOracle` unchanged; new market reads it; large-email helper reconstructs original bytes before calling it |
-| $92.88 Sept 2026 base; demo label until authenticated | `useActiveMarket` / `useV4Market` validate baseline month and value; base provenance bound at construction |
+| $92.88 Sept 2026 base; authenticated provenance | `useActiveMarket` / `useV4Market` validate baseline month and value; base provenance bound at construction. Demo badges were removed at the user's subsequent request |
 | One Sep 2026 → Sep 2027 market, RENT name, 3%–8% band | Shared `lib/market.ts`, explicit active market / deployment manifest, live strike and date checks |
 | Fully collateralized mint and capped linear payout | `RentV4Market`, complete lifecycle, fuzz and stateful invariants |
 | Trading closes before observation | Hook gates swaps/additions at saleEnd; token + LP freeze at obsStart; chosen saleEnd equals obsStart |
@@ -17,7 +17,7 @@ accuracy corrections and the distinction between tested code and deployment.
 | PLATFORM / INSURER / RENTER roles | Overview diagram and three role cards; insurer/renter dashboards; source/lease-basis disclosure |
 | Single market; no visible picker | Seven requested primary routes plus transaction routes; old functionality preserved through hidden legacy routes |
 | No user-visible “series” | Visible route/copy/error migration and primary-route browser assertions; ABI names remain internal for compatibility |
-| Persistent base/band/window strip | Shared Layout/MarketStrip on pages |
+| Persistent base/band/window strip | Removed at the user's subsequent request; terms remain on the market overview and in docs |
 | Unaudited / experimental / office not residential | Persistent app disclosure and docs |
 | Wallet, wrap/payment swap, settle, redeem preserved | Legacy paths retained; 16 existing/new browser journeys pass |
 | Overview: base/strikes/curve/dates/price/escrow/holdings | Live shared data or labeled demo values; fixed-rate versus v4 price distinguished |
@@ -114,3 +114,11 @@ ring before Cuer adds its visual padding. Regression tests render the wallet QR 
 and independently decode its matrix back to a synthetic pairing URI. Mobile navigation
 also waits until click to dismiss a group, avoiding layout movement before the next
 trigger receives its click; the browser journey covers switching groups in one click.
+
+
+## Requested UI cleanup — 2026-09-19
+
+Removed the shared market-terms strip and all visible demo badges/copy across the primary
+routes. Live metrics show an unavailable state when chain data is missing, instead of
+labeling hard-coded values as current prices. Calculator inputs remain editable; transaction
+availability, authenticated baseline checks, and the Polygon buy/sell flow are unchanged.

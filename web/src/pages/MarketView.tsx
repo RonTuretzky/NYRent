@@ -12,7 +12,6 @@ import { useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import { parseAbiItem } from "viem";
 import { ArrowRightIcon } from "@phosphor-icons/react";
-import { DemoBadge } from "../components/DemoBadge";
 import { Card } from "../components/States";
 import { isLiveDeployment, useActiveDeployment } from "../chain/registry";
 import { useActiveMarket } from "../chain/useActiveMarket";
@@ -59,22 +58,19 @@ export function MarketView() {
         <div className="mt-8 grid sm:grid-cols-3 gap-4 items-stretch">
           <BigStat
             label="RENT price now"
-            value={`${m.p.toFixed(3)} ${symbol}`}
-            sub={m.source === "v4" ? "Uniswap v4 spot price" : m.isDemo ? "demo assumption" : "fixed-rate price, not a crowd forecast"}
-            demo={m.isDemo}
+            value={m.isDemo ? "—" : `${m.p.toFixed(3)} ${symbol}`}
+            sub={m.source === "v4" ? "Uniswap v4 spot price" : m.isDemo ? "Price unavailable" : "fixed-rate price, not a crowd forecast"}
           />
           <BigStat
             label="Price-implied growth"
-            value={formatGrowth(gStar)}
+            value={m.isDemo ? "—" : formatGrowth(gStar)}
             sub={`= ${floorPct}% + ${ceilPct - floorPct}% × price`}
-            demo={m.isDemo || m.baseIsDemo}
             arrow
           />
           <BigStat
             label="Implied Sept 2027 rent"
-            value={`${formatCents(rentCents)} /SF`}
-            sub={`= base × (1 ${gStar >= 0 ? "+" : "−"} ${Math.abs(gStar * 100).toFixed(3)}%)`}
-            demo={m.isDemo || m.baseIsDemo}
+            value={m.isDemo || m.baseIsDemo ? "—" : `${formatCents(rentCents)} /SF`}
+            sub={m.isDemo ? "Requires a current market price" : `= base × (1 ${gStar >= 0 ? "+" : "−"} ${Math.abs(gStar * 100).toFixed(3)}%)`}
             arrow
             emphasis
           />
@@ -90,9 +86,8 @@ export function MarketView() {
           <h2 className="font-parkDisplay font-bold text-2xl text-text-standard">
             Price history
           </h2>
-          {m.isDemo ? <DemoBadge label="demo values" /> : null}
         </div>
-        {m.source === "v4" ? <V4PriceHistory /> : <Card>
+        {m.source === "v4" ? <V4PriceHistory /> : m.isDemo ? <Card><p className="font-parkBody text-sm text-surface-grey-2">Price history is unavailable on this network.</p></Card> : <Card>
           {history.isLoading ? (
             <div className="nrc-skeleton h-56 rounded-xl" aria-hidden="true" />
           ) : (
@@ -132,14 +127,12 @@ function BigStat({
   label,
   value,
   sub,
-  demo = false,
   arrow = false,
   emphasis = false,
 }: {
   label: string;
   value: string;
   sub?: string;
-  demo?: boolean;
   arrow?: boolean;
   emphasis?: boolean;
 }) {
@@ -154,7 +147,6 @@ function BigStat({
       ) : null}
       <div className="font-parkBody text-xs text-surface-grey-2 flex items-center justify-center gap-1.5">
         {label}
-        {demo ? <DemoBadge /> : null}
       </div>
       <div
         className={`font-parkDisplay font-bold mt-1 ${

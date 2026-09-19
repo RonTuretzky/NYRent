@@ -520,7 +520,7 @@ export function LegacyDocs() {
           ))}
         </ul>
         <p className="font-parkBody text-sm text-surface-grey-2 border-l-4 border-system-warning pl-3 py-0.5 mt-4">
-          Market #2 is a retired v1 demo whose sale overlapped its observation
+          Market #2 is a retired v1 market whose sale overlapped its observation
           window, so this tiny purchase was informed by the already-public
           result. It proves the mechanics, not fair price discovery. Current
           permissionless pools enforce <Code>saleEnd &lt;= obsStart</Code>

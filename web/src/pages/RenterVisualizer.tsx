@@ -1,7 +1,7 @@
 /**
  * /renter — payout visualizer for the RENTER role of the one active market.
  * All math comes from lib/market.ts; the price prefills from the live market
- * (demo-badged otherwise) and the buy button hands off to the existing buy
+ * and the buy button hands off to the existing buy
  * flow with the coverage amount prefilled.
  */
 import { useEffect, useState } from "react";
@@ -20,7 +20,6 @@ import { formatCount, formatDollars } from "../lib/dollars";
 import { Card, StatRow } from "../components/States";
 import { SliderInput } from "../components/SliderInput";
 import { GrowthChart } from "../components/GrowthChart";
-import { DemoBadge } from "../components/DemoBadge";
 
 const DEFAULT_ANNUAL_RENT = 60_000;
 
@@ -92,7 +91,7 @@ export function RenterVisualizer() {
             unit="per RENT"
             hint={
               market.isDemo
-                ? "Demo price — the live market price fills in once deployed."
+                ? "Set a price to explore costs and payouts."
                 : "Prefilled from the live market price — edit to explore."
             }
             testId="renter-price"
@@ -195,7 +194,7 @@ export function RenterVisualizer() {
           <p className="font-parkBody text-xs text-surface-grey-2">
             Continues to the checkout with {formatDollars(q.units)} of coverage
             prefilled — you can adjust it there and pay with {symbol}{market.source === "v4" ? "." : " or another token."} At your modeled price it costs about{" "}
-            {formatDollars(q.cost)}. Checkout uses the live price, which may differ. {market.isDemo ? <DemoBadge /> : null}
+            {formatDollars(q.cost)}. Checkout uses the live price, which may differ.
           </p>
         </div>
       </Card>

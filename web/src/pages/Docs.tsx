@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { Card } from "../components/States";
 import { useActiveMarket } from "../chain/useActiveMarket";
 import { formatCents, formatDate } from "../chain/format";
-import { DemoBadge } from "../components/DemoBadge";
 import { useActiveDeployment } from "../chain/registry";
 import { V4_DEPLOYMENTS } from "../chain/v4";
 import { addressUrl } from "../chain/explorer";
@@ -25,7 +24,7 @@ export function Docs() {
       </div>
     </Card> : null}
     <Card><h2 className="font-parkDisplay font-bold text-xl">The fixed terms</h2>
-      <p className="font-parkBody mt-3">The configured base is an authenticated oracle observation signed in September 2026. The displayed base is {formatCents(market.baseCents)}/SF {market.baseIsDemo ? <DemoBadge /> : null}. Until that observation is recorded, the verified $92.88/SF fixture is a demo assumption.</p>
+      <p className="font-parkBody mt-3">The market uses a signed September 2026 oracle observation as its base. {market.baseIsDemo ? "The recorded base is currently unavailable on this network." : <>The authenticated base is {formatCents(market.baseCents)}/SF.</>}</p>
       <p className="font-parkBody mt-3">The first successful settlement transaction fixes the payout using a qualifying observation for September 2027; the contract cannot prove that no earlier email was withheld. Growth is g = settlement / base − 1. RENT pays nothing through 3% growth, increases linearly to $1 at 8%, and stays capped at $1 above that.</p>
       <p className="font-mono text-sm my-4 rounded-lg bg-paper-1 p-3">r = clamp((g − 0.03) / 0.05, 0, 1)</p>
       <p className="font-parkBody">Contracts using cent-denominated strikes settle against {formatCents(market.strikeLowCents)} and {formatCents(market.strikeHighCents)}. Cent rounding can differ slightly from the ideal percentage curve; the contract's integer formula determines the actual payout.</p>
@@ -50,7 +49,7 @@ export function Docs() {
       <p className="font-parkBody mt-3">After settlement, <Link className="underline" to="/redeem">Redeem</Link> exchanges RENT for its escrow payout before the claim deadline. Sales pauses do not disable settlement or redemption. Remaining backing follows the deployed contract's residual-withdrawal rules.</p>
     </Card>
     <Card><h2 className="font-parkDisplay font-bold text-xl">Status and risks</h2>
-      <p className="font-parkBody mt-3">A demo badge identifies assumptions or a market not configured for live transactions. A fixed-rate quote is labeled as such and is not a v4 pool price. Calculators do not submit transactions. Bankr automation is dormant.</p>
+      <p className="font-parkBody mt-3">A fixed-rate quote is labeled as such and is not a v4 pool price. Calculators do not submit transactions. Bankr automation is dormant.</p>
       <p className="font-parkBody mt-3">Unaudited and experimental. Office rent can diverge from your lease; stablecoins, contracts, the publisher's signing key and liquidity introduce additional risks. Use tiny amounts. No secondary exit or yield is guaranteed.</p>
     </Card>
   </div>;

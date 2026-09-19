@@ -20,7 +20,7 @@ export function NotDeployedBanner() {
   if (!isLiveDeployment(deployment) && !V4_DEPLOYMENTS[String(deployment.chainId)]) {
     return (
       <div data-testid="deployment-target-banner" role="status" className="bg-paper-1 border-b border-paper-2 px-4 py-3 font-parkBody text-sm text-center">
-        {deployment.name} is a deployment target. Its RENT market is not live yet; calculators show demo examples.
+        RENT trading is unavailable on {deployment.name}.
       </div>
     );
   }

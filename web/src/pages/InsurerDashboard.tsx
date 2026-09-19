@@ -2,7 +2,7 @@
  * /insurer — interactive dashboard for the INSURER role of the one active
  * market. Every number comes from lib/market.ts (the shared single source of
  * truth); live chain values (pool price, base print) prefill the inputs via
- * useActiveMarket, with demo badges when the market isn't deployed yet.
+ * useActiveMarket, with editable assumptions for calculator scenarios.
  */
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -23,7 +23,6 @@ import { formatCount, formatDollars } from "../lib/dollars";
 import { Card, StatRow } from "../components/States";
 import { SliderInput } from "../components/SliderInput";
 import { GrowthChart } from "../components/GrowthChart";
-import { DemoBadge } from "../components/DemoBadge";
 import { V4Trade } from "./V4Trade";
 
 const DEFAULT_CAPITAL = 100_000;
@@ -104,7 +103,7 @@ export function InsurerDashboard() {
             unit="per RENT"
             hint={
               market.isDemo
-                ? "Demo price — the live market price fills in once deployed."
+                ? "Set a price to explore costs and payouts."
                 : "Prefilled from the live market price — edit to explore."
             }
             testId="insurer-price"
@@ -297,8 +296,8 @@ export function InsurerDashboard() {
           <Link className="underline" to="/underwrite">
             underwriting console
           </Link>{" "}
-          creates separate fixed-rate markets. It does not fund this planned one-market v4 pool.{" "}
-          {market.isDemo ? <DemoBadge /> : null}
+          creates separate fixed-rate markets. It does not fund this RENT trading pool.{" "}
+
         </details>
       </Card>
     </div>

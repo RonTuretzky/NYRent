@@ -6,9 +6,8 @@ test("primary routes expose one consistent market and no market picker", async (
   await alignClock(page);
   for (const route of ["/", "/insurer", "/renter", "/market-view", "/settle", "/redeem", "/docs"]) {
     await page.goto(`/#${route}`);
-    await expect(page.getByTestId("market-strip")).toHaveCount(1);
-    await expect(page.getByTestId("market-strip")).toContainText("Manhattan Rent Cover, Sep 2026 → Sep 2027");
-    await expect(page.getByTestId("market-strip")).toContainText("demo market");
+    await expect(page.getByTestId("market-strip")).toHaveCount(0);
+    await expect(page.locator("main")).not.toContainText(/\bdemo\b/i);
     await expect(page.locator("main")).not.toContainText(/\bseries\b/i);
     await expect(page.getByRole("navigation", {name: "Main navigation"})).not.toContainText(/Markets|Underwrite|Help me choose/);
     await expect(page.locator("h1, [data-testid=empty-state]").first()).toBeVisible();
@@ -29,7 +28,7 @@ test("renter and insurer calculators meet acceptance numbers and move consistent
   await expect(page.locator("main")).toContainText("+5.5%");
   await page.getByTestId("renter-buy").click();
   await expect(page).toHaveURL(/#\/buy\?amount=3000$/);
-  await expect(page.getByTestId("empty-state")).toContainText("demo preview");
+  await expect(page.getByTestId("empty-state")).toContainText("not configured for transactions");
   await page.goto("/#/insurer");
   await expect(page.locator("main")).toContainText("$2,850");
   await expect(page.locator("main")).toContainText("$4,000");
@@ -46,14 +45,14 @@ test("renter and insurer calculators meet acceptance numbers and move consistent
 test("forecast discloses clipped payout and mobile views fit", async ({ page }) => {
   await alignClock(page);
   await page.goto("/#/market-view");
-  await expect(page.locator("main")).toContainText("+4.4%");
+  await expect(page.locator("main")).toContainText("Price unavailable");
   await expect(page.locator("main")).toContainText("not E[g]");
-  await expect(page.getByTestId("price-history-chart")).toBeVisible();
+  await expect(page.locator("main")).toContainText("Price history is unavailable");
   await page.screenshot({path: ".artifacts/one-market-forecast-desktop.png", fullPage: true});
   await page.setViewportSize({width: 390, height: 844});
   for (const route of ["/", "/renter", "/insurer", "/market-view"]) {
     await page.goto(`/#${route}`);
-    await expect(page.getByTestId("market-strip")).toBeVisible();
+    await expect(page.getByTestId("market-strip")).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   await page.screenshot({path: ".artifacts/one-market-forecast-mobile.png", fullPage: true});

@@ -1,7 +1,7 @@
 /**
  * Page 1 — "/" — What this market offers. Plain-language explainer for the
  * ONE market: money-flow diagram among PLATFORM / INSURER / RENTER (hiw
- * visual language), live numbers with demo badges, the payout-ratio curve in
+ * visual language), live market numbers, the payout-ratio curve in
  * both $/SF and YoY %, three role cards (provides / is obligated to), and
  * the animated how-it-works walkthrough below.
  */
@@ -15,7 +15,6 @@ import {
   UserIcon,
   VaultIcon,
 } from "@phosphor-icons/react";
-import { DemoBadge } from "../components/DemoBadge";
 import { PayoutCurve } from "../components/PayoutCurve";
 import { Card, RpcStaleBanner } from "../components/States";
 import {
@@ -99,7 +98,6 @@ export function MarketOverview() {
             Money goes in first. A renter buys protection. A signed newsletter
             sets the result. Follow the money through each step.
           </p>
-          {m.source === "demo" ? <p className="font-parkBody text-xs text-surface-grey mt-3">The illustrated v4 market is a preview; trading opens after launch.</p> : null}
         </div>
         <Suspense fallback={<div className="nrc-skeleton h-72 rounded-3xl" />}>
           <HowItWorks market={walkthrough} />
@@ -119,25 +117,21 @@ export function MarketOverview() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <Stat
             label="Base (Sep 2026)"
-            value={`${formatCents(m.baseCents)} /SF`}
-            demo={m.baseIsDemo}
+            value={m.baseIsDemo ? "—" : `${formatCents(m.baseCents)} /SF`}
             sub="the starting rent print"
           />
           <Stat
             label={`Payouts start (+${floorPct}%)`}
-            value={`${formatCents(m.strikeLowCents)} /SF`}
-            demo={m.isDemo && m.baseIsDemo}
+            value={m.isDemo ? "—" : `${formatCents(m.strikeLowCents)} /SF`}
           />
           <Stat
             label={`Full payout (+${ceilPct}%)`}
-            value={`${formatCents(m.strikeHighCents)} /SF`}
-            demo={m.isDemo && m.baseIsDemo}
+            value={m.isDemo ? "—" : `${formatCents(m.strikeHighCents)} /SF`}
           />
           <Stat
             label="RENT price now"
-            value={`${m.p.toFixed(3)} ${symbol}`}
-            demo={m.isDemo}
-            sub={m.source === "v4" ? "Uniswap v4 spot price" : m.isDemo ? "demo assumption" : "fixed-rate purchase price"}
+            value={m.isDemo ? "—" : `${m.p.toFixed(3)} ${symbol}`}
+            sub={m.source === "v4" ? "Uniswap v4 spot price" : m.isDemo ? "Price unavailable" : "fixed-rate purchase price"}
           />
           <Stat
             label="In escrow"
@@ -146,7 +140,6 @@ export function MarketOverview() {
                 ? formatCurrency(m.escrow, { decimals, symbol })
                 : "—"
             }
-            demo={m.isDemo}
             sub="backs every RENT 1:1"
           />
           <Stat
@@ -156,7 +149,6 @@ export function MarketOverview() {
                 ? formatCurrency(m.supply ?? m.sold, { decimals, symbol: "RENT" })
                 : "—"
             }
-            demo={m.isDemo}
             sub={m.source === "v4" ? "includes insurer and LP inventory" : undefined}
           />
           <Stat label="Sale closes" value={formatDate(m.saleEnd)} />
@@ -257,18 +249,15 @@ function Stat({
   label,
   value,
   sub,
-  demo = false,
 }: {
   label: string;
   value: string;
   sub?: string;
-  demo?: boolean;
 }) {
   return (
     <div className="bg-paper-0 border-2 border-paper-2 rounded-2xl px-4 py-3.5">
       <div className="font-parkBody text-xs text-surface-grey-2 flex items-center gap-1.5">
         {label}
-        {demo ? <DemoBadge /> : null}
       </div>
       <div className="font-parkDisplay font-bold text-xl text-text-standard mt-1">
         {value}
