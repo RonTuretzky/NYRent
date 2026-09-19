@@ -14,7 +14,10 @@ import {sqrtRatioAtTick} from './math.mjs';
 
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const port=8611,url=`http://127.0.0.1:${port}`;
-// Ensure all external contracts used here have reproducible pinned artifacts.
+// Build the complete dependency graph because this proof deploys both project
+// test fixtures and upstream v4 contracts. A narrow StateView-only build works
+// in a warm checkout but leaves the other artifacts absent in fresh CI.
+execFileSync('forge',['build'],{cwd:root,stdio:'ignore'});
 execFileSync('forge',['build','lib/v4-periphery/src/lens/StateView.sol'],{cwd:root,stdio:'ignore'});
 const artifact=async(name,file=name)=>JSON.parse(await readFile(`${root}/out/${file}.sol/${name}.json`,'utf8'));
 const a={};for(const [name,file] of [['PoolManager'],['V4TestCurrency','RentV4.t'],['MockObservationOracle','Helpers'],
