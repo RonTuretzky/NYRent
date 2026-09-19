@@ -22,6 +22,8 @@ import {LocalWXDAI} from "./LocalWXDAI.sol";
 contract DeployV4 is Script {
     address public constant ARBITRUM_MANAGER = 0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32;
     address public constant ARBITRUM_USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+    address public constant POLYGON_MANAGER = 0x67366782805870060151383F4BbFF9daB53e5cD6;
+    address public constant POLYGON_USDC = 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359;
     uint160 private constant FLAGS = Hooks.BEFORE_INITIALIZE_FLAG | Hooks.BEFORE_ADD_LIQUIDITY_FLAG
         | Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG | Hooks.BEFORE_SWAP_FLAG;
 
@@ -29,14 +31,14 @@ contract DeployV4 is Script {
     error InvalidDeployment();
 
     function run() external returns (CredailyRentOracle oracle, RentV4Factory factory, RentV4Router router) {
-        if (block.chainid != 31337 && block.chainid != 42161) revert UnsupportedChain();
+        if (block.chainid != 31337 && block.chainid != 42161 && block.chainid != 137) revert UnsupportedChain();
         address deployer = vm.envAddress("DEPLOYER");
         if (deployer == address(0)) revert InvalidDeployment();
         IPoolManager manager;
         IERC20 currency;
-        if (block.chainid == 42161) {
-            manager = IPoolManager(ARBITRUM_MANAGER);
-            currency = IERC20(ARBITRUM_USDC);
+        if (block.chainid == 42161 || block.chainid == 137) {
+            manager = IPoolManager(block.chainid == 137 ? POLYGON_MANAGER : ARBITRUM_MANAGER);
+            currency = IERC20(block.chainid == 137 ? POLYGON_USDC : ARBITRUM_USDC);
             if (
                 address(manager).code.length == 0 || address(currency).code.length == 0
                     || IERC20Metadata(address(currency)).decimals() != 6

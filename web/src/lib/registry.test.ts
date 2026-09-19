@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import {
   ARBITRUM_CHAIN_ID,
   GNOSIS_CHAIN_ID,
+  POLYGON_CHAIN_ID,
   buildDeployments,
   computeDefaultChainId,
   fromRaw,
@@ -171,4 +172,18 @@ test("resolution matrix: stored > wallet > default", () => {
   assert.equal(resolveActiveChainId(null, undefined, e2e, 31337), 31337);
   // e2e build: shim wallet on 31337 resolves to the test deployment
   assert.equal(resolveActiveChainId(null, 31337, e2e, 31337), 31337);
+});
+
+// A configured but unfunded production target must not become a local xDAI chain.
+test("Polygon stays a non-live production target and resolves wallet selection", () => {
+  const polygon: RawDeployment = {
+    chainId: POLYGON_CHAIN_ID, name: "Polygon PoS", oracle: ZERO, pool: ZERO, token: ZERO,
+    currency: { address: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", symbol: "USDC", decimals: 6 },
+    seriesIds: [], explorerBase: "https://polygonscan.com",
+  };
+  const deployments = buildDeployments({ ...baked, [POLYGON_CHAIN_ID]: polygon }, undefined, false);
+  assert.equal(legacyToTestDeployment({ ...anvilLegacy, chainId: POLYGON_CHAIN_ID }), undefined);
+  assert.equal(isLiveDeployment(deployments[POLYGON_CHAIN_ID]), false);
+  assert.equal(resolveActiveChainId(null, POLYGON_CHAIN_ID, deployments, GNOSIS_CHAIN_ID), POLYGON_CHAIN_ID);
+  assert.equal(computeDefaultChainId(deployments, undefined), GNOSIS_CHAIN_ID);
 });

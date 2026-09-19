@@ -90,7 +90,9 @@ function ChainLogo({ chainId }: { chainId: number }) {
       ? { bg: "#04795b", letter: "G" }
       : chainId === 42161
         ? { bg: "#2d374b", letter: "A" }
-        : { bg: "#6b7280", letter: "L" };
+        : chainId === 137
+          ? { bg: "#8247e5", letter: "P" }
+          : { bg: "#6b7280", letter: "L" };
   return (
     <svg
       width="18"

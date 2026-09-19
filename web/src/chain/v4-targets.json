@@ -1,0 +1,26 @@
+{
+  "42161": {
+    "chainId": 42161,
+    "name": "Arbitrum One",
+    "nativeSymbol": "ETH",
+    "rpc": "https://arb1.arbitrum.io/rpc",
+    "deployer": "0x6636A1CCBdf54485067304C1a590DE016DeaD9F0",
+    "poolManager": "0x360e68faccca8ca495c1b759fd9eee466db9fb32",
+    "stateView": "0x76fd297e2d437cd7f76d50f01afe6160f86e9990",
+    "quoter": "0x3972c00f7ed4885e145823eb7c655375d275a1c5",
+    "currency": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    "oracle": "0x128fF279AbD137DE6e378E8aCcefFe77Ea5259B3"
+  },
+  "137": {
+    "chainId": 137,
+    "name": "Polygon PoS",
+    "nativeSymbol": "POL",
+    "rpc": "https://polygon-bor-rpc.publicnode.com",
+    "deployer": "0x6636A1CCBdf54485067304C1a590DE016DeaD9F0",
+    "poolManager": "0x67366782805870060151383f4bbff9dab53e5cd6",
+    "stateView": "0x5ea1bd7974c8a611cbab0bdcafcb1d9cc9b3ba5a",
+    "quoter": "0xb3d5c3dfc3a7aebff71895a7191796bffc2c81b9",
+    "currency": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    "oracle": "0x0000000000000000000000000000000000000000"
+  }
+}

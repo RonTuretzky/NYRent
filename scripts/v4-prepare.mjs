@@ -11,18 +11,18 @@ export const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const require = createRequire(new URL('../web/package.json', import.meta.url));
 export const viem = require('viem');
 export const accounts = require('viem/accounts');
-export const { arbitrum } = require('viem/chains');
-export const C = Object.freeze({
-  chainId: 42161,
-  rpc: 'https://arb1.arbitrum.io/rpc',
-  deployer: '0x6636A1CCBdf54485067304C1a590DE016DeaD9F0',
-  poolManager: '0x360e68faccca8ca495c1b759fd9eee466db9fb32',
-  stateView: '0x76fd297e2d437cd7f76d50f01afe6160f86e9990',
-  quoter: '0x3972c00f7ed4885e145823eb7c655375d275a1c5',
-  currency: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-  oracle: '0x128fF279AbD137DE6e378E8aCcefFe77Ea5259B3',
-});
-export const ARTIFACT_NAMES = ['ChunkedObservationSubmitter', 'RentV4Factory', 'RentV4Hook', 'RentV4Router', 'RentV4Market'];
+export const { arbitrum, polygon } = require('viem/chains');
+export const TARGETS = Object.freeze(JSON.parse(readFileSync(path.join(ROOT, 'web/src/chain/v4-targets.json'))));
+export function targetOf(value = 'arbitrum') {
+  const id = { arbitrum: 42161, polygon: 137 }[String(value)] ?? Number(value);
+  const target = TARGETS[String(id)];
+  if (!target) throw new Error(`Unsupported v4 target: ${value}`);
+  return target;
+}
+export const C = targetOf();
+export const chainFor = target => target.chainId === 137 ? polygon : arbitrum;
+export const hasOracle = target => target.oracle !== viem.zeroAddress;
+export const ARTIFACT_NAMES = ['ChunkedObservationSubmitter', 'RentV4Factory', 'RentV4Hook', 'RentV4Router', 'RentV4Market', 'CredailyRentOracle'];
 export const MARKET_TERMS = Object.freeze({ baseRentCents: DEMO_BASE_CENTS, strikeLowCents: DEMO_STRIKE_LOW_CENTS,
   strikeHighCents: DEMO_STRIKE_HIGH_CENTS, saleEnd: DEMO_SALE_END, obsStart: DEMO_OBS_START,
   obsEnd: DEMO_OBS_END, redeemEnd: DEMO_REDEEM_END });
@@ -67,12 +67,12 @@ export function fixture() {
     body, prefix: viem.toHex(body.subarray(0, 24000)), tail: viem.toHex(body.subarray(24000)),
     headers: viem.toHex(readFileSync(path.join(dir, 'signed-headers.bin'))),
     signature: viem.toHex(readFileSync(path.join(dir, 'sig.bin'))),
-    hash: viem.sha256(viem.toHex(body)), modulusHash: viem.keccak256(meta.modulus_hex),
+    modulus: meta.modulus_hex, hash: viem.sha256(viem.toHex(body)), modulusHash: viem.keccak256(meta.modulus_hex),
     timestamp: BigInt(meta.t), cents: 9288,
   };
 }
-export function publicClient(url = C.rpc) {
-  return viem.createPublicClient({ chain: arbitrum, transport: viem.http(url, { timeout: 60_000, retryCount: 1 }) });
+export function publicClient(url = C.rpc, target = C) {
+  return viem.createPublicClient({ chain: chainFor(target), transport: viem.http(url, { timeout: 60_000, retryCount: 1 }) });
 }
 export function sqrt(value) {
   if (value < 0n) throw new Error('Negative square root');
@@ -81,11 +81,11 @@ export function sqrt(value) {
   while (next < x) { x = next; next = (x + value / x) / 2n; }
   return x;
 }
-export function initialSqrtPrice(market, priceNumerator = 285n, priceDenominator = 1000n) {
+export function initialSqrtPrice(market, priceNumerator = 285n, priceDenominator = 1000n, C = targetOf()) {
   const rentIs0 = market.toLowerCase() < C.currency.toLowerCase();
   return sqrt((rentIs0 ? priceNumerator : priceDenominator) * 2n ** 192n / (rentIs0 ? priceDenominator : priceNumerator));
 }
-export function liquidityFor(sqrtPrice, rentAddress, rent, dollars) {
+export function liquidityFor(sqrtPrice, rentAddress, rent, dollars, C = targetOf()) {
   const Q = 2n ** 96n, lower = 4306310044n, upper = 1457652066949847389969617340386294118487833376468n;
   const [maximum0, maximum1] = rentAddress.toLowerCase() < C.currency.toLowerCase() ? [rent, dollars] : [dollars, rent];
   if (maximum0 <= 1n || maximum1 <= 1n) throw new Error('Seed size is too small');
@@ -95,7 +95,7 @@ export function liquidityFor(sqrtPrice, rentAddress, rent, dollars) {
   if (liquidity <= 0n) throw new Error('Seed liquidity rounds to zero');
   return { liquidity, maximum0, maximum1 };
 }
-export function mineHook(factory, artifact) {
+export function mineHook(factory, artifact, C = targetOf()) {
   const bytecodeHash = viem.keccak256(viem.encodeDeployData({ abi: artifact.abi, bytecode: artifact.bytecode.object, args: [C.poolManager, factory] }));
   for (let i = 0; i < 1_000_000; i++) {
     const salt = viem.toHex(i, { size: 32 });
@@ -104,7 +104,8 @@ export function mineHook(factory, artifact) {
   }
   throw new Error('Hook salt search exceeded limit');
 }
-export async function findBase(client, f = fixture()) {
+export async function findBase(client, f = fixture(), C = targetOf()) {
+  if (!hasOracle(C)) return null;
   const recorded = await client.readContract({ address: C.oracle, abi: ORACLE, functionName: 'recorded', args: [f.hash] });
   if (!recorded) return null;
   const count = await client.readContract({ address: C.oracle, abi: ORACLE, functionName: 'observationCount' });
@@ -119,25 +120,26 @@ export async function findBase(client, f = fixture()) {
   throw new Error('Oracle replay mapping and observation log disagree');
 }
 export async function prepare(options = {}) {
+  const C = targetOf(options.chain);
   const rpc = String(options.rpc || C.rpc);
   const deployer = viem.getAddress(String(options.deployer || C.deployer));
-  const client = publicClient(rpc), a = artifacts(), f = fixture();
+  const client = publicClient(rpc, C), a = artifacts(), f = fixture();
   const collateral = viem.parseUnits(String(options.collateral || '1'), 6);
   const lpCash = (collateral * 285n + 999n) / 1000n;
   const smoke = Boolean(options.smoke);
   const smokeInput = smoke ? 100n : 0n;
   if (collateral < 100n || collateral > 1000000n) throw new Error('This demo launch supports 0.0001–1 USDC collateral');
   const chainId = await client.getChainId();
-  if (chainId !== C.chainId) throw new Error(`Expected Arbitrum One, got ${chainId}`);
+  if (chainId !== C.chainId) throw new Error(`Expected ${C.name}, got ${chainId}`);
   const block = await client.getBlock();
   const [nativeBalance, usdcBalance, nonce, gasPrice, modulusHash, baseObservationIndex] = await Promise.all([
     client.getBalance({ address: deployer, blockNumber: block.number }),
     client.readContract({ address: C.currency, abi: ERC20, functionName: 'balanceOf', args: [deployer], blockNumber: block.number }),
     client.getTransactionCount({ address: deployer, blockTag: 'pending' }), client.getGasPrice(),
-    client.readContract({ address: C.oracle, abi: ORACLE, functionName: 'MODULUS_HASH' }), findBase(client, f),
+    hasOracle(C) ? client.readContract({ address: C.oracle, abi: ORACLE, functionName: 'MODULUS_HASH' }) : f.modulusHash, findBase(client, f, C),
   ]);
   if (modulusHash !== f.modulusHash) throw new Error('Existing oracle pinned key differs from verified fixture');
-  for (const address of [C.poolManager, C.currency, C.oracle, C.stateView, C.quoter]) {
+  for (const address of [C.poolManager, C.currency, C.stateView, C.quoter, ...(hasOracle(C) ? [C.oracle] : [])]) {
     const code = await client.getCode({ address });
     if (!code || code === '0x') throw new Error(`Missing canonical contract ${address}`);
   }
@@ -150,7 +152,7 @@ export async function prepare(options = {}) {
     if (code !== a.ChunkedObservationSubmitter.deployedBytecode.object) throw new Error('Existing observation submitter runtime differs from reviewed artifact');
   }
   const plan = {
-    version: 1, preparedAt: new Date().toISOString(), chainId, upstreamRpc: rpc, deployer,
+    version: 2, preparedAt: new Date().toISOString(), chainId, upstreamRpc: rpc, deployer,
     forkBlock: block.number, forkBlockHash: block.hash, startingNonce: nonce, addresses: C, observationSubmitter,
     artifacts: Object.fromEntries(ARTIFACT_NAMES.map(name => [name, viem.keccak256(a[name].bytecode.object)])),
     baseline: { emailId: f.hash, timestamp: f.timestamp, cents: f.cents, baseObservationIndex },
@@ -166,7 +168,7 @@ export async function prepare(options = {}) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = argsOf();
   if (args.help) {
-    console.log('node scripts/v4-prepare.mjs [--out broadcast/v4/plan.json] [--collateral 1] [--smoke] [--rpc URL]\nDefault desired launch: 1 USDC escrow + 0.285 USDC LP cash. Use --collateral 0.01 for a tiny fork proof. Public-data-only; does not sign, load .env, or broadcast.');
+    console.log('node scripts/v4-prepare.mjs [--chain arbitrum|polygon] [--out broadcast/v4/plan.json] [--collateral 1] [--smoke] [--rpc URL]\nDefault desired launch: 1 USDC escrow + 0.285 USDC LP cash. Use --collateral 0.01 for a tiny fork proof. Public-data-only; does not sign, load .env, or broadcast.');
   } else {
     if (args.execute) throw new Error('Use v4-launch.mjs --execute with explicit budgets; prepare never broadcasts');
     const plan = await prepare(args);

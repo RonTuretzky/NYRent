@@ -4,7 +4,7 @@ Reviewed 2026-09-19. This document separates observed chain state, local/fork ve
 
 ## Venue and canonical contracts
 
-Arbitrum One is the supported v4 deployment target for this build. The [official Uniswap deployment registry](https://developers.uniswap.org/docs/protocols/v4/deployments) lists the following addresses. On 2026-09-19 at Arbitrum block **506883069**, read-only `eth_getCode` independently found nonempty code at all five addresses shown below.
+Arbitrum One and Polygon PoS are supported v4 deployment targets for this build. The original Arbitrum review follows; see the Polygon section below for its separate addresses and readiness. The [official Uniswap deployment registry](https://developers.uniswap.org/docs/protocols/v4/deployments) lists the following addresses. On 2026-09-19 at Arbitrum block **506883069**, read-only `eth_getCode` independently found nonempty code at all five addresses shown below.
 
 | Contract | Arbitrum One address | Observed code bytes |
 | --- | --- | ---: |
@@ -129,3 +129,47 @@ node scripts/v4-launch.mjs --plan broadcast/v4/pilot-plan.json --out broadcast/v
 Production execution is a separate path requiring `--execute`, the exact plan and completed matching fork report, explicit gas/capital caps, fresh balances, and a secure deployer key loaded through the existing environment loader. It does not run during preparation/rehearsal. A global deployer lock and active-journal pointer prevent concurrent or alternate-checkpoint launches; signed transaction hashes are persisted before network submission and resumed with the same nonce/request. A missing active checkpoint fails closed. Keep checkpoints across restarts. Actions use a one-hour deadline; expired unconfirmed actions need operator review, not blind resubmission.
 
 The observation helper is always provisioned even when the baseline is already recorded. `--observation-submitter ADDRESS` can reuse an existing helper only if its runtime matches the reviewed artifact. Every successful manifest includes it for future large signed-email submissions. Manifests remain in the operation's output directory; the scripts never activate fork addresses in the production frontend.
+
+
+## Polygon PoS target — 2026-09-19
+
+Polygon is now configured in the wallet, RPC fallbacks, network selector, explorer links,
+USDC payment table, deployment preparation, restart-safe launcher and `DeployV4.s.sol`.
+The canonical target registry is `web/src/chain/v4-targets.json`. Gnosis retains its existing
+fixed-price deployment; Arbitrum and Polygon are independent v4 targets, not a bridge.
+
+| Contract | Polygon PoS address (137) |
+| --- | --- |
+| PoolManager | `0x67366782805870060151383f4bbff9dab53e5cd6` |
+| StateView | `0x5ea1bd7974c8a611cbab0bdcafcb1d9cc9b3ba5a` |
+| Quoter | `0xb3d5c3dfc3a7aebff71895a7191796bffc2c81b9` |
+| Native USDC, 6 decimals | `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359` |
+
+Sources: [Uniswap's v4 deployment registry](https://developers.uniswap.org/docs/protocols/v4/deployments#polygon-137)
+and [Circle's native USDC registry](https://developers.circle.com/stablecoins/usdc-contract-addresses).
+The preparation command independently verified nonempty on-chain code for these contracts.
+Polygon starts with a fresh oracle pinned to the same authentic CRE Daily key; no oracle
+or RentSafe market is represented as deployed on Polygon in the production app.
+
+Validation:
+
+- Canonical Polygon and Arbitrum PoolManager fork lifecycles both passed, including actual
+  buy/sell, observation freeze, settlement, LP removal, redemption and residual accounting.
+  These lifecycle tests use synthetic currency and future observations only inside the fork.
+- The full Polygon launcher integration passed **15 transactions**, using real native USDC,
+  PoolManager, StateView and Quoter bytecode. It deployed a new oracle, verified the authentic
+  September 2026 DKIM fixture, minted fully backed RENT, seeded liquidity and bought/sold RENT.
+- That integration used synthetic local POL and a **local-only USDC transfer** from the
+  canonical PoolManager into the operator account on an outer fork. Nothing was sent on
+  Polygon mainnet. The launcher rejects its explicitly marked integration-only plan for
+  execution. Production activation must use a fresh plan after real operator funding.
+- 20,038,193 receipt gas and 20,235,863 estimated gas were measured for the complete launch.
+  The nested fork's own gas price is not a production fee quote.
+- At live Polygon block **94097230**, gas was 30,005,125,240 wei. Applying a 30% buffer to
+  the measured gas gives **0.789334 POL**. The actual deployer held **0.103244 POL and 0 USDC**,
+  leaving approximately **0.686090 POL plus 1.2851 native USDC** to fund the one-dollar
+  pilot and smoke trade. Fees and nonce must be refreshed before preparing a live proof.
+
+`v4-deployments.json` remains empty. Polygon's frontend entry contains zero RentSafe
+addresses and shows an explicit not-live notice; checkout cannot submit a transaction.
+Arbitrum's old version-1 plans must also be regenerated under the multichain version-2 format.

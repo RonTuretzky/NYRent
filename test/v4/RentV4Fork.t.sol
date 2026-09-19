@@ -20,8 +20,35 @@ contract RentV4ArbitrumForkTest is RentV4TestBase {
     }
 
     function test_arbitrumCanonicalPoolManager_fullLifecycle() public {
-        if (!enabled) vm.skip(true);
-        return;
+        if (!enabled) {
+            vm.skip(true);
+            return;
+        }
+        _lifecycle(10000, 0.5e18);
+    }
+}
+
+/// @notice Polygon has separate singleton state; exercise the same hooks on its canonical manager.
+///         Currency and future observations are synthetic fixtures confined to this fork.
+contract RentV4PolygonForkTest is RentV4TestBase {
+    bool internal enabled;
+
+    function setUp() public override {
+        string memory rpc = vm.envOr("V4_POLYGON_RPC_URL", string(""));
+        if (bytes(rpc).length == 0) return;
+        vm.createSelectFork(rpc);
+        assertEq(block.chainid, 137, "Polygon chain ID required");
+        manager = IPoolManager(0x67366782805870060151383F4BbFF9daB53e5cD6);
+        assertGt(address(manager).code.length, 0, "canonical PoolManager missing");
+        enabled = true;
+        _setupMarket();
+    }
+
+    function test_polygonCanonicalPoolManager_fullLifecycle() public {
+        if (!enabled) {
+            vm.skip(true);
+            return;
+        }
         _lifecycle(10000, 0.5e18);
     }
 }

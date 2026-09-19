@@ -7,6 +7,8 @@ import {
   useActiveDeployment,
 } from "../chain/registry";
 
+import { V4_DEPLOYMENTS } from "../chain/v4";
+
 /**
  * Dev/e2e nicety: deployment.json points at a local chain but still carries
  * zero-address placeholders, so the registry refused to serve it and the app
@@ -14,6 +16,14 @@ import {
  * this (their deployments are baked real).
  */
 export function NotDeployedBanner() {
+  const { deployment } = useActiveDeployment();
+  if (!isLiveDeployment(deployment) && !V4_DEPLOYMENTS[String(deployment.chainId)]) {
+    return (
+      <div data-testid="deployment-target-banner" role="status" className="bg-paper-1 border-b border-paper-2 px-4 py-3 font-parkBody text-sm text-center">
+        {deployment.name} is a deployment target. Its RENT market is not live yet; calculators show demo examples.
+      </div>
+    );
+  }
   if (!TEST_DEPLOYMENT || isLiveDeployment(TEST_DEPLOYMENT)) return null;
   return (
     <div

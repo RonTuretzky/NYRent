@@ -14,11 +14,13 @@ export const ZERO_ADDRESS: Address =
 
 export const GNOSIS_CHAIN_ID = 100;
 export const ARBITRUM_CHAIN_ID = 42161;
+export const POLYGON_CHAIN_ID = 137;
 
 /** Chains served from the baked deployments.json. */
 export const PRODUCTION_CHAIN_IDS: readonly number[] = [
   GNOSIS_CHAIN_ID,
   ARBITRUM_CHAIN_ID,
+  POLYGON_CHAIN_ID,
 ];
 
 export interface DeploymentCurrency {
@@ -84,9 +86,8 @@ export function fromRaw(raw: RawDeployment): AppDeployment {
   };
 }
 
-/** True once the deployment carries real (non-zero) addresses — always true
- * for the baked production entries, meaningful for the anvil test entry
- * before the e2e deploy script has written real addresses. */
+/** True once the fixed-price deployment carries non-zero addresses.
+ * Configured targets can remain undeployed; v4 has its own receipt-backed registry. */
 export function isLiveDeployment(d: AppDeployment): boolean {
   return (
     d.oracle !== ZERO_ADDRESS &&

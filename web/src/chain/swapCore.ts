@@ -22,6 +22,7 @@ import type { DecodedTxError } from "./errors.ts";
 
 export const GNOSIS = 100;
 export const ARBITRUM = 42161;
+export const POLYGON = 137;
 
 /** Uniswap QuoterV2 per chain — used for exact-output quotes only. */
 export const QUOTERS: Record<number, Address> = {
@@ -310,6 +311,12 @@ export interface DeploymentLike {
  * like WXDAI). Router routes are dropped when the deployment has no router.
  */
 export function paymentTokensFor(d: DeploymentLike): PaymentToken[] {
+  // Polygon v4 uses native USDC directly; POL is for gas, never a 1:1 wrap.
+  if (d.chainId === POLYGON) return [{
+    id: "usdc", symbol: "USDC", name: "USD Coin", decimals: 6,
+    address: d.currency.address, route: { kind: "direct" },
+    defaultSlippageBps: 0, routeLabel: "the pool's own money — no swap",
+  }];
   const table = PAYMENT_TOKENS[d.chainId];
   if (table) {
     return d.router ? table : table.filter((t) => t.route.kind !== "router");

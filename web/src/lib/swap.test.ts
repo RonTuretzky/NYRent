@@ -333,3 +333,12 @@ test("direct-leg builders: approve targets the pool, wrap carries value", () => 
   assert.equal(wrap.functionName, "deposit");
   assert.equal(wrap.value, 55n);
 });
+
+test("Polygon offers native USDC only, never a fake POL-to-USDC wrap", () => {
+  const tokens = paymentTokensFor({ chainId: 137, currency: {
+    address: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", symbol: "USDC", decimals: 6,
+  } });
+  assert.equal(tokens.length, 1);
+  assert.equal(tokens[0].symbol, "USDC");
+  assert.equal(tokens[0].route.kind, "direct");
+});

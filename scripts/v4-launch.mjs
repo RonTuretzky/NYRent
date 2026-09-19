@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Default: launch only on a fresh local Arbitrum fork and emit a receipt-backed budget.
- * Mainnet: --execute --plan FILE --report FORK_REPORT --max-gas-eth N --max-capital-usdc N.
+ * Default: launch only on a fresh local target-chain fork and emit a receipt-backed budget.
+ * Mainnet: --execute --plan FILE --report FORK_REPORT --max-gas-native N --max-capital-usdc N.
  * Only --execute invokes the existing secure environment loader. Keys are never persisted.
  */
 import { readFileSync, existsSync, mkdirSync, openSync, closeSync, unlinkSync } from 'node:fs';
@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadEnv } from '../agent/executors/chain.mjs';
-import { ROOT, C, MARKET_TERMS, viem, accounts, arbitrum, ERC20, ORACLE, argsOf, artifacts, fixture, publicClient,
+import { ROOT, targetOf, chainFor, hasOracle, MARKET_TERMS, viem, accounts, ERC20, ORACLE, argsOf, artifacts, fixture, publicClient,
   atomicJson, json, prepare, findBase, mineHook, initialSqrtPrice, liquidityFor } from './v4-prepare.mjs';
 
 const lower = -887220, upper = 887220;
@@ -27,6 +27,7 @@ function requestFromJson(r) {
   return { ...r, value: BigInt(r.value), gas: BigInt(r.gas), gasPrice: BigInt(r.gasPrice) };
 }
 async function startFork(plan, port) {
+  const C = targetOf(plan.chainId);
   const url = `http://127.0.0.1:${port}`;
   try {
     const result = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' },
@@ -41,7 +42,7 @@ async function startFork(plan, port) {
   let stderr = '', spawnError;
   child.stderr.on('data', data => { stderr = (stderr + data.toString()).slice(-3000); });
   child.on('error', error => { spawnError = error; });
-  const client = publicClient(url);
+  const client = publicClient(url, C);
   for (let i = 0; i < 150; i++) {
     if (spawnError || child.exitCode !== null) throw new Error(`Anvil did not start: ${spawnError?.message || stderr}`);
     try {
@@ -58,12 +59,16 @@ async function startFork(plan, port) {
 export async function launch(options = {}) {
   const execute = options.execute === true;
   if (options.execute && !execute) throw new Error('--execute is a boolean flag, never a key or RPC URL');
-  if (execute && (!options.plan || !options.report || !options['max-gas-eth'] || !options['max-capital-usdc'])) {
-    throw new Error('Execution requires --plan, --report, --max-gas-eth, and --max-capital-usdc');
+  if (execute && (!options.plan || !options.report || !(options['max-gas-native'] || options['max-gas-eth']) || !options['max-capital-usdc'])) {
+    throw new Error('Execution requires --plan, --report, --max-gas-native, and --max-capital-usdc');
   }
   const plan = options.plan ? read(path.resolve(String(options.plan))) : await prepare(options);
+  const C = targetOf(plan.chainId);
+  if (execute && plan.integrationOnly) throw new Error('Integration-only plans cannot execute on mainnet; prepare with real operator funding');
+  if (options.chain && targetOf(options.chain).chainId !== plan.chainId) throw new Error('Requested chain differs from plan');
+  if (options['max-gas-eth'] && C.nativeSymbol !== 'ETH') throw new Error('Use --max-gas-native for POL; --max-gas-eth is Arbitrum-only');
   const planHash = hashJson(plan), a = artifacts(), f = fixture();
-  if (plan.version !== 1 || plan.chainId !== C.chainId) throw new Error('Unsupported plan');
+  if (plan.version !== 2 || plan.chainId !== C.chainId) throw new Error('Unsupported plan');
   if (hashJson(plan.terms) !== hashJson(MARKET_TERMS)) throw new Error('Prepared dates/strikes differ from the shared frontend market; create a fresh plan and proof');
   for (const [key, expected] of Object.entries(C)) {
     if (key !== 'rpc' && key !== 'deployer' && String(plan.addresses[key]).toLowerCase() !== String(expected).toLowerCase()) {
@@ -74,7 +79,7 @@ export async function launch(options = {}) {
     throw new Error(`Artifact ${name} changed: rebuild plan and fork proof`);
   }
   if (plan.baseline.emailId !== f.hash || plan.baseline.cents !== f.cents) throw new Error('Fixture or baseline changed');
-  const runDir = path.resolve(String(options.out || path.join(ROOT, 'broadcast/v4', execute ? 'mainnet-42161' : `fork-${Date.now()}`)));
+  const runDir = path.resolve(String(options.out || path.join(ROOT, 'broadcast/v4', execute ? `mainnet-${C.chainId}` : `fork-${C.chainId}-${Date.now()}`)));
   mkdirSync(runDir, { recursive: true });
   const lockFile = path.join(runDir, 'operator.lock');
   let lockFd;
@@ -95,14 +100,14 @@ export async function launch(options = {}) {
   atomicJson(path.join(runDir, 'plan.json'), plan);
   save();
   try {
-    const upstream = publicClient(plan.upstreamRpc);
+    const upstream = publicClient(plan.upstreamRpc, C);
     let client;
     if (execute) {
       client = upstream;
-      globalLockFile = path.join(ROOT, 'broadcast/v4', `operator-42161-${plan.deployer.toLowerCase()}.lock`);
+      globalLockFile = path.join(ROOT, 'broadcast/v4', `operator-${C.chainId}-${plan.deployer.toLowerCase()}.lock`);
       try { globalLockFd = openSync(globalLockFile, 'wx', 0o600); }
       catch { throw new Error('Another launch may be active for this deployer; inspect the global operator lock before continuing'); }
-      const activeFile = path.join(ROOT, 'broadcast/v4', `active-42161-${plan.deployer.toLowerCase()}.json`);
+      const activeFile = path.join(ROOT, 'broadcast/v4', `active-${C.chainId}-${plan.deployer.toLowerCase()}.json`);
       if (existsSync(activeFile)) {
         const active = read(activeFile);
         if (!existsSync(active.checkpointFile)) throw new Error('Active launch checkpoint is missing; restore it before any new broadcast');
@@ -112,7 +117,7 @@ export async function launch(options = {}) {
       const proof = read(path.resolve(String(options.report)));
       if (!proof.complete || proof.mode !== 'local-fork' || proof.planHash !== planHash) throw new Error('Matching completed fork proof required');
       if (Date.now() - Date.parse(proof.completedAt) > 24 * 3600 * 1000) throw new Error('Fork proof is older than 24 hours; rehearse again');
-      gasBudget = viem.parseEther(String(options['max-gas-eth']));
+      gasBudget = viem.parseEther(String(options['max-gas-native'] || options['max-gas-eth']));
       const capBudget = viem.parseUnits(String(options['max-capital-usdc']), 6);
       if (BigInt(plan.snapshot.requiredCapital) > capBudget) throw new Error('Planned collateral + LP cash + smoke exceeds capital budget');
       const gasPrice = await client.getGasPrice();
@@ -131,7 +136,7 @@ export async function launch(options = {}) {
       usdcBefore = await client.readContract({ address: C.currency, abi: ERC20, functionName: 'balanceOf', args: [plan.deployer] });
       // On restart the step journal already records capital spent; individual steps verify fresh balances.
       if (nativeBefore < required || gasBudget < priorGasSpent + required) {
-        throw new Error(`Remaining gas buffer needs ${viem.formatEther(required)} ETH; wallet ${viem.formatEther(nativeBefore)}, cumulative cap ${viem.formatEther(gasBudget)}`);
+        throw new Error(`Remaining gas buffer needs ${viem.formatEther(required)} ${C.nativeSymbol}; wallet ${viem.formatEther(nativeBefore)}, cumulative cap ${viem.formatEther(gasBudget)}`);
       }
       if (!Object.keys(checkpoint.steps).length && usdcBefore < BigInt(plan.snapshot.requiredCapital)) throw new Error('Insufficient native USDC for whole launch');
       // This is the ONLY branch that reads the user's secure environment/key.
@@ -144,7 +149,7 @@ export async function launch(options = {}) {
       catch { throw new Error('Invalid secure deployer key; no key material was logged'); }
       key = undefined;
       if (!same(account.address, plan.deployer)) throw new Error('Secure signer does not match reviewed deployer');
-      wallet = viem.createWalletClient({ account, chain: arbitrum, transport: viem.http(plan.upstreamRpc, { retryCount: 0 }) });
+      wallet = viem.createWalletClient({ account, chain: chainFor(C), transport: viem.http(plan.upstreamRpc, { retryCount: 0 }) });
       atomicJson(activeFile, { planHash, checkpointFile });
     } else {
       fork = await startFork(plan, Number(options.port || 8599));
@@ -156,8 +161,8 @@ export async function launch(options = {}) {
       // Gas-only top-up allows a complete cost measurement even if the real wallet is short.
       // No USDC, oracle storage, or contract code is mocked or overwritten.
       await client.request({ method: 'anvil_setBalance', params: [plan.deployer, viem.toHex(viem.parseEther('1'))] });
-      checkpoint.syntheticGasFunding = '1 ETH on the local fork only; real funding measured separately';
-      wallet = viem.createWalletClient({ account: plan.deployer, chain: arbitrum, transport: viem.http(fork.url, { retryCount: 0 }) });
+      checkpoint.syntheticGasFunding = `1 ${C.nativeSymbol} on the local fork only; real funding measured separately`;
+      wallet = viem.createWalletClient({ account: plan.deployer, chain: chainFor(C), transport: viem.http(fork.url, { retryCount: 0 }) });
     }
     if (await client.getChainId() !== C.chainId) throw new Error('Connected chain changed');
     if (!checkpoint.initialBalances) {
@@ -165,8 +170,6 @@ export async function launch(options = {}) {
       checkpoint.actionDeadline = (BigInt((await client.getBlock()).timestamp) + 3600n).toString();
       save();
     }
-    const pinned = await client.readContract({ address: C.oracle, abi: ORACLE, functionName: 'MODULUS_HASH' });
-    if (pinned !== f.modulusHash) throw new Error('Connected oracle key mismatch');
     if (!Object.keys(checkpoint.steps).length) {
       const nonce = await client.getTransactionCount({ address: plan.deployer, blockTag: 'pending' });
       if (nonce !== plan.startingNonce) throw new Error(`Nonce moved from ${plan.startingNonce} to ${nonce}; create a fresh reviewed plan`);
@@ -244,7 +247,11 @@ export async function launch(options = {}) {
       return step(name, token, viem.encodeFunctionData({ abi: ERC20, functionName: 'approve', args: [spender, amount] }));
     }
 
-    let baseObservationIndex = await findBase(client, f);
+    const oracle = hasOracle(C) ? C.oracle : await deploy('deployOracle', 'CredailyRentOracle', [f.modulus]);
+    const oracleConfig = { ...C, oracle };
+    const pinned = await client.readContract({ address: oracle, abi: ORACLE, functionName: 'MODULUS_HASH' });
+    if (pinned !== f.modulusHash) throw new Error('Connected oracle key mismatch');
+    let baseObservationIndex = await findBase(client, f, oracleConfig);
     // Future large authentic observations need this transport even when the base was recorded earlier.
     let observationSubmitter = plan.observationSubmitter;
     if (observationSubmitter) {
@@ -257,18 +264,18 @@ export async function launch(options = {}) {
       const chunk = event(stored, a.ChunkedObservationSubmitter.abi, 'ChunkStored').chunk;
       if ((await client.getCode({ address: chunk })).toLowerCase() !== ('0x00' + f.prefix.slice(2)).toLowerCase()) throw new Error('Stored body prefix differs');
       checkpoint.addresses.bodyPrefix = chunk; save();
-      const data = encode('ChunkedObservationSubmitter', 'submit', [C.oracle, [chunk], f.hash, f.headers, f.signature, f.tail]);
+      const data = encode('ChunkedObservationSubmitter', 'submit', [oracle, [chunk], f.hash, f.headers, f.signature, f.tail]);
       if ((data.length - 2) / 2 > 90000) throw new Error('Hybrid calldata exceeds reviewed admission budget');
       await step('submitAuthenticBaseline', observationSubmitter, data);
-      baseObservationIndex = await findBase(client, f);
+      baseObservationIndex = await findBase(client, f, oracleConfig);
       if (baseObservationIndex === null) throw new Error('Authentic baseline was not recorded');
     }
     checkpoint.baseObservationIndex = baseObservationIndex.toString(); save();
     const factoryNonce = checkpoint.steps.deployFactory?.request.nonce
       ?? await client.getTransactionCount({ address: plan.deployer, blockTag: 'pending' });
     const predictedFactory = viem.getContractAddress({ from: plan.deployer, nonce: BigInt(factoryNonce) });
-    const mined = mineHook(predictedFactory, a.RentV4Hook);
-    const factory = await deploy('deployFactory', 'RentV4Factory', [C.poolManager, C.currency, C.oracle, mined.salt]);
+    const mined = mineHook(predictedFactory, a.RentV4Hook, C);
+    const factory = await deploy('deployFactory', 'RentV4Factory', [C.poolManager, C.currency, oracle, mined.salt]);
     if (!same(factory, predictedFactory)) throw new Error('Factory address prediction failed');
     const hook = await client.readContract({ address: factory, abi: a.RentV4Factory.abi, functionName: 'hook' });
     if (!same(hook, mined.hook) || (BigInt(hook) & 0x3fffn) !== 0x2a80n) throw new Error('Hook permission address differs');
@@ -279,7 +286,7 @@ export async function launch(options = {}) {
       predictedMarket = viem.getContractAddress({ from: factory, nonce: BigInt(await client.getTransactionCount({ address: factory })) });
       checkpoint.addresses.predictedMarket = predictedMarket; save();
     }
-    const sqrtPriceX96 = initialSqrtPrice(predictedMarket);
+    const sqrtPriceX96 = initialSqrtPrice(predictedMarket, 285n, 1000n, C);
     const terms = { ...plan.terms, baseObservationIndex, saleEnd: BigInt(plan.terms.saleEnd),
       obsStart: BigInt(plan.terms.obsStart), obsEnd: BigInt(plan.terms.obsEnd), redeemEnd: BigInt(plan.terms.redeemEnd) };
     const created = await step('createMarket', factory, encode('RentV4Factory', 'createMarket', [terms, sqrtPriceX96]));
@@ -291,7 +298,7 @@ export async function launch(options = {}) {
     await step('depositAndMint', market, encode('RentV4Market', 'depositAndMint', [collateral, plan.deployer]));
     await approve('approveRentLiquidity', market, router, collateral);
     await approve('approveCashLiquidity', C.currency, router, lpCash + BigInt(plan.smokeInput));
-    const sizing = liquidityFor(sqrtPriceX96, market, collateral, lpCash);
+    const sizing = liquidityFor(sqrtPriceX96, market, collateral, lpCash, C);
     const deadline = BigInt(checkpoint.actionDeadline);
     const lpRequest = { market, tickLower: lower, tickUpper: upper, liquidityDelta: sizing.liquidity,
       amount0Limit: sizing.maximum0, amount1Limit: sizing.maximum1, recipient: plan.deployer, deadline };
@@ -341,7 +348,7 @@ export async function launch(options = {}) {
     if (actualEscrow !== collateral) throw new Error('Escrow token balance differs from accounting');
     const manifest = { chainId: C.chainId, market, factory, hook, router, poolManager: C.poolManager,
       stateView: C.stateView, quoter: C.quoter, ...(observationSubmitter ? { observationSubmitter } : {}),
-      oracle: C.oracle, currency: C.currency, decimals: 6, symbol: 'USDC', deploymentBlock: created.blockNumber.toString(),
+      oracle, currency: C.currency, decimals: 6, symbol: 'USDC', deploymentBlock: created.blockNumber.toString(),
       baseObservationIndex: Number(baseObservationIndex), poolKey };
     const rows = Object.entries(checkpoint.steps).map(([name, row]) => ({ name, ...row.receipt, estimate: row.estimate }));
     const totalGasUsed = rows.reduce((sum, row) => sum + BigInt(row.gasUsed), 0n);
@@ -352,9 +359,10 @@ export async function launch(options = {}) {
     const freshBalance = await upstream.getBalance({ address: plan.deployer });
     const report = { version: 1, complete: true, mode: execute ? 'mainnet' : 'local-fork', planHash,
       completedAt: new Date().toISOString(), upstreamForkBlock: plan.forkBlock, upstreamForkBlockHash: plan.forkBlockHash,
-      proof: execute ? 'Production receipts on Arbitrum One' : 'Local Anvil receipts against canonical Arbitrum state; synthetic ETH gas funding only; authentic oracle baseline; no future outcome invented',
+      integrationOnly: plan.integrationOnly || false,
+      proof: plan.integrationOnly ? `Local integration fork only: ${plan.integrationOnly}` : execute ? `Production receipts on ${C.name}` : `Local Anvil receipts against canonical ${C.name} state; synthetic ${C.nativeSymbol} gas funding only; authentic oracle baseline; no future outcome invented`,
       manifest, manifestFile: path.join(runDir, 'v4-deployments.json'), poolId, terms, rows,
-      totalGasUsed, totalEstimatedGas, actualFee, feeMeasurement: execute ? 'Actual Arbitrum receipt fees' : 'Anvil EVM receipt gas; Nitro L1 data fees are not reproduced by Anvil',
+      totalGasUsed, totalEstimatedGas, actualFee, feeMeasurement: execute ? `Actual ${C.name} receipt fees` : C.chainId === 42161 ? 'Anvil EVM receipt gas; Nitro L1 data fees are not reproduced by Anvil' : 'Anvil EVM receipt gas; live Polygon fees can change',
       liveGasPrice, bufferedGasBudget, freshNativeBalance: freshBalance,
       gasShortfall: bufferedGasBudget > freshBalance ? bufferedGasBudget - freshBalance : 0n,
       startingRealNativeBalance: checkpoint.initialBalances.native, startingRealUsdcBalance: checkpoint.initialBalances.usdc, endingUsdcBalance: usdcAfter,
@@ -366,7 +374,7 @@ export async function launch(options = {}) {
     atomicJson(path.join(runDir, 'report.json'), report);
     checkpoint.complete = true; save();
     console.log(json({ report: path.join(runDir, 'report.json'), mode: report.mode, totalGasUsed, totalEstimatedGas,
-      bufferedGasBudgetETH: viem.formatEther(bufferedGasBudget), gasShortfallETH: viem.formatEther(report.gasShortfall),
+      nativeSymbol: C.nativeSymbol, bufferedGasBudgetNative: viem.formatEther(bufferedGasBudget), gasShortfallNative: viem.formatEther(report.gasShortfall),
       capitalSpentUSDC: viem.formatUnits(report.capitalSpent, 6), poolId, market }));
     return report;
   } finally {
@@ -379,10 +387,11 @@ export async function launch(options = {}) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const options = argsOf();
   if (options.help) console.log(`Default local-fork proof (never loads keys):
-  node scripts/v4-launch.mjs --smoke --collateral 0.01 [--port 8599]
+  node scripts/v4-launch.mjs --chain arbitrum|polygon --smoke --collateral 0.01 [--port 8599]
   node scripts/v4-launch.mjs --plan broadcast/v4/plan.json --out broadcast/v4/rehearsal
 Mainnet, explicitly gated and restart-safe:
-  node scripts/v4-launch.mjs --execute --plan PLAN --report FORK_REPORT --max-gas-eth CAP --max-capital-usdc CAP
+  node scripts/v4-launch.mjs --execute --plan PLAN --report FORK_REPORT --max-gas-native CAP --max-capital-usdc CAP
+Gas caps are in the selected chain native currency (ETH on Arbitrum, POL on Polygon).
 Outputs are public-data checkpoints under broadcast/v4; manifests are never automatically installed in the web app.
 The desired launch defaults to 1 USDC collateral; smaller proof capital must be selected explicitly.
 Re-run execution with the SAME plan and output directory to resume its signed transaction hashes.`);

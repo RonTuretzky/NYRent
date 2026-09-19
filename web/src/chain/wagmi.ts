@@ -6,12 +6,12 @@ import {
   walletConnectWallet,
 } from "@rainbow-me/rainbowkit/wallets";
 import { createConfig, fallback, http, type Transport } from "wagmi";
-import { arbitrum, gnosis } from "wagmi/chains";
+import { arbitrum, gnosis, polygon } from "wagmi/chains";
 import { defineChain, type Chain } from "viem";
 import legacyRaw from "../deployment.json";
 import { TEST_DEPLOYMENT } from "./registry";
 
-// The app is multi-chain: Gnosis + Arbitrum are always configured, and the
+// The app is multi-chain: Gnosis + Arbitrum + Polygon are always configured, and the
 // anvil e2e deployment (legacy-shaped deployment.json pointing at a non-
 // production chainId) is appended as a minimal extra chain so wagmi/
 // RainbowKit still work unmodified against a local fork.
@@ -43,6 +43,13 @@ const arbitrumChain: Chain = {
     : {}),
 };
 
+const polygonChain: Chain = {
+  ...polygon,
+  ...(overrideChainId === polygon.id && rpcOverride
+    ? { rpcUrls: { default: { http: [rpcOverride] } } }
+    : {}),
+};
+
 const testChain: Chain | undefined = TEST_DEPLOYMENT
   ? defineChain({
       id: TEST_DEPLOYMENT.chainId,
@@ -55,8 +62,8 @@ const testChain: Chain | undefined = TEST_DEPLOYMENT
   : undefined;
 
 export const appChains: readonly [Chain, ...Chain[]] = testChain
-  ? [testChain, gnosisChain, arbitrumChain]
-  : [gnosisChain, arbitrumChain];
+  ? [testChain, gnosisChain, arbitrumChain, polygonChain]
+  : [gnosisChain, arbitrumChain, polygonChain];
 
 /** @deprecated single-chain era export — the DEFAULT chain (test chain in
  * anvil e2e builds, else Gnosis). Multi-chain code should resolve the chain
@@ -88,6 +95,13 @@ const connectors = connectorsForWallets(
 // hook into a single JSON-RPC request per chain. Public fallbacks cover a
 // primary-RPC outage — except when VITE_RPC_URL pins that chain to a fork.
 const transports: Record<number, Transport> = {
+  [polygon.id]:
+    overrideChainId === polygon.id && rpcOverride
+      ? http(rpcOverride, { batch: true })
+      : fallback([
+          http("https://polygon-bor-rpc.publicnode.com", { batch: true }),
+          http(polygon.rpcUrls.default.http[0], { batch: true }),
+        ]),
   [gnosis.id]:
     overrideChainId === gnosis.id && rpcOverride
       ? http(rpcOverride, { batch: true })

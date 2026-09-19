@@ -40,6 +40,7 @@ jobs:
           npm --prefix web run typecheck
           npm --prefix web run lint
           npm --prefix web test
+          node --test scripts/v4-targets.test.mjs
           npm --prefix web run build
           npm --prefix agent test
       - name: Existing wallet and one-market journeys
