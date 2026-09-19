@@ -33,3 +33,5 @@ Note on probed-but-excluded sources (2026-09-18): Colliers
 (`commercialedge.com/blog/national-office-report/`) return CDN 403s to
 non-browser clients, and `compstak.com/insights` 404s; they are intentionally
 not collected rather than mocked.
+
+Redaction note: the Cushman & Wakefield capture embedded the site's own Google Maps browser key; it is redacted here (and purged from git history) because the string is secret-shaped and was unrestricted at capture time. The redaction does not affect any parser test.
