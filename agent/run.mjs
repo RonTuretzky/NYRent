@@ -363,7 +363,16 @@ export function bankrReviewSignals(signals) {
   return {
     settlementPrints: signals.prints ?? [],
     kalshi: signals.kalshi ?? null,
-    realEstateResearch: (signals.reports ?? []).slice(0, 40),
+    // Keep the qualitative evidence Bankr needs, not full URLs/collector
+    // payloads. This avoids the Agent API edge's request-size rejection while
+    // preserving source, date, kind, value, and the human-readable finding.
+    realEstateResearch: (signals.reports ?? []).slice(0, 8).map((s) => ({
+      source: s.source,
+      asOf: s.asOf,
+      kind: s.kind,
+      value: s.value,
+      detail: String(s.detail ?? "").slice(0, 120),
+    })),
     collectorNotes: signals.notes ?? [],
   };
 }

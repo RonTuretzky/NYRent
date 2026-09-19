@@ -8,7 +8,7 @@ This module uses the existing Bachelier valuation in `../policy/valuation.mjs` t
 
 `executeV4QuotePlan()` defaults to dry run. The trusted target comes separately from the plan. The executor re-reads state, checks identity, chain, window, price drift, position ownership, replay state, balances and all amount limits. It removes old ranges with minimum receipts, optionally mints fully funded RENT, and places at most one bid and one ask using exact approvals. Each opt-in transaction is simulated and estimated immediately before sending, with a receipt wait and abort on the first failure. Limits: 1 million gas per transaction, 5 million gas per run, 1 gwei gas price, and 0.005 native coin maximum gas budget. Dry run returns reviewed calldata and bounds; it does not claim dependent transactions were simulated before their approvals existed.
 
-No private keys, `.env`, keychain, Bankr, existing fixed-price executors, or scheduler are accessed or changed. The CLI is read-only:
+The core planner and executor are signer-agnostic: they do not read private keys, `.env`, keychain, Bankr, the fixed-price executors, or a scheduler. The base CLI is read-only:
 
 ```sh
 node agent/v4/run.mjs --target public-v4-target.json --rpc https://YOUR_RPC
@@ -25,6 +25,26 @@ const plan = planV4Quotes(state);
 const result = await executeV4QuotePlan({
   plan, target: trustedTarget, publicClient, walletClient, execute: true,
 });
+```
+
+The POC adds a separately gated Bankr custody adapter around that same executor;
+it does not duplicate the quote logic. `--bankr-review` gathers the existing
+real-estate/news collectors and asks Bankr for a qualitative risk review. The
+authenticated oracle still supplies every numeric rent input, and only the
+deterministic planner can choose amounts or ticks:
+
+```sh
+node agent/v4/run-bankr.mjs --target public-v4-target.json --rpc https://YOUR_RPC --bankr-review
+BANKR_V4_EXECUTE=1 node agent/v4/run-bankr.mjs --target public-v4-target.json --rpc https://YOUR_RPC --bankr-review --execute
+```
+
+`settle-bankr.mjs` is a separate settlement-only inbox scan. It verifies raw
+`.eml` files locally, uses the chunk helper for large canonical bodies, records
+the first qualifying observation, and settles idempotently. It refuses every
+chain action until trading is closed and contains no quote/swap import:
+
+```sh
+node agent/v4/settle-bankr.mjs --target public-v4-target.json --rpc https://YOUR_RPC --inbox ./raw-eml
 ```
 
 Execution holds a chain+wallet lock across preflight and all transactions in this process and refuses wallets with pending transactions. A caller using multiple processes or other wallet tools must provide an exclusive external wallet lock; the library does not coordinate separate processes. There is no automatic retry or crash-resume journal. Successful receipts are returned, and partial failures expose `error.receipts`. After interruption, reconcile pending transaction hashes/receipts, wait for finality, and generate a fresh plan from live state. Never retry an uncertain mint blindly. A stale plan is rejected after collateral or LP positions change; this is not a replacement for a cross-process lock.

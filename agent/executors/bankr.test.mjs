@@ -110,7 +110,7 @@ test("buildLlmChatRequest: gateway URL, Bearer auth, model+messages body", () =>
 test("buildAdvisoryPrompt: two-sided framing + plan JSON (bigints stringified) + verdict schema", () => {
   const plan = { newSeries: { capacityWei: 1500000n }, buys: [{ seriesId: 3, maxPremiumWei: 11330n }], rationale: ["r1"] };
   const p = buildAdvisoryPrompt(plan, "latest print 9288 cents");
-  assert.ok(p.includes('"capacityWei": "1500000"'));
+  assert.ok(p.includes('"capacityWei":"1500000"'));
   assert.ok(p.includes("latest print 9288 cents"));
   assert.ok(p.includes('"verdict":"approve"|"caution"|"veto"'));
   assert.ok(p.includes("SELLS protection")); // sell leg framing

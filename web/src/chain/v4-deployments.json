@@ -22,5 +22,29 @@
       "tickSpacing": 60,
       "hooks": "0x33601915b1912a02f7e64bB12805709C0F8CEa80"
     }
+  },
+  "42161": {
+    "chainId": 42161,
+    "market": "0x8bd12856d093ffE96dd997e1882cc4f251B0E3Ec",
+    "factory": "0x9ece1a87ef1cb872999f791d49640b7e21d8f986",
+    "hook": "0xAF4511a5640bEAf204eC63d2BaaCBFAA0e6AEa80",
+    "router": "0xcc385727a00e4dc2576a9b9ed4476ceb15d045ae",
+    "poolManager": "0x360e68faccca8ca495c1b759fd9eee466db9fb32",
+    "stateView": "0x76fd297e2d437cd7f76d50f01afe6160f86e9990",
+    "quoter": "0x3972c00f7ed4885e145823eb7c655375d275a1c5",
+    "observationSubmitter": "0x2cebdf97eb383f024707cfc6cc0fa93478acac26",
+    "oracle": "0x128fF279AbD137DE6e378E8aCcefFe77Ea5259B3",
+    "currency": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    "decimals": 6,
+    "symbol": "USDC",
+    "deploymentBlock": "506905841",
+    "baseObservationIndex": 0,
+    "poolKey": {
+      "currency0": "0x8bd12856d093ffE96dd997e1882cc4f251B0E3Ec",
+      "currency1": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      "fee": 8388608,
+      "tickSpacing": 60,
+      "hooks": "0xAF4511a5640bEAf204eC63d2BaaCBFAA0e6AEa80"
+    }
   }
 }

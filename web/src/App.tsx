@@ -36,6 +36,7 @@ const UniswapGuide = lazy(() => import("./pages/UniswapGuide").then((m) => ({ de
 const Walkthrough = lazy(() => import("./pages/Walkthrough").then((m) => ({ default: m.Walkthrough })));
 const SourcesGuide = lazy(() => import("./pages/SourcesGuide").then((m) => ({ default: m.SourcesGuide })));
 const Story = lazy(() => import("./pages/Story").then((m) => ({ default: m.Story })));
+const BankrDocs = lazy(() => import("./pages/BankrDocs").then((m) => ({ default: m.BankrDocs })));
 const LegacyLanding = lazy(() => import("./pages/Landing").then((m) => ({ default: m.Landing })));
 const LegacyDocs = lazy(() => import("./pages/LegacyDocs").then((m) => ({ default: m.LegacyDocs })));
 
@@ -106,6 +107,7 @@ export default function App() {
                   <Route path="/docs/walkthrough" element={suspend(<Walkthrough />)} />
                   <Route path="/docs/sources" element={suspend(<SourcesGuide />)} />
                   <Route path="/docs" element={suspend(<Docs />)} />
+                  <Route path="/docs/bankr" element={suspend(<BankrDocs />)} />
                   <Route path="/legacy/docs" element={suspend(<LegacyDocs />)} />
                   <Route path="/legacy/home" element={suspend(<LegacyLanding />)} />
                   <Route path="*" element={<Navigate to="/" replace />} />

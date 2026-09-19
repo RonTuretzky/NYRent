@@ -14,6 +14,7 @@ export function Docs() {
   return <div className="max-w-3xl min-w-0 mx-auto space-y-6 [&_p]:leading-relaxed [&_li]:leading-relaxed">
     <header><h1 className="font-parkDisplay font-bold text-2xl leading-tight sm:text-3xl">How Manhattan Rent Cover works</h1>
       <p className="font-parkBody text-surface-grey-2 mt-2">Contract reference: CRE Daily’s Manhattan Office Rent average effective rent, quoted in dollars per square foot.</p>
+      <p className="font-parkBody mt-3">Looking for the automation layer? Read how the live <Link className="font-bold text-core-green underline" to="/docs/bankr">Bankr market agent</Link> researches the market, places bounded v4 quotes and handles a future signed settlement email.</p>
     </header>
     <div className="grid gap-4 sm:grid-cols-3">
       <Link to="/docs/uniswap" className="group rounded-2xl border border-paper-2 bg-paper-1 p-5 transition-colors hover:border-core-green focus-visible:outline-2 focus-visible:outline-core-green">
@@ -70,8 +71,8 @@ export function Docs() {
       <p className="font-parkBody mt-3">After settlement, <Link className="underline" to="/redeem">Redeem RENT</Link> exchanges RENT for its escrow payout before the claim deadline. The trading cutoff does not disable settlement or redemption. Remaining backing follows the deployed contract's residual-withdrawal rules.</p>
     </Card>
     <Card><h2 className="font-parkDisplay font-bold text-xl">Status and risks</h2>
-      <p className="font-parkBody mt-3">A fixed-rate quote is labeled as such and is not a v4 pool price. Calculators do not submit transactions. Bankr automation is dormant.</p>
-      <p className="font-parkBody mt-3">The contracts have not been audited. Stablecoins, contracts, the publisher's signing key and liquidity introduce additional risks. Use tiny amounts. A secondary-market exit depends on available liquidity.</p>
+      <p className="font-parkBody mt-3">A fixed-rate quote is labeled as such and is not a v4 pool price. Calculators do not submit transactions. The Bankr v4 agent is live on the configured Arbitrum market; settlement remains unavailable until a qualifying observation-window email exists.</p>
+      <p className="font-parkBody mt-3">The contracts have not been audited. Stablecoins, contracts, the publisher's signing key and liquidity introduce additional risks. Use tiny amounts. A secondary-market exit depends on available liquidity, and no yield is guaranteed.</p>
     </Card>
   </div>;
 }

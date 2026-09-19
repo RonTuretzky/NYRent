@@ -78,7 +78,8 @@ test("bankrReviewSignals: passes research context without raw collector payloads
     notes: ["healthy"],
     raw: { huge: "not forwarded" },
   });
-  assert.equal(out.realEstateResearch.length, 40);
+  assert.equal(out.realEstateResearch.length, 8);
+  assert.equal(out.realEstateResearch[0].detail, "headline 0");
   assert.equal(out.settlementPrints[0].cents, 9288);
   assert.equal(out.kalshi.probVacancyBelow, 0.52);
   assert.equal("raw" in out, false);

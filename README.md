@@ -229,23 +229,21 @@ Pluggable executors that consume the sponsor agent's Plan
   with receipt waits + Blockscout links, and aborts the batch on the first failure. Gas
   sanity: it refuses to send unless the sponsor holds the wrap value plus 3× estimated fees.
   `--dry-run` returns the tx list without sending anything.
-- **`bankr.mjs` — advisory only.** Real client for the Bankr API (`api.bankr.bot`,
+- **`bankr.mjs` + `v4/bankr.mjs` — advisory and Arbitrum custody.** Real client for the Bankr API (`api.bankr.bot`,
   `X-API-Key: $BANKR_API_KEY`; async `POST /agent/prompt` + polled `GET /agent/job/{id}`)
   and Bankr's LLM Gateway (`llm.bankr.bot`, `$BANKR_LLM_KEY`). **Bankr has NO Gnosis
   support** (its chains: Base, Ethereum, Polygon, Unichain, World Chain, Arbitrum, BNB,
-  Robinhood Chain, Arc, Solana, Hyperliquid), and the CoverPool sponsor is immutable, so a
-  Bankr-custodied wallet can never execute this pool. Its roles are strictly: (1) advisory
-  second opinion on the Plan (structured approve/caution/veto verdict, non-blocking by
-  default), (2) operator notification after execution, (3) an optional tiny mirrored hedge
-  on Base, double-gated on `BANKR_API_KEY` **and** `BANKR_MIRROR=1`. Without `BANKR_API_KEY`
-  the executor reports `{enabled:false}` and the runner proceeds Direct-only; a Bankr
-  failure never blocks Direct execution.
+  Robinhood Chain, Arc, Solana and Hyperliquid). The legacy fixed-pool rail and the v4 rail
+  have independent execution gates. The live v4 adapter signs the existing bounded quote
+  plan through Bankr custody after wallet-identity, simulation, balance, gas, time-window and
+  position checks. The settlement-only companion verifies raw DKIM email and cannot trade.
+  Without `BANKR_API_KEY` both paths remain read-only/disabled.
 - **`index.mjs`** selects executors from the environment and exposes
   `execute(plan, { dryRun })`; also a CLI: `node agent/executors/index.mjs --plan p.json --dry-run`.
 
-Tests: `npm --prefix agent run test:executors` (pure tx-diff unit tests + Bankr request
-construction/disabled path; the live Bankr test self-skips because no `BANKR_API_KEY` is
-provisioned) and `npm --prefix agent run test:fork` — spawns
+Tests: `npm --prefix agent test` covers fixed and v4 planning, custody request construction,
+settlement gating and authentic-email preflight; the live identity test self-skips when no
+`BANKR_API_KEY` is provisioned. `npm --prefix agent run test:fork` spawns
 `anvil --fork-url https://rpc.gnosischain.com`, impersonates the sponsor, and proves every
 sponsor lever (wrap → exact approve → `fundPool` → `createSeries` → `setSalesPaused` →
 `withdrawExcess`) against the **real forked mainnet contracts** without spending.

@@ -11,6 +11,8 @@
     "start": "node run.mjs",
     "test": "node --test '*.test.mjs' 'policy/**/*.test.mjs' 'collectors/**/*.test.mjs' 'executors/*.test.mjs' 'v4/*.test.mjs'",
     "test:v4": "node --test 'v4/*.test.mjs'",
+    "v4:bankr": "node v4/run-bankr.mjs",
+    "v4:settle:bankr": "node v4/settle-bankr.mjs",
     "test:v4:local": "node v4/fork-proof.mjs",
     "test:policy": "node --test 'policy/**/*.test.mjs'",
     "test:executors": "node --test 'executors/*.test.mjs'",

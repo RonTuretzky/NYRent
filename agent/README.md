@@ -1,4 +1,10 @@
-# agent/ — two-sided market maker for NY Rent Cover
+# agent/ — fixed-pool legacy agent and live v4 market maker
+
+> **Current v4 POC (2026-09-19): live on Arbitrum.** `v4/run-bankr.mjs`
+> gathers the existing research signals, obtains a Bankr Max Mode risk review,
+> then uses the separately gated Bankr custody adapter to maintain bounded
+> Uniswap v4 bid/ask ranges. `v4/settle-bankr.mjs` is a settlement-only raw-email
+> inbox scan. See [v4/README.md](v4/README.md) and the website's Bankr docs page.
 
 A daily agent that runs a **hold-to-settlement book** on the permissionless
 [CoverPool](../src/CoverPool.sol) (no roles: anyone escrows capacity with
@@ -25,9 +31,9 @@ separate operator opt-in.
   managed by *leaning the next cycle* (cover is soulbound — there is no
   unwind, only the next run's prices and edges).
 
-> **Bankr custody rail: implemented and fork-proven, currently dormant/on
-> hold; the direct executor is the active rail on both chains.** Custody runs
-> only behind an explicit `BANKR_EXECUTE=1` opt-in.
+> The fixed CoverPool rail below is retained for compatibility. Its
+> `BANKR_EXECUTE=1` gate is independent of the live v4 rail's
+> `BANKR_V4_EXECUTE=1` gate.
 
 ```
 collectors/  (real endpoints)             chain state (viem, read-only)
@@ -443,7 +449,7 @@ machine is compromised ([security](https://docs.bankr.bot/security/bankr-termina
 | IP allowlist (API key) | the runner's egress IP | a leaked key is useless elsewhere |
 | Passkey MFA | on | rail changes then need a passkey; an API key can never loosen them |
 
-### Operator checklist — going live with Bankr custody (Arbitrum)
+### Operator checklist — Bankr custody (Arbitrum)
 
 1. **Fund the current Bankr POC wallet** on **Arbitrum One**:
    `0x6d06bf32f9002b5777e1ae6ab242fb6cdf31888a`. For the POC, send **2 native
@@ -461,15 +467,15 @@ machine is compromised ([security](https://docs.bankr.bot/security/bankr-termina
    On this Mac the key is stored in Keychain under service
    `nyrent-bankr-api-key`, account `nyrent-bankr-poc`; load it for one process
    with `BANKR_API_KEY="$(security find-generic-password -w -a nyrent-bankr-poc -s nyrent-bankr-api-key)"`.
-5. **Opt in**: set `BANKR_EXECUTE=1` and run the first live action as a
-   deliberate manual step — live Bankr executions are OUT OF SCOPE for this
-   workflow's automated runs; the operator runs the first custody action
-   separately after review.
+5. **Legacy fixed-pool opt in**: `BANKR_EXECUTE=1` applies only to the fixed
+   CoverPool. For actual v4 positions, use `BANKR_V4_EXECUTE=1` with
+   `v4/run-bankr.mjs --bankr-review --execute`. The first live v4 run completed
+   on 2026-09-19 and placed one bid and one ask; unattended scheduling remains off.
 6. Optional: Bankr Club ($20/mo) or Max-Mode LLM credits turn the advisory
    degrade line back into a real second opinion
    ([access tiers](https://docs.bankr.bot/agent/access)).
 
-### Test status of the live-custody path (honest)
+### Test status of the custody paths
 
 Unit tests cover the builders, the paywall degrade (pinned to the live-captured
 403), the triple gate and the full pipeline against recorded shapes;
@@ -477,9 +483,9 @@ Unit tests cover the builders, the paywall degrade (pinned to the live-captured
 a **real Arbitrum fork** (real CoverPool/USDC code + the real wallet's inherited
 balances) with `/wallet/submit` served by broadcasting the identical tx from the
 impersonated wallet; `GET /wallet/me` is verified **live** on every test run
-with the real key. What has **never** run: a live `POST /wallet/submit` with
-real funds — deliberately. That first custody transaction is a manual operator
-action, not something this repo's tests will ever do on their own.
+with the real key. Separately, the v4 POC completed six live Bankr submissions
+on 2026-09-19: exact approvals, a 0.5 USDC collateral deposit, one bid range and
+one ask range. Automated tests still never submit production transactions.
 
 ## Enabling execution in CI
 

@@ -33,7 +33,13 @@ const NAV_ITEMS: NavItem[] = [
     : []),
   { to: "/buy", label: "Buy & Sell" },
   { to: "/redeem", label: "Redeem RENT" },
-  { to: "/docs", label: "Docs" },
+  { label: "Docs", children: [
+    { to: "/docs", label: "Protocol overview" },
+    { to: "/docs/bankr", label: "Bankr market agent" },
+    { to: "/docs/uniswap", label: "How Uniswap powers RENT" },
+    { to: "/docs/walkthrough", label: "Watch the walkthrough" },
+    { to: "/docs/sources", label: "Indexed newsletter sources" },
+  ] },
 ];
 
 /** Route → document title (RentSafe rebrand). */
@@ -50,6 +56,7 @@ const TITLES: [prefix: string, title: string][] = [
   ["/underwrite", "Underwrite"],
   ["/sponsor", "Underwrite"],
   ["/choose", "Help me choose"],
+  ["/docs/bankr", "Bankr market agent"],
   ["/docs/uniswap", "How Uniswap powers RENT"],
   ["/docs/walkthrough", "Watch the walkthrough"],
   ["/docs/sources", "Indexed newsletter sources"],

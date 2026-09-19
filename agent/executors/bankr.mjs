@@ -181,10 +181,14 @@ export function buildAdvisoryPrompt(plan, signalsSummary) {
     '{"verdict":"approve"|"caution"|"veto","concerns":["..."],"summary":"one sentence"}',
     "",
     "PLAN:",
-    JSON.stringify(plan, jsonBigint, 2),
+    // Compact JSON matters here: Bankr's AWS edge rejects oversized request
+    // bodies before they reach the Agent API. The caller already curates the
+    // research payload, so whitespace buys nothing and can push a valid POC
+    // review over that boundary.
+    JSON.stringify(plan, jsonBigint),
     "",
     "SIGNALS:",
-    typeof signalsSummary === "string" ? signalsSummary : JSON.stringify(signalsSummary, jsonBigint, 2),
+    typeof signalsSummary === "string" ? signalsSummary : JSON.stringify(signalsSummary, jsonBigint),
   ].join("\n");
 }
 

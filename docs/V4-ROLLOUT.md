@@ -1,6 +1,26 @@
 # RENT / Uniswap v4 rollout evidence and constraints
 
-Reviewed 2026-09-19. This document separates observed chain state, local/fork verification, and remaining launch work. The target is the single **Manhattan Rent Cover, Sep 2026 → Sep 2027** market from the supplied product specification, using the existing CRE Daily DKIM oracle. Bankr remains on hold.
+Reviewed and launched 2026-09-19. This document separates observed chain state, local/fork verification, and production evidence. The target is the single **Manhattan Rent Cover, Sep 2026 → Sep 2027** market from the supplied product specification, using the existing CRE Daily DKIM oracle.
+
+## Production launch and Bankr proof
+
+The exact 1 USDC plan completed a 14-transaction canonical-Arbitrum fork rehearsal, then
+the matching restart-safe production launch completed all 14 transactions. The live market
+is `0x8bd12856d093ffE96dd997e1882cc4f251B0E3Ec`, PoolId
+`0xbb9f6a269bd9ee98a8d872bcd49a1d8973a9744ddf9fb8341c8eb12bf5b31a1a`.
+The production run consumed 17,484,852 gas and 1.282151 USDC, including the 1 USDC escrow,
+initial LP cash and the buy/sell smoke. The authenticated baseline is oracle observation 0.
+
+Bankr custody then deposited another 0.5 USDC and posted a bounded live bid plus live ask.
+The resulting market accounts for 1.5 USDC of backing. The agent's research/Max Mode review
+ran against the live positions and returned `caution` because volatility still uses a
+one-print fallback and the CRE Daily index differs from a broader asking-rent signal; no
+automatic reprice followed that caution. The website's Bankr docs page links the production
+creation, smoke swap, bid and ask receipts.
+
+Settlement is implemented but not claimed as executed. The observation window begins in
+September 2027. The settlement-only runner verifies raw DKIM-signed `.eml`, uses the chunk
+helper, refuses every chain action while trading is open, and has no quote/swap import.
 
 ## Polygon mainnet launch — 2026-09-19
 
