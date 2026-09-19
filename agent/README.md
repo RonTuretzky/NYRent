@@ -420,12 +420,13 @@ same way.
 
 The **advisory** path is separate from custody: one Agent-API prompt per run
 summarizes the two-sided plan for a second opinion
-([prompt](https://docs.bankr.bot/agent-api/prompt-endpoint)). On this key the
-Agent API refuses AI prompts with HTTP 403 `subscription_required`
-(live-captured 2026-09-19 → `fixtures/bankr-agent-prompt-subscription-required.json`);
-the executor catches **exactly** that shape and degrades to one honest line —
-it never fakes a verdict and never blocks execution. A parsed `veto` is
-recorded, not enforced (opt-in `BANKR_ADVISORY_BLOCKING=1`).
+([prompt](https://docs.bankr.bot/agent-api/prompt-endpoint)). Club accounts can
+use the normal Agent API. A non-Club account with LLM credits must set
+`BANKR_MAX_MODE_MODEL` (for example `gemini-3.1-pro`) so each request explicitly
+opts into credit-backed Max Mode. Without Club or that explicit opt-in, HTTP
+403 `subscription_required` degrades to one honest line; the executor never
+fakes a verdict or blocks execution. A parsed `veto` is recorded, not enforced
+(opt-in `BANKR_ADVISORY_BLOCKING=1`).
 
 ### Account-side rails (configure at bankr.bot → Security)
 
@@ -444,15 +445,22 @@ machine is compromised ([security](https://docs.bankr.bot/security/bankr-termina
 
 ### Operator checklist — going live with Bankr custody (Arbitrum)
 
-1. **Fund the Bankr wallet** — already done 2026-09-19:
-   `0x1a7223bc942b053794e17b537e73d837cf695561` holds **0.0005 ETH** gas +
-   **2.0 native USDC**. Both per-run caps together need ≤ 1.0 USDC free; top up
-   USDC to grow the book, ETH if receipts start failing on gas.
+1. **Fund the current Bankr POC wallet** on **Arbitrum One**:
+   `0x6d06bf32f9002b5777e1ae6ab242fb6cdf31888a`. For the POC, send **2 native
+   USDC** (`0xaf88d065e77c8cC2239327C5EDb3A432268e5831`) plus **0.0005 ETH** for
+   gas. The deterministic policy caps a single run at 0.5 USDC of sell escrow
+   and 0.5 USDC of buy notional, so this leaves ample demonstration headroom.
 2. **Verify identity**: `npm run test:executors` — the LIVE test asserts
    `GET /wallet/me` returns `BANKR_WALLET` (read-only, free-tier-safe).
 3. **Set the rails** at bankr.bot → Security per the table above.
-4. **Dry-run the route**: `node run.mjs --target arbitrum` — the report shows
-   which rail would run and, when gated, the exact gate reasons.
+4. **Run the local POC review**: set `BANKR_WALLET`, `BANKR_API_KEY`, and
+   `BANKR_MAX_MODE_MODEL=gemini-3.1-pro`, then run
+   `node run.mjs --target arbitrum --bankr-review`. It collects live settlement,
+   prediction-market, industry-report, macro, and news signals; creates the
+   deterministic plan; and asks Bankr to review it without executing.
+   On this Mac the key is stored in Keychain under service
+   `nyrent-bankr-api-key`, account `nyrent-bankr-poc`; load it for one process
+   with `BANKR_API_KEY="$(security find-generic-password -w -a nyrent-bankr-poc -s nyrent-bankr-api-key)"`.
 5. **Opt in**: set `BANKR_EXECUTE=1` and run the first live action as a
    deliberate manual step — live Bankr executions are OUT OF SCOPE for this
    workflow's automated runs; the operator runs the first custody action

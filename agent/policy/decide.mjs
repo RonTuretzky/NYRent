@@ -164,6 +164,7 @@ export const DEFAULT_CONFIG = {
   operatorWallets: [
     "0x6636A1CCBdf54485067304C1a590DE016DeaD9F0", // deployer (Gnosis agent wallet + Arbitrum direct fallback)
     "0x1a7223bc942b053794e17b537e73d837cf695561", // BANKR_WALLET (Arbitrum custody)
+    "0x6d06bf32f9002b5777e1ae6ab242fb6cdf31888a", // current Bankr POC wallet (credit-backed key)
   ],
 };
 

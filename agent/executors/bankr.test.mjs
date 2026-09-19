@@ -58,6 +58,16 @@ test("buildAgentPromptRequest: POST /agent/prompt with X-API-Key, body with/with
 
   const r2 = buildAgentPromptRequest({ prompt: "hi", threadId: "thr_1", apiKey: "bk_test" });
   assert.deepEqual(JSON.parse(r2.init.body), { prompt: "hi", threadId: "thr_1" });
+
+  const r3 = buildAgentPromptRequest({
+    prompt: "review",
+    maxModeModel: "gemini-3.1-pro",
+    apiKey: "bk_test",
+  });
+  assert.deepEqual(JSON.parse(r3.init.body), {
+    prompt: "review",
+    maxMode: { enabled: true, model: "gemini-3.1-pro" },
+  });
 });
 
 test("buildJobStatusRequest: GET /agent/job/{id} with X-API-Key", () => {
@@ -194,7 +204,9 @@ test("advise: NON-subscription agent-api failure still falls back to LLM gateway
 // ---------------------------------------------------------------------------
 
 test("disabled path: no BANKR_API_KEY -> {enabled:false}, runner goes Direct-only", () => {
-  const ex = createBankrExecutor({ apiKey: undefined });
+  // null deliberately overrides any real BANKR_API_KEY present in the test
+  // process; explicit undefined would trigger the constructor's env default.
+  const ex = createBankrExecutor({ apiKey: null });
   assert.equal(ex.enabled, false);
   assert.match(ex.reason, /BANKR_API_KEY/);
   assert.equal(ex.advise, undefined); // nothing callable on a disabled executor
@@ -222,6 +234,30 @@ test("agentPrompt: polls to completion via injected fetch (docs.bankr.bot respon
   assert.equal(calls[0].url, `${BANKR_API_BASE}/agent/prompt`);
   assert.equal(calls[1].url, `${BANKR_API_BASE}/agent/job/job_1`);
   assert.equal(polls, 3); // pending -> processing -> completed
+});
+
+test("agentPrompt: explicitly enables credit-backed Max Mode when configured", async () => {
+  const calls = [];
+  const fakeFetch = async (url, init) => {
+    calls.push({ url, init });
+    if (url.endsWith("/agent/prompt")) {
+      return { ok: true, status: 202, json: async () => ({ jobId: "job_max", status: "pending" }) };
+    }
+    return { ok: true, status: 200, json: async () => ({ status: "completed", response: "BANKR_POC_OK" }) };
+  };
+  const ex = createBankrExecutor({
+    apiKey: "bk_test",
+    maxModeModel: "gemini-3.1-pro",
+    fetchImpl: fakeFetch,
+    pollStartMs: 1,
+    timeoutMs: 5_000,
+  });
+  const out = await ex.agentPrompt("read-only POC");
+  assert.equal(out.ok, true);
+  assert.deepEqual(JSON.parse(calls[0].init.body).maxMode, {
+    enabled: true,
+    model: "gemini-3.1-pro",
+  });
 });
 
 test("agentPrompt: failed job and HTTP errors resolve to {ok:false} — never throw", async () => {

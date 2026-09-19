@@ -43,6 +43,8 @@
  *                            named ones (others stay dry). Needs the target's
  *                            signer (DEPLOYER_PRIVATE_KEY) / Bankr gates.
  *   --target <name[,name]>   run only these targets (default: all)
+ *   --bankr-review           ask Bankr to review the plan + research signals;
+ *                            read-only, but may consume Max Mode LLM credits
  *   --skip-collectors        do not hit collector endpoints (chain-only signals)
  *
  * Env: GNOSIS_RPC_URL / ARBITRUM_RPC_URL (per-target override),
@@ -113,7 +115,7 @@ export function overallExitCode(codes) {
  * run at all. Unknown names fail loud.
  */
 export function parseArgs(argv, knownNames) {
-  const out = { execute: false, executeTargets: null, skipCollectors: false, targets: null };
+  const out = { execute: false, executeTargets: null, bankrReview: false, skipCollectors: false, targets: null };
   const addNames = (bucket, v) => {
     const names = String(v).split(",").filter(Boolean);
     for (const n of names) {
@@ -124,6 +126,7 @@ export function parseArgs(argv, knownNames) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--skip-collectors") out.skipCollectors = true;
+    else if (a === "--bankr-review") out.bankrReview = true;
     else if (a === "--target") out.targets = addNames(out.targets, argv[++i]);
     else if (a.startsWith("--target=")) out.targets = addNames(out.targets, a.slice("--target=".length));
     else if (a === "--execute" || a.startsWith("--execute=")) {
@@ -131,7 +134,7 @@ export function parseArgs(argv, knownNames) {
       if (a.includes("=")) out.executeTargets = addNames(out.executeTargets, a.slice("--execute=".length));
       else if (knownNames.includes(argv[i + 1])) out.executeTargets = addNames(out.executeTargets, argv[++i]);
     } else {
-      throw new Error(`unknown flag "${a}" (flags: --execute [target], --target <name>, --skip-collectors)`);
+      throw new Error(`unknown flag "${a}" (flags: --execute [target], --target <name>, --bankr-review, --skip-collectors)`);
     }
   }
   return out;
@@ -141,18 +144,18 @@ const isAddr = (a) => typeof a === "string" && /^0x[0-9a-fA-F]{40}$/.test(a);
 
 /**
  * Resolve the agent's identity for a target WITHOUT ever printing key material.
- * The identity FOLLOWS THE ACTIVE RAIL — the Bankr custody rail is dormant (on
- * hold), so bankr-capable targets resolve the custody identity ONLY under the
- * explicit BANKR_EXECUTE=1 opt-in; otherwise every target resolves the direct
- * (deployer) identity. decide() stamps this identity into the plan and the
+ * The identity FOLLOWS THE ACTIVE RAIL. Bankr-capable targets resolve the
+ * custody identity for an explicit Bankr review or BANKR_EXECUTE=1; otherwise
+ * every target resolves the direct (deployer) identity. decide() stamps this
+ * identity into the plan and the
  * executors refuse a plan whose identity is not the executing wallet, so a
  * plan can never be sized for one wallet and executed from another.
- *   custody opt-in (BANKR_EXECUTE=1, bankr target):
+ *   custody review/opt-in (--bankr-review or BANKR_EXECUTE=1, bankr target):
  *                   BANKR_WALLET → AGENT_ADDRESS_<NAME> → AGENT_ADDRESS → key-derived
  *   everything else: AGENT_ADDRESS_<NAME> → key-derived → AGENT_ADDRESS
  * Returns { address, source } or null (decide() then refuses, honestly).
  */
-export function resolveWallet(target, env = process.env) {
+export function resolveWallet(target, env = process.env, { bankrReview = false } = {}) {
   const fromKey = () => {
     let pk = env.DEPLOYER_PRIVATE_KEY;
     if (!pk) return null;
@@ -164,7 +167,7 @@ export function resolveWallet(target, env = process.env) {
     }
   };
   const specific = env[`AGENT_ADDRESS_${target.name.toUpperCase()}`];
-  const custodyOptIn = target.executor === "bankr" && env.BANKR_EXECUTE === "1";
+  const custodyOptIn = target.executor === "bankr" && (env.BANKR_EXECUTE === "1" || bankrReview);
   const candidates = custodyOptIn
     ? [
         [env.BANKR_WALLET, "BANKR_WALLET"],
@@ -281,7 +284,7 @@ export function computeForgoneRedemptions(seriesRows, holdings, nowSec) {
  * settlement metric is chain-agnostic, so signals are gathered exactly once.
  */
 export async function gatherSignals({ skip = false } = {}) {
-  const signals = { prints: [], kalshi: null, raw: {}, notes: [] };
+  const signals = { prints: [], kalshi: null, reports: [], raw: {}, notes: [] };
   if (skip) {
     signals.notes.push("collectors skipped (--skip-collectors)");
     return signals;
@@ -335,7 +338,34 @@ export async function gatherSignals({ skip = false } = {}) {
     signals.notes.push(`kalshi collector unavailable: ${err?.code ?? err?.message ?? err}`);
   }
 
+  // Correlated real-estate research for Bankr's qualitative review. These
+  // signals never alter the deterministic policy's numbers; they are context
+  // for the advisory layer only.
+  try {
+    const { collectReports } = await import("./collectors/reports.mjs");
+    const res = await collectReports();
+    signals.raw.reports = res;
+    if (res.ok) {
+      signals.reports = res.signals;
+      signals.notes.push(`reports: ${res.signals.length} market/news signal(s) collected`);
+      for (const error of res.errors ?? []) signals.notes.push(`reports non-fatal: ${error}`);
+    } else {
+      signals.notes.push(`reports collector failed: ${res.error}`);
+    }
+  } catch (err) {
+    signals.notes.push(`reports collector unavailable: ${err?.code ?? err?.message ?? err}`);
+  }
+
   return signals;
+}
+
+export function bankrReviewSignals(signals) {
+  return {
+    settlementPrints: signals.prints ?? [],
+    kalshi: signals.kalshi ?? null,
+    realEstateResearch: (signals.reports ?? []).slice(0, 40),
+    collectorNotes: signals.notes ?? [],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -640,12 +670,12 @@ export function planHasActions(plan) {
   );
 }
 
-async function runTarget(target, signals, { execute, dryReason }) {
+async function runTarget(target, signals, { execute, dryReason, reviewRequested = false }) {
   const cur = target.currency;
   const fmt = (u) => fmtUnits(BigInt(u), cur);
   step(`[${target.name}] chainId ${target.chainId} — pool ${target.pool} (${cur.symbol}, ${cur.decimals} decimals, executor ${target.executor})`);
 
-  const walletInfo = resolveWallet(target);
+  const walletInfo = resolveWallet(target, process.env, { bankrReview: reviewRequested });
   const wallet = walletInfo?.address ?? null;
   info(wallet ? `agent wallet: ${wallet} (via ${walletInfo.source})` : "agent wallet: UNRESOLVED — observation-only");
 
@@ -737,6 +767,24 @@ async function runTarget(target, signals, { execute, dryReason }) {
     `  MANAGE: pauses=[${plan.pauses.map((p) => `${p.seriesId}:${p.paused}`).join(",")}] cancels=[${plan.cancels.join(",")}] residuals=[${plan.withdrawResiduals.join(",")}]`,
   );
 
+  // -- optional Bankr review (read-only; explicit because Max Mode costs) ------
+  let bankrReview = null;
+  if (reviewRequested && target.executor === "bankr") {
+    info("\nBankr review (Agent API; no write tools requested)");
+    const { createBankrExecutor } = await import("./executors/bankr.mjs");
+    const reviewer = createBankrExecutor({ log: (msg) => info(scrub(String(msg))) });
+    if (!reviewer.enabled) {
+      bankrReview = { ok: false, error: reviewer.reason };
+    } else {
+      bankrReview = await reviewer.advise(plan, bankrReviewSignals(signals));
+    }
+    info(
+      bankrReview.ok
+        ? `verdict=${bankrReview.verdict}: ${bankrReview.summary}`
+        : `unavailable: ${bankrReview.error ?? bankrReview.line ?? "unknown error"}`,
+    );
+  }
+
   // -- P&L block ---------------------------------------------------------------
   const redemptionsForgoneUnits = chainState.ok
     ? computeForgoneRedemptions(chainState.series, chainState.holdings, chainState.nowSec)
@@ -825,6 +873,7 @@ async function runTarget(target, signals, { execute, dryReason }) {
       wallet,
       walletSource: walletInfo?.source ?? null,
       bankrWalletMe: walletMe,
+      bankrReview,
       chainState,
       plan,
       pnl,
@@ -890,6 +939,7 @@ async function main() {
     try {
       const { report, exitCode } = await runTarget(target, signals, {
         execute: executeThis,
+        reviewRequested: args.bankrReview,
         dryReason: args.execute && !executeThis ? `--execute limited to [${args.executeTargets.join(", ")}]` : null,
       });
       targetReports.push(report);
@@ -914,7 +964,8 @@ async function main() {
     generatedAt: new Date().toISOString(),
     mode: args.execute ? "execute" : "dry-run",
     executeTargets: args.execute ? (args.executeTargets ?? TARGETS.map((t) => t.name)) : [],
-    signals: { prints: signals.prints, kalshi: signals.kalshi, notes: signals.notes, raw: signals.raw },
+    bankrReviewRequested: args.bankrReview,
+    signals: { prints: signals.prints, kalshi: signals.kalshi, reports: signals.reports, notes: signals.notes, raw: signals.raw },
     targets: targetReports,
     exitCodes: codes,
     exitCode,

@@ -15,6 +15,7 @@ import {
   redactRpcUrl,
   overallExitCode,
   parseArgs,
+  bankrReviewSignals,
   resolveWallet,
   mergePnlState,
   computeStatePnl,
@@ -39,7 +40,7 @@ const KNOWN = ["gnosis", "arbitrum"];
 // ---------------------------------------------------------------------------
 
 test("parseArgs: dry-run default; --execute alone acts on all; --execute <name> only on that target", () => {
-  assert.deepEqual(parseArgs([], KNOWN), { execute: false, executeTargets: null, skipCollectors: false, targets: null });
+  assert.deepEqual(parseArgs([], KNOWN), { execute: false, executeTargets: null, bankrReview: false, skipCollectors: false, targets: null });
   assert.deepEqual(parseArgs(["--execute"], KNOWN).executeTargets, null);
   assert.equal(parseArgs(["--execute"], KNOWN).execute, true);
   assert.deepEqual(parseArgs(["--execute", "gnosis"], KNOWN).executeTargets, ["gnosis"]);
@@ -47,9 +48,11 @@ test("parseArgs: dry-run default; --execute alone acts on all; --execute <name> 
   assert.deepEqual(parseArgs(["--target", "gnosis", "--skip-collectors"], KNOWN), {
     execute: false,
     executeTargets: null,
+    bankrReview: false,
     skipCollectors: true,
     targets: ["gnosis"],
   });
+  assert.equal(parseArgs(["--target", "arbitrum", "--bankr-review"], KNOWN).bankrReview, true);
   assert.deepEqual(parseArgs(["--target=gnosis,arbitrum"], KNOWN).targets, ["gnosis", "arbitrum"]);
   assert.throws(() => parseArgs(["--target", "base"], KNOWN), /unknown target/);
   assert.throws(() => parseArgs(["--execute=base"], KNOWN), /unknown target/);
@@ -64,6 +67,21 @@ test("overallExitCode: worst-of severity 1 > 4 > 3 > 2 > 0 (exit codes unchanged
   assert.equal(overallExitCode([3, 4]), 4);
   assert.equal(overallExitCode([4, 1]), 1);
   assert.equal(overallExitCode([2, 0, 4]), 4);
+});
+
+test("bankrReviewSignals: passes research context without raw collector payloads", () => {
+  const reports = Array.from({ length: 45 }, (_, i) => ({ kind: "news_headline", detail: `headline ${i}` }));
+  const out = bankrReviewSignals({
+    prints: [{ t: 1, cents: 9288, source: "credaily-web" }],
+    kalshi: { probVacancyBelow: 0.52 },
+    reports,
+    notes: ["healthy"],
+    raw: { huge: "not forwarded" },
+  });
+  assert.equal(out.realEstateResearch.length, 40);
+  assert.equal(out.settlementPrints[0].cents, 9288);
+  assert.equal(out.kalshi.probVacancyBelow, 0.52);
+  assert.equal("raw" in out, false);
 });
 
 test("redactRpcUrl: keyed paths/queries never survive", () => {
@@ -115,6 +133,14 @@ test("resolveWallet: BANKR_EXECUTE=1 flips the identity to BANKR_WALLET (plan fo
   assert.equal(
     resolveWallet(getTarget("gnosis"), { BANKR_EXECUTE: "1", BANKR_WALLET: OTHER, DEPLOYER_PRIVATE_KEY: DEV_PK }).address,
     DEV_ADDR,
+  );
+});
+
+test("resolveWallet: --bankr-review plans as the custody wallet without enabling execution", () => {
+  const t = getTarget("arbitrum");
+  assert.deepEqual(
+    resolveWallet(t, { BANKR_WALLET: OTHER, DEPLOYER_PRIVATE_KEY: DEV_PK }, { bankrReview: true }),
+    { address: OTHER, source: "BANKR_WALLET" },
   );
 });
 

@@ -82,8 +82,13 @@ export const SUBSCRIPTION_DEGRADE_LINE =
 // ---------------------------------------------------------------------------
 
 /** POST /agent/prompt — https://docs.bankr.bot/agent-api/prompt-endpoint */
-export function buildAgentPromptRequest({ prompt, threadId, apiKey, base = BANKR_API_BASE }) {
-  const body = threadId ? { prompt, threadId } : { prompt };
+export function buildAgentPromptRequest({ prompt, threadId, maxModeModel, apiKey, base = BANKR_API_BASE }) {
+  const body = { prompt };
+  if (threadId) body.threadId = threadId;
+  // Non-Club accounts with LLM credits must explicitly opt each Agent API
+  // request into Max Mode. Keeping this absent by default prevents accidental
+  // credit spend; set BANKR_MAX_MODE_MODEL to opt in deliberately.
+  if (maxModeModel) body.maxMode = { enabled: true, model: maxModeModel };
   return {
     url: `${base}/agent/prompt`,
     init: {
@@ -288,6 +293,7 @@ const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 export function createBankrExecutor({
   apiKey = process.env.BANKR_API_KEY,
   llmKey = process.env.BANKR_LLM_KEY,
+  maxModeModel = process.env.BANKR_MAX_MODE_MODEL,
   apiBase = BANKR_API_BASE,
   llmBase = BANKR_LLM_BASE,
   model = process.env.BANKR_LLM_MODEL ?? DEFAULT_LLM_MODEL,
@@ -319,7 +325,7 @@ export function createBankrExecutor({
    */
   async function agentPrompt(text, threadId) {
     try {
-      const { url, init } = buildAgentPromptRequest({ prompt: text, threadId, apiKey, base: apiBase });
+      const { url, init } = buildAgentPromptRequest({ prompt: text, threadId, maxModeModel, apiKey, base: apiBase });
       const res = await fetchImpl(url, init);
       if (!res.ok) {
         let body = null;
