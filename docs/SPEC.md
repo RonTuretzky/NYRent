@@ -187,7 +187,8 @@ Also `scripts/settle.mjs` (Node + viem): reads an .eml + deployment.json + env k
 - `docs/TESTING.md` — the scenario matrix and how to run each suite.
 - `docs-site/index.html` — single-file branded docs site (Decentral Park palette per ui-kit
   theme.css tokens) rendering: how it works, the settlement rules, contract addresses (reads
-  deployment.json), links to md docs, payout-curve visual. Static, no build step.
+  deployment.json), links to md docs, payout-curve visual. Static, no build step. (since
+  absorbed into the app's /docs route and Landing; the standalone file was removed)
 - `README.md` — top-level: what/why/quickstart/addresses/screens.
 
 ## 6. CI (etherform)

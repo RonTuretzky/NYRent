@@ -81,9 +81,10 @@ the publicly known Anvil dev accounts.
    (`broadcast/Deploy.s.sol/100/run-latest.json`).
 
 3. **Record addresses.** Write `web/src/deployment.json`
-   (`{ chainId, oracle, pool, token, currency, seriesIds }`) from the broadcast file, update the
-   addresses section of `README.md` and `docs-site/index.html` picks them up from
-   `deployment.json` automatically.
+   (`{ chainId, oracle, pool, token, currency, seriesIds }`) from the broadcast file and update
+   the addresses section of `README.md`. The app build bakes `web/src/deployment.json` in, so
+   redeploying GitHub Pages after an address change means rebuilding `web/` and pushing the
+   `gh-pages` branch.
 
 4. **Verify sources.** Blockscout's etherscan-compat `/api` now rate-limits keyless
    verification, so use Sourcify (Blockscout auto-imports Sourcify matches):

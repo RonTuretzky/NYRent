@@ -6,6 +6,8 @@ settled by an email. The oracle input is CRE Daily's "Market Snapshot" newslette
 RSA-SHA256 DKIM signature, body hash and template parsing all execute in the EVM against an
 immutable pinned key. No committee, no price feed, no trusted server, no ZK ceremony.
 
+**Live app:** https://ronturetzky.github.io/nyrent-cover/
+
 - A **sponsor** collateralizes a series (payout 0 at/below $88.00, 1 at/above $96.00 for the
   demo) and earns premiums.
 - A **buyer** pays a premium (28.50% of max claim in the demo) and mints non-transferable
@@ -54,8 +56,8 @@ npm --prefix web install && npm --prefix web run dev
 
 Deploy/settlement runbooks (env, gas estimate discipline, Blockscout verification):
 [docs/OPERATIONS.md](docs/OPERATIONS.md). What every suite covers:
-[docs/TESTING.md](docs/TESTING.md). Browser-facing docs site: `docs-site/index.html` (static,
-no build step).
+[docs/TESTING.md](docs/TESTING.md). Browser-facing docs: the live app's `/docs` route
+(https://ronturetzky.github.io/nyrent-cover/#/docs).
 
 ## Addresses (Gnosis, chainId 100)
 
@@ -107,7 +109,7 @@ Hash-routed React app in `web/` (works on static hosting):
 | `scripts/` | `verify-eml.mjs`, `settle.mjs`, `e2e-mainnet.mjs`, `make-synthetic-eml.mjs` |
 | `e2e/` | Playwright journey + failure suites and the Anvil/deploy/preview orchestration |
 | `fixtures/` | The verified 2026-09-17 CRE Daily email (raw + canonical goldens + key evidence), test keypair |
-| `docs/`, `docs-site/` | Protocol, verification, operations, testing; single-file branded docs site |
+| `docs/` | Protocol, verification, operations, testing; the browser-facing docs render in the app's `/docs` route |
 | `.github/` | Etherform CI (build + test + fmt) and network config |
 
 Never commit private keys or `.env` (the deployer key exists only in local env), and never commit

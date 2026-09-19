@@ -109,6 +109,11 @@ export function Layout() {
         <Outlet />
       </main>
       <div className="mt-10">
+        <p className="font-parkBody text-xs text-surface-grey-2 text-center max-w-6xl w-full mx-auto px-4 sm:px-6 pb-4">
+          Unaudited software. Fully collateralized but experimental — use tiny
+          amounts. The index is commercial office rent (CompStak via CRE
+          Daily), not residential.
+        </p>
         <Footer />
       </div>
     </div>

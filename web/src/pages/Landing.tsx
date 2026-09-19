@@ -37,6 +37,7 @@ export function Landing() {
           <Chip size="small">Gnosis Chain</Chip>
           <Chip size="small">Fully collateralized</Chip>
           <Chip size="small">DKIM-settled</Chip>
+          <Chip size="small">Unaudited demo — tiny amounts</Chip>
         </div>
         <h1 className="font-parkDisplay font-bold text-4xl sm:text-6xl tracking-tight text-text-standard">
           Manhattan office-rent protection,{" "}
@@ -67,9 +68,9 @@ export function Landing() {
             How it works
           </h2>
           <p className="font-parkBody text-surface-grey-2 mt-3">
-            Five steps from collateral to claim. Watch the value move — every
-            arrow below is a real on-chain transfer except one: the email,
-            which is cryptography, not custody.
+            Five steps from collateral to claim, each with its mechanics
+            looping beside it. Every moving dot is a real on-chain transfer
+            except one: the email, which is cryptography, not custody.
           </p>
         </div>
         <HowItWorks />

@@ -18,8 +18,8 @@ body {
 }
 
 /* ---------------------------------------------------------------- */
-/* Hand-built animation keyframes for the How-it-works stage and    */
-/* general UI transitions (crowdstake-style mechanics, our art).    */
+/* Hand-built animation keyframes for general UI transitions. The   */
+/* How-it-works micro-viz loops are SMIL inside their SVGs.         */
 /* ---------------------------------------------------------------- */
 
 @keyframes nrc-fade-in {
@@ -34,47 +34,6 @@ body {
 }
 .animate-nrc-fade-in {
   animation: nrc-fade-in 500ms ease-out both;
-}
-
-@keyframes nrc-nudge {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  50% {
-    transform: translateX(4px);
-  }
-}
-.animate-nrc-nudge {
-  animation: nrc-nudge 1.2s ease-in-out infinite;
-}
-
-/* Flowing value along an SVG connector: dashed stroke marching. */
-@keyframes nrc-flow {
-  to {
-    stroke-dashoffset: -28;
-  }
-}
-.nrc-flow-active {
-  animation: nrc-flow 0.9s linear infinite;
-}
-
-/* Packet travelling along an SVG path (used with offset-path). */
-@keyframes nrc-packet {
-  0% {
-    offset-distance: 0%;
-    opacity: 0;
-  }
-  12% {
-    opacity: 1;
-  }
-  88% {
-    opacity: 1;
-  }
-  100% {
-    offset-distance: 100%;
-    opacity: 0;
-  }
 }
 
 @keyframes nrc-pulse {
@@ -107,25 +66,6 @@ body {
   animation: nrc-pop 450ms ease-out both;
 }
 
-@keyframes nrc-bar-grow {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .nrc-flow-active,
-  .animate-nrc-nudge,
-  .animate-nrc-pulse,
-  .animate-nrc-fade-in,
-  .animate-nrc-pop {
-    animation: none;
-  }
-}
-
 /* Simple skeleton shimmer for loading states. */
 @keyframes nrc-shimmer {
   0% {
@@ -145,4 +85,15 @@ body {
   background-size: 400px 100%;
   animation: nrc-shimmer 1.4s ease-in-out infinite;
   border-radius: 0.5rem;
+}
+
+/* After every animation class so the cascade wins: reduced motion stills
+   them all (.nrc-skeleton keeps its static paper-1 background). */
+@media (prefers-reduced-motion: reduce) {
+  .animate-nrc-pulse,
+  .animate-nrc-fade-in,
+  .animate-nrc-pop,
+  .nrc-skeleton {
+    animation: none;
+  }
 }
