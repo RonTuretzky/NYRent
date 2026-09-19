@@ -51,7 +51,7 @@ contract RealEmailTest is Test {
 
         uint64 nonce = vm.getNonce(address(this));
         address predictedPool = vm.computeCreateAddress(address(this), nonce + 1);
-        token = new CoverToken(predictedPool);
+        token = new CoverToken(predictedPool, wxdai.decimals());
         pool = new CoverPool(wxdai, token, IObservationOracle(address(oracle)), sponsor);
         assertEq(address(pool), predictedPool, "CREATE precompute");
 

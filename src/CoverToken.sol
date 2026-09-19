@@ -19,8 +19,13 @@ contract CoverToken is ERC1155 {
     /// @notice The only address allowed to mint/burn.
     address public immutable pool;
 
-    constructor(address pool_) ERC1155("") {
+    /// @notice Decimals of the pool currency, echoed in the metadata JSON so wallets
+    ///         render claim balances at the right scale (6 for USDC, 18 for WXDAI).
+    uint8 public immutable currencyDecimals;
+
+    constructor(address pool_, uint8 currencyDecimals_) ERC1155("") {
         pool = pool_;
+        currencyDecimals = currencyDecimals_;
     }
 
     modifier onlyPool() {
@@ -50,13 +55,16 @@ contract CoverToken is ERC1155 {
         revert TransfersDisabled();
     }
 
-    /// @notice data: URI with the series name, no external dependencies.
-    function uri(uint256 id) public pure override returns (string memory) {
+    /// @notice data: URI with the series name, no external dependencies. The decimals
+    ///         field mirrors the pool currency's decimals pinned at construction.
+    function uri(uint256 id) public view override returns (string memory) {
         bytes memory json = abi.encodePacked(
             unicode'{"name":"NY Rent Cover — Series #',
             id.toString(),
             '","description":"Fully collateralized Manhattan office rent protection.',
-            ' 1 unit = 1 currency-wei of max claim.","decimals":18}'
+            ' 1 unit = 1 currency-wei of max claim.","decimals":',
+            uint256(currencyDecimals).toString(),
+            "}"
         );
         return string(abi.encodePacked("data:application/json;base64,", Base64.encode(json)));
     }

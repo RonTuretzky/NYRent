@@ -12,7 +12,22 @@ import {IObservationOracle} from "./interfaces/IObservationOracle.sol";
 ///         creates series; buyers pay a premium to mint {CoverToken} claim units;
 ///         settlement is permissionless against a qualifying {CredailyRentOracle}
 ///         observation; redemption pays `amount × payoutRatio` while the claim window
-///         is open. No upgradeability, no setters, no fee sink.
+///         is open. No upgradeability, no series setters, no fee sink.
+///
+///         Core features:
+///         - the sponsor role is transferable through the two-step
+///           {transferSponsorship} / {acceptSponsorship} handoff (cancellable via
+///           {cancelSponsorshipTransfer}) — renouncing to the zero address is
+///           disallowed, so the pool always has a live sponsor;
+///         - {buyProtectionFor} splits payer from holder: the premium is pulled from
+///           `msg.sender` while the claim units are minted to `recipient`, so routers
+///           and agent wallets never strand cover on themselves;
+///         - sales can be paused per series ({setSeriesPaused}) in addition to the
+///           global {setSalesPaused} switch.
+///
+///         SOULBOUND: {CoverToken} transfers are disabled. The `recipient` of
+///         {buyProtectionFor} is a MINT DESTINATION only — cover cannot change hands
+///         after minting, and only the recipient can redeem.
 /// @dev    Solvency invariant: currency.balanceOf(pool) ≥ Σ reservedOf(seriesId) at all
 ///         times — enforced at issuance and on sponsor withdrawals; settlement and
 ///         redemption can only lower Σ reserved.
@@ -24,9 +39,9 @@ contract CoverPool is ReentrancyGuard {
     // ─────────────────────────────────────────────────────────────────────────
 
     struct Series {
-        uint32 strikeLowCents; // payout 0 at/below     (demo: 8800)
-        uint32 strikeHighCents; // payout 1 at/above     (demo: 9600)
-        uint16 premiumRateBps; // premium per 1e4 of max claim (demo: 2850)
+        uint32 strikeLowCents; // payout 0 at/below     (demo: 9288)
+        uint32 strikeHighCents; // payout 1 at/above     (demo: 10088)
+        uint16 premiumRateBps; // premium per 1e4 of max claim (demo: 1133)
         uint64 saleEnd; // no purchases after
         uint64 obsStart; // observation window [obsStart, obsEnd]
         uint64 obsEnd;
@@ -57,7 +72,13 @@ contract CoverPool is ReentrancyGuard {
     event PoolFunded(address indexed from, uint256 amount);
     event ExcessWithdrawn(address indexed to, uint256 amount);
     event SalesPausedSet(bool paused);
-    event ProtectionBought(uint256 indexed seriesId, address indexed buyer, uint256 maxClaim, uint256 premium);
+    event SeriesPausedSet(uint256 indexed seriesId, bool paused);
+    event SponsorshipTransferStarted(address indexed sponsor, address indexed pendingSponsor);
+    event SponsorshipTransferCanceled(address indexed sponsor, address indexed pendingSponsor);
+    event SponsorshipTransferred(address indexed oldSponsor, address indexed newSponsor);
+    event ProtectionBought(
+        uint256 indexed seriesId, address indexed buyer, address indexed recipient, uint256 maxClaim, uint256 premium
+    );
     event SeriesSettled(
         uint256 indexed seriesId,
         uint256 obsIndex,
@@ -69,6 +90,9 @@ contract CoverPool is ReentrancyGuard {
     event Redeemed(uint256 indexed seriesId, address indexed holder, uint256 amount, uint256 payout);
 
     error NotSponsor();
+    error NotPendingSponsor();
+    error NoHandoffInFlight();
+    error ZeroAddress();
     error InvalidSeries();
     error InvalidParams(string what);
     error SaleClosed();
@@ -76,6 +100,7 @@ contract CoverPool is ReentrancyGuard {
     error ZeroAmount();
     error CapacityExceeded();
     error PremiumTooHigh(uint256 premium, uint256 maxPremium);
+    error PremiumRoundsToZero();
     error Insolvent();
     error AlreadySettled();
     error NotSettled();
@@ -90,19 +115,30 @@ contract CoverPool is ReentrancyGuard {
     IERC20 public immutable currency;
     CoverToken public immutable token;
     IObservationOracle public immutable oracle;
-    address public immutable sponsor;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Storage
     // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice Sole holder of the fund/withdraw/pause/create levers. Hands over via
+    ///         {transferSponsorship} + {acceptSponsorship} only.
+    address public sponsor;
+
+    /// @notice Address that may claim the sponsor role via {acceptSponsorship};
+    ///         zero when no handoff is in flight.
+    address public pendingSponsor;
 
     Series[] internal _series;
 
     /// @notice Cumulative currency paid out to redeemers, per series.
     mapping(uint256 seriesId => uint256) public redeemedPayout;
 
-    /// @notice Sponsor-controlled sales switch. NEVER blocks settle or redeem.
+    /// @notice Sponsor-controlled global sales switch. NEVER blocks settle or redeem.
     bool public salesPaused;
+
+    /// @notice Sponsor-controlled per-series sales switch. A purchase requires both
+    ///         this and {salesPaused} to be false. NEVER blocks settle or redeem.
+    mapping(uint256 seriesId => bool) public seriesPaused;
 
     modifier onlySponsor() {
         if (msg.sender != sponsor) revert NotSponsor();
@@ -110,6 +146,7 @@ contract CoverPool is ReentrancyGuard {
     }
 
     constructor(IERC20 currency_, CoverToken token_, IObservationOracle oracle_, address sponsor_) {
+        if (sponsor_ == address(0)) revert ZeroAddress();
         currency = currency_;
         token = token_;
         oracle = oracle_;
@@ -181,6 +218,44 @@ contract CoverPool is ReentrancyGuard {
     // Sponsor actions
     // ─────────────────────────────────────────────────────────────────────────
 
+    /// @notice Starts the two-step sponsor handoff: `newSponsor` takes over only once
+    ///         it calls {acceptSponsorship}. Overwrites any handoff still in flight.
+    /// @dev Renouncing is disallowed — the pool must always keep a sponsor who can
+    ///      fund, pause and withdraw — so the zero address is rejected; use
+    ///      {cancelSponsorshipTransfer} to abort a handoff instead.
+    ///
+    ///      TRUST MODEL: the handoff transfers the levers, not any capital guarantee.
+    ///      Until {acceptSponsorship} lands, the OUTGOING sponsor keeps every lever —
+    ///      it can withdraw all free capital, pause sales, or overwrite/cancel the
+    ///      pending handoff. Reserved backing for sold cover stays untouchable either
+    ///      way. Incoming sponsors: verify `freeCapital()` and both pause switches
+    ///      right after accepting, and fund only once the handoff has completed (see
+    ///      docs/OPERATIONS.md).
+    function transferSponsorship(address newSponsor) external onlySponsor {
+        if (newSponsor == address(0)) revert ZeroAddress();
+        pendingSponsor = newSponsor;
+        emit SponsorshipTransferStarted(msg.sender, newSponsor);
+    }
+
+    /// @notice Aborts the handoff in flight in one transaction: the pending sponsor
+    ///         loses its claim immediately and can no longer accept.
+    function cancelSponsorshipTransfer() external onlySponsor {
+        address pending = pendingSponsor;
+        if (pending == address(0)) revert NoHandoffInFlight();
+        delete pendingSponsor;
+        emit SponsorshipTransferCanceled(msg.sender, pending);
+    }
+
+    /// @notice Completes the handoff started by {transferSponsorship}. Callable only by
+    ///         the pending sponsor; the previous sponsor loses every lever atomically.
+    function acceptSponsorship() external {
+        if (msg.sender != pendingSponsor) revert NotPendingSponsor();
+        address oldSponsor = sponsor;
+        sponsor = msg.sender;
+        delete pendingSponsor;
+        emit SponsorshipTransferred(oldSponsor, msg.sender);
+    }
+
     /// @notice Pulls `amt` currency from the sponsor into the pool as backing capital.
     function fundPool(uint256 amt) external onlySponsor nonReentrant {
         if (amt == 0) revert ZeroAmount();
@@ -196,17 +271,25 @@ contract CoverPool is ReentrancyGuard {
         emit ExcessWithdrawn(msg.sender, amt);
     }
 
+    /// @notice Global sales switch across every series. NEVER blocks settle or redeem.
     function setSalesPaused(bool paused) external onlySponsor {
         salesPaused = paused;
         emit SalesPausedSet(paused);
     }
 
+    /// @notice Pauses or resumes sales for `seriesId` alone; other series keep selling.
+    ///         NEVER blocks settle or redeem.
+    function setSeriesPaused(uint256 seriesId, bool paused) external onlySponsor {
+        if (seriesId >= _series.length) revert InvalidSeries();
+        seriesPaused[seriesId] = paused;
+        emit SeriesPausedSet(seriesId, paused);
+    }
+
     /// @notice Creates a new protection series. Parameters are immutable afterwards —
     ///         no setter exists at all.
     /// @dev Production recommendation: `saleEnd ≤ obsStart` so buyers cannot trade on a
-    ///      qualifying observation that already exists. The demo series intentionally
-    ///      sells during the observation window (informed-trading caveat; see
-    ///      docs/PROTOCOL.md).
+    ///      qualifying observation that already exists (the demo series pins
+    ///      `saleEnd = obsStart`; see docs/PROTOCOL.md).
     function createSeries(
         uint32 strikeLowCents,
         uint32 strikeHighCents,
@@ -248,34 +331,57 @@ contract CoverPool is ReentrancyGuard {
     // Buyer / holder actions
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Buys `maxClaim` of protection, paying at most `maxPremium`.
+    /// @notice Buys `maxClaim` of protection for `msg.sender`, paying at most `maxPremium`.
+    /// @dev Thin wrapper over {buyProtectionFor} with `recipient = msg.sender`.
+    function buyProtection(uint256 seriesId, uint256 maxClaim, uint256 maxPremium) external {
+        buyProtectionFor(seriesId, maxClaim, maxPremium, msg.sender);
+    }
+
+    /// @notice Buys `maxClaim` of protection minted to `recipient`; the premium is
+    ///         pulled from `msg.sender` and capped at `maxPremium`.
     /// @dev Solvency: after collecting the premium, Σ reserved (with the new `sold`)
     ///      must not exceed the pool balance. Purchases stop once a series is settled
-    ///      (buying a known outcome would drain the pool).
-    function buyProtection(uint256 seriesId, uint256 maxClaim, uint256 maxPremium) external nonReentrant {
+    ///      (buying a known outcome would drain the pool). A purchase whose premium
+    ///      truncates to zero currency wei is rejected ({PremiumRoundsToZero}) — no
+    ///      free cover from dust-sized claims; the smallest buyable claim is the one
+    ///      whose `maxClaim × rateBps / 1e4` is at least 1 wei.
+    ///
+    ///      SOULBOUND: `recipient` only chooses where the claim units are MINTED —
+    ///      {CoverToken} transfers stay disabled, so the position cannot move afterwards
+    ///      and only `recipient` can redeem. A contract recipient must implement
+    ///      `onERC1155Received` or the whole purchase reverts and no funds move.
+    function buyProtectionFor(uint256 seriesId, uint256 maxClaim, uint256 maxPremium, address recipient)
+        public
+        nonReentrant
+    {
+        if (recipient == address(0)) revert ZeroAddress();
         if (seriesId >= _series.length) revert InvalidSeries();
         Series storage s = _series[seriesId];
         if (maxClaim == 0) revert ZeroAmount();
-        if (salesPaused) revert SalesArePaused();
+        if (salesPaused || seriesPaused[seriesId]) revert SalesArePaused();
         if (block.timestamp > s.saleEnd) revert SaleClosed();
         if (s.settled) revert SaleClosed();
         if (uint256(s.sold) + maxClaim > s.capacity) revert CapacityExceeded();
 
         uint256 premium = (maxClaim * s.premiumRateBps) / 1e4;
+        if (premium == 0) revert PremiumRoundsToZero();
         if (premium > maxPremium) revert PremiumTooHigh(premium, maxPremium);
 
         s.sold += uint128(maxClaim); // ≤ capacity ≤ uint128.max, checked above
         currency.safeTransferFrom(msg.sender, address(this), premium);
         if (currency.balanceOf(address(this)) < totalReserved()) revert Insolvent();
 
-        token.mint(msg.sender, seriesId, maxClaim);
-        emit ProtectionBought(seriesId, msg.sender, maxClaim, premium);
+        token.mint(recipient, seriesId, maxClaim);
+        emit ProtectionBought(seriesId, msg.sender, recipient, maxClaim, premium);
     }
 
     /// @notice Permissionlessly settles `seriesId` from oracle observation `obsIndex`.
     /// @dev One-shot: if several observations qualify inside the window, the FIRST
-    ///      successful call wins and the ratio is fixed forever.
-    function settle(uint256 seriesId, uint256 obsIndex) external {
+    ///      successful call wins and the ratio is fixed forever. `nonReentrant` is
+    ///      defense in depth: settle is never legitimately called from within another
+    ///      pool function, so it cannot be reached from the ERC-1155 mint acceptance
+    ///      callback inside {buyProtectionFor}.
+    function settle(uint256 seriesId, uint256 obsIndex) external nonReentrant {
         if (seriesId >= _series.length) revert InvalidSeries();
         Series storage s = _series[seriesId];
         if (s.settled) revert AlreadySettled();
@@ -299,7 +405,7 @@ contract CoverPool is ReentrancyGuard {
     }
 
     /// @notice Burns `amount` claim units and pays `amount × ratio / 1e18`.
-    /// @dev Claims are always payable while reserved — the pause switch never blocks
+    /// @dev Claims are always payable while reserved — neither pause switch ever blocks
     ///      redemption.
     function redeem(uint256 seriesId, uint256 amount) external nonReentrant {
         if (seriesId >= _series.length) revert InvalidSeries();

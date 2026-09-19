@@ -6,6 +6,13 @@
       "rpc_url": "https://rpc.gnosischain.com",
       "blockscout_url": "https://gnosis.blockscout.com",
       "environment": "production"
+    },
+    {
+      "name": "arbitrum",
+      "chain_id": 42161,
+      "rpc_url": "https://arb1.arbitrum.io/rpc",
+      "blockscout_url": "https://arbitrum.blockscout.com",
+      "environment": "production"
     }
   ]
 }

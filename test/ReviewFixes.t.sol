@@ -90,15 +90,15 @@ contract ReviewFixesTest is Test {
 
     // ── Finding: no reentrancy guard on CoverPool ──
 
-    function test_BuyProtectionReentrancyBlocked() public {
-        TestERC20 wxdai = new TestERC20();
+    function _reentrancyFixture() internal returns (CoverPool pool, TestERC20 wxdai) {
+        wxdai = new TestERC20();
         MockObservationOracle mockOracle = new MockObservationOracle();
         address sponsor = makeAddr("sponsor");
 
         uint64 nonce = vm.getNonce(address(this));
         address predictedPool = vm.computeCreateAddress(address(this), nonce + 1);
-        CoverToken token = new CoverToken(predictedPool);
-        CoverPool pool = new CoverPool(wxdai, token, IObservationOracle(address(mockOracle)), sponsor);
+        CoverToken token = new CoverToken(predictedPool, wxdai.decimals());
+        pool = new CoverPool(wxdai, token, IObservationOracle(address(mockOracle)), sponsor);
         assertEq(address(pool), predictedPool);
 
         uint64 t0 = uint64(block.timestamp);
@@ -108,18 +108,31 @@ contract ReviewFixesTest is Test {
         pool.fundPool(10 ether);
         pool.createSeries(8800, 9600, 2850, t0 + 10 days, t0, t0 + 10 days, t0 + 40 days, 10 ether);
         vm.stopPrank();
+    }
 
+    function test_BuyProtectionReentrancyBlocked() public {
+        (CoverPool pool, TestERC20 wxdai) = _reentrancyFixture();
         ReentrantBuyer attacker = new ReentrantBuyer(pool, wxdai);
         wxdai.mint(address(attacker), 5 ether);
         vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
-        attacker.attack(0, 1 ether);
+        attacker.attack(0, 1 ether, false);
+    }
+
+    function test_BuyProtectionForReentrancyBlocked() public {
+        (CoverPool pool, TestERC20 wxdai) = _reentrancyFixture();
+        ReentrantBuyer attacker = new ReentrantBuyer(pool, wxdai);
+        wxdai.mint(address(attacker), 5 ether);
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        attacker.attack(0, 1 ether, true);
     }
 }
 
-/// @dev Reenters buyProtection from the ERC-1155 mint acceptance callback.
+/// @dev Reenters the pool from the ERC-1155 mint acceptance callback, through either
+///      purchase entrypoint ({CoverPool.buyProtection} or {CoverPool.buyProtectionFor}).
 contract ReentrantBuyer {
     CoverPool internal immutable pool;
     TestERC20 internal immutable wxdai;
+    bool internal viaBuyFor;
     bool internal reentered;
 
     constructor(CoverPool pool_, TestERC20 wxdai_) {
@@ -127,15 +140,19 @@ contract ReentrantBuyer {
         wxdai = wxdai_;
     }
 
-    function attack(uint256 seriesId, uint256 maxClaim) external {
+    function attack(uint256 seriesId, uint256 maxClaim, bool viaBuyFor_) external {
+        viaBuyFor = viaBuyFor_;
         wxdai.approve(address(pool), type(uint256).max);
-        pool.buyProtection(seriesId, maxClaim, type(uint256).max);
+        if (viaBuyFor_) pool.buyProtectionFor(seriesId, maxClaim, type(uint256).max, address(this));
+        else pool.buyProtection(seriesId, maxClaim, type(uint256).max);
     }
 
     function onERC1155Received(address, address, uint256 seriesId, uint256, bytes calldata) external returns (bytes4) {
         if (!reentered) {
             reentered = true;
-            pool.buyProtection(seriesId, 1, type(uint256).max); // must revert: reentrant
+            // must revert: reentrant on either entrypoint
+            if (viaBuyFor) pool.buyProtectionFor(seriesId, 1, type(uint256).max, address(this));
+            else pool.buyProtection(seriesId, 1, type(uint256).max);
         }
         return this.onERC1155Received.selector;
     }

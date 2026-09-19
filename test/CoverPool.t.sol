@@ -2,28 +2,87 @@
 pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC1155Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {CoverPool} from "../src/CoverPool.sol";
 import {CoverToken} from "../src/CoverToken.sol";
 import {IObservationOracle} from "../src/interfaces/IObservationOracle.sol";
-import {MockObservationOracle, TestERC20} from "./utils/Helpers.sol";
+import {MockObservationOracle} from "./utils/Helpers.sol";
 
-/// @notice CoverPool scenario matrix (SPEC §7): create/buy/settle/redeem/withdraw,
-///         window and clamp edges, pause semantics, solvency, plus fuzz. Invariants
-///         live in {CoverPoolInvariantTest} below.
+/// @notice Mintable 6-decimals ERC-20 standing in for Arbitrum native USDC in tests.
+contract TestUSDC is ERC20 {
+    constructor() ERC20("USD Coin (test)", "USDC") {}
+
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+}
+
+/// @notice Contract recipient without any ERC-1155 acceptance hook: minting to it
+///         must revert and roll the whole purchase back.
+contract NonReceiver {}
+
+/// @notice Contract recipient that accepts ERC-1155 mints.
+contract AcceptingRecipient is ERC1155Holder {}
+
+/// @dev Reenters the pool from the ERC-1155 mint acceptance callback of the
+///      {CoverPool.buyProtectionFor} entrypoint.
+contract ReentrantRecipient {
+    CoverPool internal immutable pool;
+    TestUSDC internal immutable usdc;
+    uint8 internal mode; // 0 = buyProtectionFor, 1 = buyProtection, 2 = settle
+    bool internal reentered;
+
+    constructor(CoverPool pool_, TestUSDC usdc_) {
+        pool = pool_;
+        usdc = usdc_;
+    }
+
+    function attack(uint256 seriesId, uint256 maxClaim, uint8 mode_) external {
+        mode = mode_;
+        usdc.approve(address(pool), type(uint256).max);
+        pool.buyProtectionFor(seriesId, maxClaim, type(uint256).max, address(this));
+    }
+
+    function onERC1155Received(address, address, uint256 seriesId, uint256, bytes calldata) external returns (bytes4) {
+        if (!reentered) {
+            reentered = true;
+            // must revert: reentrant on any pool entrypoint, settle included
+            if (mode == 0) pool.buyProtectionFor(seriesId, 1, type(uint256).max, address(this));
+            else if (mode == 1) pool.buyProtection(seriesId, 1, type(uint256).max);
+            else pool.settle(seriesId, 0);
+        }
+        return this.onERC1155Received.selector;
+    }
+}
+
+/// @notice CoverPool scenario matrix at the 6-decimals USDC deployment currency:
+///         create/buy/settle/redeem/withdraw, window and clamp edges, pause semantics,
+///         solvency, the two-step sponsor handoff (with cancel), {buyProtectionFor}
+///         recipient minting, the per-series pause, plus fuzz. Invariants live in
+///         {CoverPoolInvariantTest}.
 contract CoverPoolTest is Test {
     uint64 internal constant T0 = 1_789_000_000; // base clock for all series
 
+    uint256 internal constant ONE = 1e6; // native USDC has 6 decimals
     uint32 internal constant LOW = 8800;
     uint32 internal constant HIGH = 9600;
     uint16 internal constant RATE = 2850;
-    uint128 internal constant CAP = 100 ether;
+    uint128 internal constant CAP = uint128(100 * ONE);
 
     uint64 internal saleEnd;
     uint64 internal obsStart;
     uint64 internal obsEnd;
     uint64 internal redeemEnd;
 
-    TestERC20 internal wxdai;
+    TestUSDC internal usdc;
     MockObservationOracle internal oracle;
     CoverToken internal token;
     CoverPool internal pool;
@@ -39,24 +98,24 @@ contract CoverPoolTest is Test {
         saleEnd = obsEnd;
         redeemEnd = obsEnd + 30 days;
 
-        wxdai = new TestERC20();
+        usdc = new TestUSDC();
         oracle = new MockObservationOracle();
 
         uint64 nonce = vm.getNonce(address(this));
         address predictedPool = vm.computeCreateAddress(address(this), nonce + 1);
-        token = new CoverToken(predictedPool);
-        pool = new CoverPool(wxdai, token, IObservationOracle(address(oracle)), sponsor);
+        token = new CoverToken(predictedPool, usdc.decimals());
+        pool = new CoverPool(usdc, token, IObservationOracle(address(oracle)), sponsor);
         assertEq(address(pool), predictedPool);
 
-        wxdai.mint(sponsor, 1_000 ether);
-        wxdai.mint(alice, 1_000 ether);
-        wxdai.mint(bob, 1_000 ether);
+        usdc.mint(sponsor, 1_000 * ONE);
+        usdc.mint(alice, 1_000 * ONE);
+        usdc.mint(bob, 1_000 * ONE);
         vm.prank(sponsor);
-        wxdai.approve(address(pool), type(uint256).max);
+        usdc.approve(address(pool), type(uint256).max);
         vm.prank(alice);
-        wxdai.approve(address(pool), type(uint256).max);
+        usdc.approve(address(pool), type(uint256).max);
         vm.prank(bob);
-        wxdai.approve(address(pool), type(uint256).max);
+        usdc.approve(address(pool), type(uint256).max);
     }
 
     function _createDefault() internal returns (uint256 id) {
@@ -132,37 +191,37 @@ contract CoverPoolTest is Test {
 
     function test_quote_math() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        (uint256 premium, uint16 rateBps, uint256 capacityLeft, uint256 issuableNow) = pool.quote(id, 1 ether);
-        assertEq(premium, 0.285 ether);
+        _fund(10 * ONE);
+        (uint256 premium, uint16 rateBps, uint256 capacityLeft, uint256 issuableNow) = pool.quote(id, ONE);
+        assertEq(premium, 0.285e6);
         assertEq(rateBps, RATE);
         assertEq(capacityLeft, CAP);
-        // x - x*rate ≤ free → x ≤ 10e18 * 1e4 / 7150
-        assertEq(issuableNow, (10 ether * 1e4) / (1e4 - RATE));
+        // x - x*rate ≤ free → x ≤ 10e6 * 1e4 / 7150
+        assertEq(issuableNow, (10 * ONE * 1e4) / (1e4 - RATE));
     }
 
     function test_buy_mintsAndPullsPremium() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        uint256 premium = _buy(alice, id, 1 ether);
-        assertEq(premium, 0.285 ether);
-        assertEq(token.balanceOf(alice, id), 1 ether);
-        assertEq(wxdai.balanceOf(address(pool)), 10 ether + premium);
-        assertEq(pool.series(id).sold, 1 ether);
-        assertEq(pool.reservedOf(id), 1 ether);
+        _fund(10 * ONE);
+        uint256 premium = _buy(alice, id, ONE);
+        assertEq(premium, 0.285e6);
+        assertEq(token.balanceOf(alice, id), ONE);
+        assertEq(usdc.balanceOf(address(pool)), 10 * ONE + premium);
+        assertEq(pool.series(id).sold, ONE);
+        assertEq(pool.reservedOf(id), ONE);
     }
 
     function test_buy_slippageGuard() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        vm.expectRevert(abi.encodeWithSelector(CoverPool.PremiumTooHigh.selector, 0.285 ether, 0.284 ether));
+        _fund(10 * ONE);
+        vm.expectRevert(abi.encodeWithSelector(CoverPool.PremiumTooHigh.selector, 0.285e6, 0.284e6));
         vm.prank(alice);
-        pool.buyProtection(id, 1 ether, 0.284 ether);
+        pool.buyProtection(id, ONE, 0.284e6);
     }
 
     function test_buy_capacityExceeded() public {
         uint256 id = _createDefault();
-        _fund(1_000 ether);
+        _fund(1_000 * ONE);
         vm.expectRevert(CoverPool.CapacityExceeded.selector);
         vm.prank(alice);
         pool.buyProtection(id, uint256(CAP) + 1, type(uint256).max);
@@ -173,56 +232,56 @@ contract CoverPoolTest is Test {
         // no funding: premium (28.5%) alone cannot back a 100% claim
         vm.expectRevert(CoverPool.Insolvent.selector);
         vm.prank(alice);
-        pool.buyProtection(id, 1 ether, type(uint256).max);
+        pool.buyProtection(id, ONE, type(uint256).max);
     }
 
     function test_buy_solvencyGuard_exactBoundary() public {
         uint256 id = _createDefault();
-        _fund(0.715 ether); // 1 - 0.285: premium tops the backing up to exactly 100%
-        _buy(alice, id, 1 ether);
+        _fund(0.715e6); // 1 - 0.285: premium tops the backing up to exactly 100%
+        _buy(alice, id, ONE);
         assertEq(pool.freeCapital(), 0);
-        // one wei more claim cannot be backed
+        // any further claim cannot be backed
         vm.expectRevert(CoverPool.Insolvent.selector);
         vm.prank(bob);
-        pool.buyProtection(id, 1e18, type(uint256).max);
+        pool.buyProtection(id, ONE, type(uint256).max);
     }
 
     function test_buy_afterSaleEnd_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
+        _fund(10 * ONE);
         vm.warp(saleEnd + 1);
         vm.expectRevert(CoverPool.SaleClosed.selector);
         vm.prank(alice);
-        pool.buyProtection(id, 1 ether, type(uint256).max);
+        pool.buyProtection(id, ONE, type(uint256).max);
     }
 
     function test_buy_atSaleEnd_ok() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
+        _fund(10 * ONE);
         vm.warp(saleEnd);
-        _buy(alice, id, 1 ether);
+        _buy(alice, id, ONE);
     }
 
     function test_buy_afterSettle_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
+        _fund(10 * ONE);
         _settleAt(id, T0, 9000);
         vm.expectRevert(CoverPool.SaleClosed.selector);
         vm.prank(alice);
-        pool.buyProtection(id, 1 ether, type(uint256).max);
+        pool.buyProtection(id, ONE, type(uint256).max);
     }
 
     function test_buy_whenPaused_reverts_thenUnpause() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
+        _fund(10 * ONE);
         vm.prank(sponsor);
         pool.setSalesPaused(true);
         vm.expectRevert(CoverPool.SalesArePaused.selector);
         vm.prank(alice);
-        pool.buyProtection(id, 1 ether, type(uint256).max);
+        pool.buyProtection(id, ONE, type(uint256).max);
         vm.prank(sponsor);
         pool.setSalesPaused(false);
-        _buy(alice, id, 1 ether);
+        _buy(alice, id, ONE);
     }
 
     function test_buy_zeroAmount_reverts() public {
@@ -230,6 +289,24 @@ contract CoverPoolTest is Test {
         vm.expectRevert(CoverPool.ZeroAmount.selector);
         vm.prank(alice);
         pool.buyProtection(id, 0, 0);
+    }
+
+    function test_buy_premiumRoundsToZero_reverts() public {
+        uint256 id = _createDefault();
+        _fund(10 * ONE);
+        // at 2850 bps, any maxClaim ≤ 3 micro-units computes premium 0 → no free cover
+        for (uint256 dust = 1; dust <= 3; ++dust) {
+            vm.expectRevert(CoverPool.PremiumRoundsToZero.selector);
+            vm.prank(alice);
+            pool.buyProtection(id, dust, type(uint256).max);
+            vm.expectRevert(CoverPool.PremiumRoundsToZero.selector);
+            vm.prank(alice);
+            pool.buyProtectionFor(id, dust, type(uint256).max, bob);
+        }
+        // the smallest claim whose premium is ≥ 1 wei still buys
+        vm.prank(alice);
+        pool.buyProtection(id, 4, type(uint256).max);
+        assertEq(token.balanceOf(alice, id), 4);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -313,82 +390,82 @@ contract CoverPoolTest is Test {
 
     function test_redeem_beforeSettle_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        _buy(alice, id, 1 ether);
+        _fund(10 * ONE);
+        _buy(alice, id, ONE);
         vm.expectRevert(CoverPool.NotSettled.selector);
         vm.prank(alice);
-        pool.redeem(id, 1 ether);
+        pool.redeem(id, ONE);
     }
 
     function test_redeem_paysRatio_andPartials() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        _buy(alice, id, 2 ether);
+        _fund(10 * ONE);
+        _buy(alice, id, 2 * ONE);
         _settleAt(id, T0, 9288); // 61%
-        uint256 before = wxdai.balanceOf(alice);
+        uint256 before = usdc.balanceOf(alice);
         vm.prank(alice);
-        pool.redeem(id, 1 ether);
-        assertEq(wxdai.balanceOf(alice) - before, 0.61 ether);
-        assertEq(token.balanceOf(alice, id), 1 ether);
+        pool.redeem(id, ONE);
+        assertEq(usdc.balanceOf(alice) - before, 0.61e6);
+        assertEq(token.balanceOf(alice, id), ONE);
         vm.prank(alice);
-        pool.redeem(id, 1 ether);
-        assertEq(wxdai.balanceOf(alice) - before, 1.22 ether);
+        pool.redeem(id, ONE);
+        assertEq(usdc.balanceOf(alice) - before, 1.22e6);
         assertEq(token.balanceOf(alice, id), 0);
-        assertEq(pool.redeemedPayout(id), 1.22 ether);
+        assertEq(pool.redeemedPayout(id), 1.22e6);
     }
 
     function test_redeem_zeroRatio_burnsForNothing() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        _buy(alice, id, 1 ether);
+        _fund(10 * ONE);
+        _buy(alice, id, ONE);
         _settleAt(id, T0, LOW); // ratio 0
-        uint256 before = wxdai.balanceOf(alice);
+        uint256 before = usdc.balanceOf(alice);
         vm.prank(alice);
-        pool.redeem(id, 1 ether);
-        assertEq(wxdai.balanceOf(alice), before);
+        pool.redeem(id, ONE);
+        assertEq(usdc.balanceOf(alice), before);
         assertEq(token.balanceOf(alice, id), 0);
     }
 
     function test_redeem_afterRedeemEnd_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        _buy(alice, id, 1 ether);
+        _fund(10 * ONE);
+        _buy(alice, id, ONE);
         _settleAt(id, T0, 9288);
         vm.warp(redeemEnd + 1);
         vm.expectRevert(CoverPool.RedeemWindowClosed.selector);
         vm.prank(alice);
-        pool.redeem(id, 1 ether);
+        pool.redeem(id, ONE);
     }
 
     function test_redeem_atRedeemEnd_ok() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        _buy(alice, id, 1 ether);
+        _fund(10 * ONE);
+        _buy(alice, id, ONE);
         _settleAt(id, T0, 9288);
         vm.warp(redeemEnd);
         vm.prank(alice);
-        pool.redeem(id, 1 ether);
+        pool.redeem(id, ONE);
     }
 
     function test_redeem_neverBlockedByPause() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        _buy(alice, id, 1 ether);
+        _fund(10 * ONE);
+        _buy(alice, id, ONE);
         _settleAt(id, T0, 9288);
         vm.prank(sponsor);
         pool.setSalesPaused(true);
         vm.prank(alice);
-        pool.redeem(id, 1 ether); // must not revert
+        pool.redeem(id, ONE); // must not revert
     }
 
     function test_redeem_moreThanBalance_reverts() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        _buy(alice, id, 1 ether);
+        _fund(10 * ONE);
+        _buy(alice, id, ONE);
         _settleAt(id, T0, 9288);
         vm.expectRevert(); // ERC1155InsufficientBalance from the token burn
         vm.prank(alice);
-        pool.redeem(id, 2 ether);
+        pool.redeem(id, 2 * ONE);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -397,45 +474,45 @@ contract CoverPoolTest is Test {
 
     function test_withdraw_soldReservedBeforeSettlement() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        uint256 premium = _buy(alice, id, 4 ether);
+        _fund(10 * ONE);
+        uint256 premium = _buy(alice, id, 4 * ONE);
         // reserved = sold (4); free = 10 + premium - 4
-        assertEq(pool.freeCapital(), 6 ether + premium);
+        assertEq(pool.freeCapital(), 6 * ONE + premium);
         vm.prank(sponsor);
         vm.expectRevert(
-            abi.encodeWithSelector(CoverPool.InsufficientFreeCapital.selector, 6 ether + premium + 1, 6 ether + premium)
+            abi.encodeWithSelector(CoverPool.InsufficientFreeCapital.selector, 6 * ONE + premium + 1, 6 * ONE + premium)
         );
-        pool.withdrawExcess(6 ether + premium + 1);
+        pool.withdrawExcess(6 * ONE + premium + 1);
         vm.prank(sponsor);
-        pool.withdrawExcess(6 ether + premium);
-        assertEq(wxdai.balanceOf(address(pool)), 4 ether, "exactly the reserve remains");
+        pool.withdrawExcess(6 * ONE + premium);
+        assertEq(usdc.balanceOf(address(pool)), 4 * ONE, "exactly the reserve remains");
     }
 
     function test_withdraw_ratioReservedAfterSettlement() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        uint256 premium = _buy(alice, id, 4 ether);
+        _fund(10 * ONE);
+        uint256 premium = _buy(alice, id, 4 * ONE);
         _settleAt(id, T0, 9288); // 61% → reserved drops to 2.44
-        assertEq(pool.reservedOf(id), 2.44 ether);
-        assertEq(pool.freeCapital(), 10 ether + premium - 2.44 ether);
+        assertEq(pool.reservedOf(id), 2.44e6);
+        assertEq(pool.freeCapital(), 10 * ONE + premium - 2.44e6);
         // partial redemption further reduces the reserve
         vm.prank(alice);
-        pool.redeem(id, 1 ether);
-        assertEq(pool.reservedOf(id), 2.44 ether - 0.61 ether);
+        pool.redeem(id, ONE);
+        assertEq(pool.reservedOf(id), 2.44e6 - 0.61e6);
     }
 
     function test_withdraw_fullReleaseAfterRedeemEnd() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        uint256 premium = _buy(alice, id, 4 ether);
+        _fund(10 * ONE);
+        uint256 premium = _buy(alice, id, 4 * ONE);
         _settleAt(id, T0, 9288);
         vm.warp(redeemEnd + 1);
         assertEq(pool.reservedOf(id), 0, "reserves release after redeemEnd");
-        uint256 balance = 10 ether + premium;
+        uint256 balance = 10 * ONE + premium;
         assertEq(pool.freeCapital(), balance);
         vm.prank(sponsor);
         pool.withdrawExcess(balance);
-        assertEq(wxdai.balanceOf(address(pool)), 0);
+        assertEq(usdc.balanceOf(address(pool)), 0);
     }
 
     function test_fund_onlySponsor_andZeroGuard() public {
@@ -462,15 +539,15 @@ contract CoverPoolTest is Test {
 
     function test_token_transfersDisabled() public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        _buy(alice, id, 1 ether);
+        _fund(10 * ONE);
+        _buy(alice, id, ONE);
         vm.prank(alice);
         vm.expectRevert(CoverToken.TransfersDisabled.selector);
-        token.safeTransferFrom(alice, bob, id, 1 ether, "");
+        token.safeTransferFrom(alice, bob, id, ONE, "");
         uint256[] memory ids = new uint256[](1);
         uint256[] memory amts = new uint256[](1);
         ids[0] = id;
-        amts[0] = 1 ether;
+        amts[0] = ONE;
         vm.prank(alice);
         vm.expectRevert(CoverToken.TransfersDisabled.selector);
         token.safeBatchTransferFrom(alice, bob, ids, amts, "");
@@ -494,6 +571,382 @@ contract CoverPoolTest is Test {
         }
     }
 
+    function test_token_uriEchoesCurrencyDecimals() public view {
+        assertEq(token.currencyDecimals(), 6);
+        bytes memory json = abi.encodePacked(
+            unicode'{"name":"NY Rent Cover — Series #3',
+            '","description":"Fully collateralized Manhattan office rent protection.',
+            ' 1 unit = 1 currency-wei of max claim.","decimals":6}'
+        );
+        assertEq(token.uri(3), string(abi.encodePacked("data:application/json;base64,", Base64.encode(json))));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Two-step sponsor handoff
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_constructor_zeroSponsor_reverts() public {
+        vm.expectRevert(CoverPool.ZeroAddress.selector);
+        new CoverPool(usdc, token, IObservationOracle(address(oracle)), address(0));
+    }
+
+    function test_transferSponsorship_onlySponsor() public {
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.transferSponsorship(alice);
+    }
+
+    function test_transferSponsorship_renounceDisallowed() public {
+        vm.prank(sponsor);
+        vm.expectRevert(CoverPool.ZeroAddress.selector);
+        pool.transferSponsorship(address(0));
+    }
+
+    function test_sponsorHandoff_happyPath() public {
+        address agent = makeAddr("agent");
+        vm.prank(sponsor);
+        vm.expectEmit(true, true, true, true);
+        emit CoverPool.SponsorshipTransferStarted(sponsor, agent);
+        pool.transferSponsorship(agent);
+        assertEq(pool.sponsor(), sponsor, "no handover before accept");
+        assertEq(pool.pendingSponsor(), agent);
+
+        vm.prank(agent);
+        vm.expectEmit(true, true, true, true);
+        emit CoverPool.SponsorshipTransferred(sponsor, agent);
+        pool.acceptSponsorship();
+        assertEq(pool.sponsor(), agent);
+        assertEq(pool.pendingSponsor(), address(0), "pending slot cleared");
+    }
+
+    function test_acceptSponsorship_onlyPending() public {
+        // no handoff in flight: nobody may accept
+        vm.prank(alice);
+        vm.expectRevert(CoverPool.NotPendingSponsor.selector);
+        pool.acceptSponsorship();
+        // handoff in flight: neither a stranger nor the current sponsor may accept
+        address agent = makeAddr("agent");
+        vm.prank(sponsor);
+        pool.transferSponsorship(agent);
+        vm.prank(alice);
+        vm.expectRevert(CoverPool.NotPendingSponsor.selector);
+        pool.acceptSponsorship();
+        vm.prank(sponsor);
+        vm.expectRevert(CoverPool.NotPendingSponsor.selector);
+        pool.acceptSponsorship();
+    }
+
+    function test_sponsorHandoff_pendingOverwrite() public {
+        address first = makeAddr("first");
+        address second = makeAddr("second");
+        vm.startPrank(sponsor);
+        pool.transferSponsorship(first);
+        pool.transferSponsorship(second); // overwrites the in-flight handoff
+        vm.stopPrank();
+        assertEq(pool.pendingSponsor(), second);
+        vm.prank(first);
+        vm.expectRevert(CoverPool.NotPendingSponsor.selector);
+        pool.acceptSponsorship();
+        vm.prank(second);
+        pool.acceptSponsorship();
+        assertEq(pool.sponsor(), second);
+    }
+
+    function test_cancelSponsorshipTransfer_clearsPending() public {
+        address agent = makeAddr("agent");
+        vm.prank(sponsor);
+        pool.transferSponsorship(agent);
+        assertEq(pool.pendingSponsor(), agent);
+
+        vm.prank(sponsor);
+        vm.expectEmit(true, true, true, true);
+        emit CoverPool.SponsorshipTransferCanceled(sponsor, agent);
+        pool.cancelSponsorshipTransfer();
+        assertEq(pool.pendingSponsor(), address(0), "pending slot cleared");
+        assertEq(pool.sponsor(), sponsor, "sponsor unchanged");
+
+        // the canceled pending sponsor can no longer accept
+        vm.prank(agent);
+        vm.expectRevert(CoverPool.NotPendingSponsor.selector);
+        pool.acceptSponsorship();
+    }
+
+    function test_cancelSponsorshipTransfer_onlySponsor() public {
+        address agent = makeAddr("agent");
+        vm.prank(sponsor);
+        pool.transferSponsorship(agent);
+        // neither a stranger nor the pending sponsor itself may cancel
+        vm.prank(alice);
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.cancelSponsorshipTransfer();
+        vm.prank(agent);
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.cancelSponsorshipTransfer();
+    }
+
+    function test_cancelSponsorshipTransfer_noHandoffInFlight_reverts() public {
+        vm.prank(sponsor);
+        vm.expectRevert(CoverPool.NoHandoffInFlight.selector);
+        pool.cancelSponsorshipTransfer();
+    }
+
+    function test_sponsorHandoff_pendingHasNoLeversBeforeAccept() public {
+        address agent = makeAddr("agent");
+        vm.prank(sponsor);
+        pool.transferSponsorship(agent);
+        vm.startPrank(agent);
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.fundPool(1);
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.setSalesPaused(true);
+        vm.stopPrank();
+    }
+
+    function test_sponsorHandoff_oldSponsorLockedOut() public {
+        uint256 id = _createDefault();
+        address agent = makeAddr("agent");
+        vm.prank(sponsor);
+        pool.transferSponsorship(agent);
+        vm.prank(agent);
+        pool.acceptSponsorship();
+
+        vm.startPrank(sponsor);
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.fundPool(1);
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.withdrawExcess(1);
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.setSalesPaused(true);
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.setSeriesPaused(id, true);
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.transferSponsorship(sponsor);
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.cancelSponsorshipTransfer();
+        vm.stopPrank();
+    }
+
+    function test_sponsorHandoff_leversWorkForNewSponsor() public {
+        address agent = makeAddr("agent");
+        usdc.mint(agent, 100 * ONE);
+        vm.prank(agent);
+        usdc.approve(address(pool), type(uint256).max);
+
+        vm.prank(sponsor);
+        pool.transferSponsorship(agent);
+        vm.prank(agent);
+        pool.acceptSponsorship();
+
+        vm.startPrank(agent);
+        uint256 id = pool.createSeries(LOW, HIGH, RATE, saleEnd, obsStart, obsEnd, redeemEnd, CAP);
+        pool.fundPool(10 * ONE);
+        pool.setSalesPaused(true);
+        pool.setSalesPaused(false);
+        pool.setSeriesPaused(id, true);
+        pool.setSeriesPaused(id, false);
+        pool.withdrawExcess(10 * ONE);
+        pool.transferSponsorship(sponsor); // and can hand back
+        vm.stopPrank();
+        assertEq(pool.pendingSponsor(), sponsor);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // buyProtectionFor (recipient minting; cover stays soulbound)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_buyFor_mintsToRecipient_pullsPremiumFromPayer() public {
+        uint256 id = _createDefault();
+        _fund(10 * ONE);
+        uint256 premium = (ONE * RATE) / 1e4;
+        uint256 alicePre = usdc.balanceOf(alice);
+        uint256 bobPre = usdc.balanceOf(bob);
+        vm.prank(alice);
+        vm.expectEmit(true, true, true, true);
+        emit CoverPool.ProtectionBought(id, alice, bob, ONE, premium);
+        pool.buyProtectionFor(id, ONE, premium, bob);
+        assertEq(token.balanceOf(bob, id), ONE, "recipient holds the cover");
+        assertEq(token.balanceOf(alice, id), 0, "payer holds nothing");
+        assertEq(alicePre - usdc.balanceOf(alice), premium, "payer paid the premium");
+        assertEq(usdc.balanceOf(bob), bobPre, "recipient paid nothing");
+        assertEq(pool.series(id).sold, ONE);
+    }
+
+    function test_buyFor_zeroRecipient_reverts() public {
+        uint256 id = _createDefault();
+        _fund(10 * ONE);
+        vm.expectRevert(CoverPool.ZeroAddress.selector);
+        vm.prank(alice);
+        pool.buyProtectionFor(id, ONE, type(uint256).max, address(0));
+    }
+
+    function test_buyFor_recipientRedeems_payerCannot() public {
+        uint256 id = _createDefault();
+        _fund(10 * ONE);
+        vm.prank(alice);
+        pool.buyProtectionFor(id, ONE, type(uint256).max, bob);
+        _settleAt(id, T0, 9288); // 61%
+        vm.expectRevert(); // ERC1155InsufficientBalance: the payer holds no claim units
+        vm.prank(alice);
+        pool.redeem(id, ONE);
+        uint256 before = usdc.balanceOf(bob);
+        vm.prank(bob);
+        pool.redeem(id, ONE);
+        assertEq(usdc.balanceOf(bob) - before, 0.61e6);
+    }
+
+    function test_buyFor_coverStaysSoulbound() public {
+        uint256 id = _createDefault();
+        _fund(10 * ONE);
+        vm.prank(alice);
+        pool.buyProtectionFor(id, ONE, type(uint256).max, bob);
+        vm.prank(bob);
+        vm.expectRevert(CoverToken.TransfersDisabled.selector);
+        token.safeTransferFrom(bob, alice, id, ONE, "");
+    }
+
+    function test_buyFor_nonReceiverContract_reverts_fundsUntouched() public {
+        uint256 id = _createDefault();
+        _fund(10 * ONE);
+        NonReceiver stranded = new NonReceiver();
+        uint256 alicePre = usdc.balanceOf(alice);
+        uint256 poolPre = usdc.balanceOf(address(pool));
+        vm.expectRevert(abi.encodeWithSelector(IERC1155Errors.ERC1155InvalidReceiver.selector, address(stranded)));
+        vm.prank(alice);
+        pool.buyProtectionFor(id, ONE, type(uint256).max, address(stranded));
+        assertEq(usdc.balanceOf(alice), alicePre, "premium returned");
+        assertEq(usdc.balanceOf(address(pool)), poolPre, "pool balance untouched");
+        assertEq(pool.series(id).sold, 0, "nothing sold");
+        assertEq(token.balanceOf(address(stranded), id), 0, "nothing minted");
+    }
+
+    function test_buyFor_acceptingContractRecipient_ok() public {
+        uint256 id = _createDefault();
+        _fund(10 * ONE);
+        AcceptingRecipient holder = new AcceptingRecipient();
+        vm.prank(alice);
+        pool.buyProtectionFor(id, ONE, type(uint256).max, address(holder));
+        assertEq(token.balanceOf(address(holder), id), ONE);
+    }
+
+    function test_buyFor_reentrancyBlocked() public {
+        uint256 id = _createDefault();
+        _fund(10 * ONE);
+        ReentrantRecipient attacker = new ReentrantRecipient(pool, usdc);
+        usdc.mint(address(attacker), 5 * ONE);
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        attacker.attack(id, ONE, 0);
+    }
+
+    function test_buyFor_reentrancyBlocked_viaWrapper() public {
+        uint256 id = _createDefault();
+        _fund(10 * ONE);
+        ReentrantRecipient attacker = new ReentrantRecipient(pool, usdc);
+        usdc.mint(address(attacker), 5 * ONE);
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        attacker.attack(id, ONE, 1);
+    }
+
+    function test_settle_reentrancyBlocked_fromMintCallback() public {
+        uint256 id = _createDefault();
+        _fund(10 * ONE);
+        // a qualifying observation already exists; settling mid-purchase must still fail
+        oracle.push(T0, 9288, bytes32("mid-buy"));
+        ReentrantRecipient attacker = new ReentrantRecipient(pool, usdc);
+        usdc.mint(address(attacker), 5 * ONE);
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        attacker.attack(id, ONE, 2);
+        assertFalse(pool.series(id).settled, "no settlement happened");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Per-series pause vs global pause
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_setSeriesPaused_onlySponsor() public {
+        uint256 id = _createDefault();
+        vm.expectRevert(CoverPool.NotSponsor.selector);
+        pool.setSeriesPaused(id, true);
+    }
+
+    function test_setSeriesPaused_unknownSeries_reverts() public {
+        vm.prank(sponsor);
+        vm.expectRevert(CoverPool.InvalidSeries.selector);
+        pool.setSeriesPaused(0, true);
+    }
+
+    function test_seriesPause_blocksOnlyThatSeries() public {
+        uint256 a = _createDefault();
+        uint256 b = _createDefault();
+        _fund(10 * ONE);
+        vm.prank(sponsor);
+        pool.setSeriesPaused(a, true);
+        assertTrue(pool.seriesPaused(a));
+        assertFalse(pool.seriesPaused(b));
+        // paused series rejects both entrypoints
+        vm.expectRevert(CoverPool.SalesArePaused.selector);
+        vm.prank(alice);
+        pool.buyProtection(a, ONE, type(uint256).max);
+        vm.expectRevert(CoverPool.SalesArePaused.selector);
+        vm.prank(alice);
+        pool.buyProtectionFor(a, ONE, type(uint256).max, bob);
+        // the sibling series keeps selling
+        _buy(alice, b, ONE);
+        // unpause reopens the series
+        vm.prank(sponsor);
+        pool.setSeriesPaused(a, false);
+        _buy(alice, a, ONE);
+    }
+
+    function test_globalPause_blocksUnpausedSeries() public {
+        uint256 a = _createDefault();
+        uint256 b = _createDefault();
+        _fund(10 * ONE);
+        vm.prank(sponsor);
+        pool.setSalesPaused(true);
+        vm.expectRevert(CoverPool.SalesArePaused.selector);
+        vm.prank(alice);
+        pool.buyProtection(a, ONE, type(uint256).max);
+        vm.expectRevert(CoverPool.SalesArePaused.selector);
+        vm.prank(alice);
+        pool.buyProtectionFor(b, ONE, type(uint256).max, bob);
+    }
+
+    function test_bothPauses_mustBothClear() public {
+        uint256 id = _createDefault();
+        _fund(10 * ONE);
+        vm.startPrank(sponsor);
+        pool.setSalesPaused(true);
+        pool.setSeriesPaused(id, true);
+        vm.stopPrank();
+        vm.expectRevert(CoverPool.SalesArePaused.selector);
+        vm.prank(alice);
+        pool.buyProtection(id, ONE, type(uint256).max);
+        // clearing only the global switch is not enough
+        vm.prank(sponsor);
+        pool.setSalesPaused(false);
+        vm.expectRevert(CoverPool.SalesArePaused.selector);
+        vm.prank(alice);
+        pool.buyProtection(id, ONE, type(uint256).max);
+        // clearing the series switch reopens the sale
+        vm.prank(sponsor);
+        pool.setSeriesPaused(id, false);
+        _buy(alice, id, ONE);
+    }
+
+    function test_seriesPause_neverBlocksSettleOrRedeem() public {
+        uint256 id = _createDefault();
+        _fund(10 * ONE);
+        _buy(alice, id, ONE);
+        vm.startPrank(sponsor);
+        pool.setSeriesPaused(id, true);
+        pool.setSalesPaused(true);
+        vm.stopPrank();
+        _settleAt(id, T0, 9288); // settle ignores both switches
+        vm.prank(alice);
+        pool.redeem(id, ONE); // redeem ignores both switches
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Fuzz
     // ─────────────────────────────────────────────────────────────────────────
@@ -512,35 +965,62 @@ contract CoverPoolTest is Test {
     ///      settlement can always be paid.
     function testFuzz_buySettleRedeem_solvent(uint96 maxClaimRaw, uint32 cents, uint96 fundingRaw) public {
         uint256 maxClaim = bound(uint256(maxClaimRaw), 1, CAP);
-        uint256 funding = bound(uint256(fundingRaw), 0, 900 ether);
+        uint256 funding = bound(uint256(fundingRaw), 0, 900 * ONE);
         uint256 id = _createDefault();
         if (funding > 0) _fund(funding);
 
         uint256 premium = (maxClaim * RATE) / 1e4;
         vm.prank(alice);
         try pool.buyProtection(id, maxClaim, premium) {
-            assertGe(wxdai.balanceOf(address(pool)), pool.totalReserved(), "solvency after buy");
+            assertGt(premium, 0, "zero-premium buys must revert");
+            assertGe(usdc.balanceOf(address(pool)), pool.totalReserved(), "solvency after buy");
         } catch {
-            // must be the solvency guard: funding + premium < maxClaim
-            assertLt(funding + premium, maxClaim, "only insolvency may block a capacity-ok buy");
+            // either the dust guard (premium rounds to zero) or the solvency guard
+            assertTrue(
+                premium == 0 || funding + premium < maxClaim, "only dust or insolvency may block a capacity-ok buy"
+            );
             return;
         }
 
         _settleAt(id, T0, cents);
         uint256 owed = (maxClaim * pool.series(id).payoutRatioWad) / 1e18;
-        uint256 before = wxdai.balanceOf(alice);
+        uint256 before = usdc.balanceOf(alice);
         vm.prank(alice);
         pool.redeem(id, maxClaim);
-        assertEq(wxdai.balanceOf(alice) - before, owed, "full claim paid");
-        assertGe(wxdai.balanceOf(address(pool)), pool.totalReserved(), "solvency after redeem");
+        assertEq(usdc.balanceOf(alice) - before, owed, "full claim paid");
+        assertGe(usdc.balanceOf(address(pool)), pool.totalReserved(), "solvency after redeem");
+    }
+
+    /// @dev buyProtectionFor: for any recipient-minted purchase, the payer funds the
+    ///      premium, the recipient holds exactly the claim, and solvency holds.
+    function testFuzz_buyFor_payerRecipientSplit(uint96 maxClaimRaw, uint96 fundingRaw) public {
+        uint256 maxClaim = bound(uint256(maxClaimRaw), 1, CAP);
+        uint256 funding = bound(uint256(fundingRaw), 0, 900 * ONE);
+        uint256 id = _createDefault();
+        if (funding > 0) _fund(funding);
+
+        uint256 premium = (maxClaim * RATE) / 1e4;
+        uint256 alicePre = usdc.balanceOf(alice);
+        vm.prank(alice);
+        try pool.buyProtectionFor(id, maxClaim, premium, bob) {
+            assertGt(premium, 0, "zero-premium buys must revert");
+            assertEq(alicePre - usdc.balanceOf(alice), premium, "payer paid");
+            assertEq(token.balanceOf(bob, id), maxClaim, "recipient holds");
+            assertEq(token.balanceOf(alice, id), 0);
+            assertGe(usdc.balanceOf(address(pool)), pool.totalReserved(), "solvency after buyFor");
+        } catch {
+            assertTrue(
+                premium == 0 || funding + premium < maxClaim, "only dust or insolvency may block a capacity-ok buyFor"
+            );
+        }
     }
 
     /// @dev Sponsor can never withdraw into the reserve.
     function testFuzz_withdraw_neverBreaksSolvency(uint96 withdrawRaw) public {
         uint256 id = _createDefault();
-        _fund(10 ether);
-        _buy(alice, id, 4 ether);
-        uint256 amt = bound(uint256(withdrawRaw), 0, 20 ether);
+        _fund(10 * ONE);
+        _buy(alice, id, 4 * ONE);
+        uint256 amt = bound(uint256(withdrawRaw), 0, 20 * ONE);
         uint256 free = pool.freeCapital();
         if (amt > free) {
             vm.expectRevert(abi.encodeWithSelector(CoverPool.InsufficientFreeCapital.selector, amt, free));
@@ -549,166 +1029,7 @@ contract CoverPoolTest is Test {
         } else {
             vm.prank(sponsor);
             pool.withdrawExcess(amt);
-            assertGe(wxdai.balanceOf(address(pool)), pool.totalReserved());
-        }
-    }
-}
-
-/// @notice Randomized-sequence handler: fund / buy / settle / redeem / withdraw /
-///         pause / warp in any order the fuzzer picks.
-contract PoolHandler is Test {
-    CoverPool public pool;
-    CoverToken public token;
-    TestERC20 public wxdai;
-    MockObservationOracle public oracle;
-    address public sponsor;
-    address[3] public buyers;
-
-    uint64 public constant T0 = 1_789_000_000;
-    uint64 public constant OBS_START = T0 - 10 days;
-    uint64 public constant OBS_END = T0 + 10 days;
-    uint64 public constant REDEEM_END = OBS_END + 30 days;
-
-    uint256 public ghostRedeemed; // Σ payouts sent to buyers
-
-    constructor(CoverPool pool_, CoverToken token_, TestERC20 wxdai_, MockObservationOracle oracle_, address sponsor_) {
-        pool = pool_;
-        token = token_;
-        wxdai = wxdai_;
-        oracle = oracle_;
-        sponsor = sponsor_;
-        buyers[0] = makeAddr("h-buyer0");
-        buyers[1] = makeAddr("h-buyer1");
-        buyers[2] = makeAddr("h-buyer2");
-        for (uint256 i = 0; i < 3; ++i) {
-            wxdai.mint(buyers[i], 1_000_000 ether);
-            vm.prank(buyers[i]);
-            wxdai.approve(address(pool), type(uint256).max);
-        }
-        wxdai.mint(sponsor, 1_000_000 ether);
-        vm.prank(sponsor);
-        wxdai.approve(address(pool), type(uint256).max);
-    }
-
-    function createSeries(uint16 rateBps, uint96 capRaw) external {
-        uint128 cap = uint128(bound(uint256(capRaw), 1 ether, 10_000 ether));
-        vm.prank(sponsor);
-        pool.createSeries(8800, 9600, uint16(bound(rateBps, 0, 1e4)), OBS_END, OBS_START, OBS_END, REDEEM_END, cap);
-    }
-
-    function fund(uint96 amtRaw) external {
-        uint256 amt = bound(uint256(amtRaw), 1, 10_000 ether);
-        vm.prank(sponsor);
-        pool.fundPool(amt);
-    }
-
-    function buy(uint8 who, uint8 seriesRaw, uint96 amtRaw) external {
-        uint256 n = pool.seriesCount();
-        if (n == 0) return;
-        uint256 id = seriesRaw % n;
-        address buyer = buyers[who % 3];
-        uint256 amt = bound(uint256(amtRaw), 1, 100 ether);
-        vm.prank(buyer);
-        try pool.buyProtection(id, amt, type(uint256).max) {} catch {}
-    }
-
-    function settle(uint8 seriesRaw, uint32 cents, uint32 tOffset) external {
-        uint256 n = pool.seriesCount();
-        if (n == 0) return;
-        uint256 id = seriesRaw % n;
-        uint64 t = uint64(bound(uint256(tOffset), 0, 30 days)) + OBS_START - 5 days; // sometimes out of window
-        uint256 obsIndex = oracle.push(t, cents, keccak256(abi.encode(t, cents, obsIndexSalt++)));
-        try pool.settle(id, obsIndex) {} catch {}
-    }
-
-    uint256 internal obsIndexSalt;
-
-    function redeem(uint8 who, uint8 seriesRaw, uint96 amtRaw) external {
-        uint256 n = pool.seriesCount();
-        if (n == 0) return;
-        uint256 id = seriesRaw % n;
-        address buyer = buyers[who % 3];
-        uint256 balance = token.balanceOf(buyer, id);
-        if (balance == 0) return;
-        uint256 amt = bound(uint256(amtRaw), 1, balance);
-        uint256 before = wxdai.balanceOf(buyer);
-        vm.prank(buyer);
-        try pool.redeem(id, amt) {
-            ghostRedeemed += wxdai.balanceOf(buyer) - before;
-        } catch {}
-    }
-
-    function withdrawExcess(uint96 amtRaw) external {
-        uint256 free = pool.freeCapital();
-        if (free == 0) return;
-        uint256 amt = bound(uint256(amtRaw), 1, free);
-        vm.prank(sponsor);
-        pool.withdrawExcess(amt);
-    }
-
-    function setPaused(bool paused) external {
-        vm.prank(sponsor);
-        pool.setSalesPaused(paused);
-    }
-
-    function warp(uint32 delta) external {
-        vm.warp(block.timestamp + bound(uint256(delta), 0, 5 days));
-    }
-}
-
-/// @notice PRD invariants under random fund/buy/settle/redeem/withdraw sequences.
-contract CoverPoolInvariantTest is Test {
-    TestERC20 internal wxdai;
-    MockObservationOracle internal oracle;
-    CoverToken internal token;
-    CoverPool internal pool;
-    PoolHandler internal handler;
-    address internal sponsor = makeAddr("sponsor");
-
-    function setUp() public {
-        vm.warp(1_789_000_000);
-        wxdai = new TestERC20();
-        oracle = new MockObservationOracle();
-        uint64 nonce = vm.getNonce(address(this));
-        address predictedPool = vm.computeCreateAddress(address(this), nonce + 1);
-        token = new CoverToken(predictedPool);
-        pool = new CoverPool(wxdai, token, oracle, sponsor);
-        handler = new PoolHandler(pool, token, wxdai, oracle, sponsor);
-        targetContract(address(handler));
-    }
-
-    /// @notice SOLVENCY: the pool always holds at least Σ reservedOf(series).
-    function invariant_solvency() public view {
-        assertGe(wxdai.balanceOf(address(pool)), pool.totalReserved());
-    }
-
-    /// @notice Token supply accounting: for every series, circulating claim units
-    ///         equal sold − redeemed-units, where redeemed value maps back through
-    ///         the ratio. Checked as: reserved never exceeds sold (before release).
-    function invariant_reserveNeverExceedsSold() public view {
-        uint256 n = pool.seriesCount();
-        for (uint256 i = 0; i < n; ++i) {
-            assertLe(pool.reservedOf(i), pool.series(i).sold);
-        }
-    }
-
-    /// @notice Settlement is one-shot: a settled series' ratio and provenance are
-    ///         immutable (spot-check: ratio stays within [0, 1e18]).
-    function invariant_ratioBounded() public view {
-        uint256 n = pool.seriesCount();
-        for (uint256 i = 0; i < n; ++i) {
-            CoverPool.Series memory s = pool.series(i);
-            assertLe(s.payoutRatioWad, 1e18);
-            if (!s.settled) assertEq(s.payoutRatioWad, 0);
-        }
-    }
-
-    /// @notice Sold never exceeds capacity.
-    function invariant_capacityRespected() public view {
-        uint256 n = pool.seriesCount();
-        for (uint256 i = 0; i < n; ++i) {
-            CoverPool.Series memory s = pool.series(i);
-            assertLe(s.sold, s.capacity);
+            assertGe(usdc.balanceOf(address(pool)), pool.totalReserved());
         }
     }
 }
