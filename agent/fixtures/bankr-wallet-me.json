@@ -1,0 +1,29 @@
+{
+  "capturedAt": "2026-09-19T17:44:30.566Z",
+  "status": 200,
+  "body": {
+    "success": true,
+    "wallets": [
+      {
+        "chain": "evm",
+        "address": "0x1a7223bc942b053794e17b537e73d837cf695561"
+      },
+      {
+        "chain": "solana",
+        "address": "DG7ZvBYbDXiGAaTndK1FCbxLYJBVcvGrap3vEJzBs29w"
+      }
+    ],
+    "socialAccounts": [
+      {
+        "platform": "email"
+      }
+    ],
+    "refCode": "<redacted>",
+    "bankrClub": {
+      "active": false
+    },
+    "leaderboard": {
+      "score": 0
+    }
+  }
+}

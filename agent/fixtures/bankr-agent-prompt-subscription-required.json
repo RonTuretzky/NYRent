@@ -1,0 +1,25 @@
+{
+  "capturedAt": "2026-09-19T17:44:43.958Z",
+  "status": 403,
+  "body": {
+    "error": "subscription_required",
+    "message": "Bankr Club membership or Max Mode is required for AI prompts.",
+    "remediation": [
+      {
+        "action": "subscribe",
+        "label": "Join Bankr Club ($20/mo in $BNKR)",
+        "url": "https://bankr.bot/terminal?modal=club"
+      },
+      {
+        "action": "max_mode",
+        "label": "Use --model flag with LLM credits",
+        "command": "bankr prompt --model claude-sonnet-4.6 \"your prompt\""
+      },
+      {
+        "action": "add_credits",
+        "label": "Add LLM credits first",
+        "command": "bankr llm credits add 10"
+      }
+    ]
+  }
+}

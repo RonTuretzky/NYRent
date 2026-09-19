@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
- * gen-abi.mjs — regenerate web/src/lib/abi.ts from the compiled contracts.
+ * gen-abi.mjs — regenerate web/src/chain/abi.ts from the compiled contracts.
  *
  *   node scripts/gen-abi.mjs
  *
- * Runs `forge inspect <contract> abi --json` for CredailyRentOracle, CoverPool
- * and CoverToken and writes them as `as const` JSON ABIs (fully typed for
- * viem/wagmi). The WXDAI/ERC-20 ABI is a hand-maintained constant below (it is
- * not our contract). Run after any contract interface change.
+ * Runs `forge inspect <contract> abi --json` for CredailyRentOracle, CoverPool,
+ * CoverToken and SwapAndBuyRouter and writes them as `as const` JSON ABIs
+ * (fully typed for viem/wagmi). The currency/ERC-20 ABI is a hand-maintained
+ * constant below (it is not our contract). Run after any contract interface
+ * change.
  */
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
@@ -15,15 +16,17 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = path.join(ROOT, "web", "src", "lib", "abi.ts");
+const OUT = path.join(ROOT, "web", "src", "chain", "abi.ts");
 
 const CONTRACTS = [
   ["oracleAbi", "src/CredailyRentOracle.sol:CredailyRentOracle"],
   ["poolAbi", "src/CoverPool.sol:CoverPool"],
   ["coverTokenAbi", "src/CoverToken.sol:CoverToken"],
+  ["routerAbi", "src/SwapAndBuyRouter.sol:SwapAndBuyRouter"],
 ];
 
-/** WXDAI (0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d) + minimal ERC-20. */
+/** Pool currencies (WXDAI on Gnosis, USDC on Arbitrum) + minimal ERC-20.
+ * `deposit`/`withdraw` are the WETH9-style wrap surface (WXDAI only). */
 const ERC20_ABI = [
   { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "owner", type: "address" }], outputs: [{ name: "", type: "uint256" }] },
   { type: "function", name: "allowance", stateMutability: "view", inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], outputs: [{ name: "", type: "uint256" }] },
@@ -64,7 +67,7 @@ for (const [exportName, target] of CONTRACTS) {
 }
 
 sections.push(
-  `/** WXDAI (canonical wrapped xDAI at 0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d) + ERC-20. */\nexport const erc20Abi = ${JSON.stringify(ERC20_ABI, null, 2)} as const satisfies Abi;`,
+  `/** Pool currencies (WXDAI on Gnosis, USDC on Arbitrum) + minimal ERC-20; deposit/withdraw are WETH9-style (WXDAI only). */\nexport const erc20Abi = ${JSON.stringify(ERC20_ABI, null, 2)} as const satisfies Abi;`,
 );
 
 sections.push(
