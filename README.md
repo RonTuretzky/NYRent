@@ -29,8 +29,9 @@ Checkout separates the current spot conversion from the executable pool quote,
 shows chain-specific balances, and blocks orders with more than 10% output
 shortfall from spot (including fees). Calculators exclude escrow yield.
 
-[Story](https://rentsafe.nyc/#/story) provides nine read-only presenter screens,
+[Story](https://rentsafe.nyc/#/story) provides ten read-only presenter screens,
 with keyboard reveals, deep links, fullscreen, speaker notes and a touch layout.
+The closing screen links RentSafe, Decentral Park and both presenters through QR codes.
 Its insurer calculations and price forecast reuse the application's shared math.
 Liquidity provision accepts one RENT amount and calculates the matching USDC;
 the submitted transaction respects the reviewed RENT ceiling and USDC maximum.

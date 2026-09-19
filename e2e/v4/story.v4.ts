@@ -3,12 +3,12 @@ import path from "node:path";
 import { test, expect, type Page } from "@playwright/test";
 import { ART } from "./constants";
 
-const phases = [2, 2, 0, 0, 6, 0, 3, 7, 0];
+const phases = [2, 2, 0, 0, 6, 0, 3, 7, 0, 0];
 
 async function fitScreen(page: Page) {
   const bounds = await page.evaluate(() => {
     const screen = document.querySelector('[data-testid="story-screen"]')!;
-    const nodes = Array.from(screen.querySelectorAll<HTMLElement>("h1,h2,p,button,input,svg,dl"));
+    const nodes = Array.from(screen.querySelectorAll<HTMLElement>("h1,h2,p,button,input,svg,dl,img,a"));
     return {
       width: innerWidth, height: innerHeight,
       scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight,
@@ -29,7 +29,7 @@ test("Story fits every scene, preserves shared calculations and supports present
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   for (const size of [{width:1366,height:768}, {width:1920,height:1080}, {width:390,height:844}]) {
     await page.setViewportSize(size);
-    for (let step = 1; step <= 9; step++) {
+    for (let step = 1; step <= phases.length; step++) {
       await page.goto(`/#/story/${step}`);
       const story = page.getByTestId("story");
       await expect(story).toHaveAttribute("data-step", String(step));
@@ -41,6 +41,16 @@ test("Story fits every scene, preserves shared calculations and supports present
       const revealed = page.locator('.story-reveal[aria-hidden="false"]');
       if (await revealed.count()) await expect(revealed.last()).toHaveCSS("opacity", "1");
       if (step === 8) await expect(page.locator(".story-resolution-result")).toContainText("0.50 USDC per RENT");
+      if (step === 10) {
+        const links = page.locator(".story-connect-card");
+        await expect(links).toHaveCount(4);
+        for (const [index, url] of ["https://rentsafe.nyc/", "https://decentralpark.nyc/", "https://x.com/RonTuretzky", "https://x.com/shaudub"].entries()) {
+          await expect(links.nth(index)).toHaveAttribute("href", url);
+          await expect(links.nth(index).locator("img")).toHaveJSProperty("complete", true);
+          expect(await links.nth(index).locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+        }
+        await expect(page.getByRole("button", {name:"Next",exact:true})).toBeDisabled();
+      }
       await fitScreen(page);
       expect(await story.innerText()).not.toMatch(/\bseries\b/i);
       await expect(page.getByRole("button", {name:/connect wallet|confirm trade|approve/i})).toHaveCount(0);
@@ -70,6 +80,12 @@ test("Story fits every scene, preserves shared calculations and supports present
   await expect(page.getByTestId("story-market-price")).toHaveText("0.285");
   await expect(page.getByTestId("story-implied-growth")).toHaveText("+4.4%");
   await expect(page.getByTestId("story-implied-rent")).toHaveText("$96.99");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("story")).toHaveAttribute("data-step", "10");
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByTestId("story")).toHaveAttribute("data-step", "9");
+  await page.keyboard.press("0");
+  await expect(page.getByTestId("story")).toHaveAttribute("data-step", "10");
   await page.keyboard.press("n");
   await expect(page.getByRole("region", {name:"Speaker notes"})).toBeVisible();
   await page.keyboard.press("n");

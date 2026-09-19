@@ -25,7 +25,7 @@ The journey:
 `verified-lifecycle.json` records checked amounts, not a deployment announcement. Screenshots capture the live local trading history, signed settlement, and final residual withdrawal.
 
 Responsive checks use `mobile.config.ts` and `mobile-content.config.ts` in this
-directory, covering 360, 390 and 768 pixels. `story.config.ts` checks all nine
+directory, covering 360, 390 and 768 pixels. `story.config.ts` checks all ten
 presenter screens at 1366×768, 1920×1080 and phone size, shared calculations and
 keyboard navigation. Its setup builds an additional private, unconfigured
 application at `/unconfigured/` to exercise labeled fallback values. Run these

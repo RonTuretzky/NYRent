@@ -8,10 +8,11 @@ import { useV4Market } from "../chain/v4";
 import { formatCents, formatDate } from "../chain/format";
 import { ACTIVE_MARKET_ID, growthFor, payoutRatioFromCents } from "../lib/market";
 import { StoryInsurerEconomics, StoryMarketForecast } from "../components/story/StoryEconomics";
+import { StoryConnect } from "../components/story/StoryConnect";
 import "./Story.css";
 
-const PHASES = [2, 2, 0, 0, 6, 0, 3, 7, 0];
-const TITLES = ["Insurance is something you can own.", "Can code hold the capital, read the trigger, and pay?", "We started with a cost that touches almost everyone.", "Three parties. Each does one thing.", "The terms are fixed before capital arrives.", "Money in, money out.", "Back RENT. Open the pool. Let it trade.", "One email settles it.", "We built insurance and got a forecast for free."];
+const PHASES = [2, 2, 0, 0, 6, 0, 3, 7, 0, 0];
+const TITLES = ["Insurance is something you can own.", "Can code hold the capital, read the trigger, and pay?", "We started with a cost that touches almost everyone.", "Three parties. Each does one thing.", "The terms are fixed before capital arrives.", "Money in, money out.", "Back RENT. Open the pool. Let it trade.", "One email settles it.", "We built insurance and got a forecast for free.", "Stay in touch."];
 const NOTES = [
   "Insurance risk is already an investable asset. Catastrophe bonds have several trigger designs, including indemnity triggers; a published-number trigger is the parametric analogy, not a description of every cat bond. Artemis reported $65.6B outstanding at June 30, 2026, including tracked private deals.",
   "The contracts hold capital, authenticate the publisher’s message and apply immutable terms. They cannot establish that the publisher’s economic statistic is true. No RentSafe administrator can rewrite the signed message or the payout formula.",
@@ -22,6 +23,7 @@ const NOTES = [
   "Depositing USDC to mint RENT funds escrow. Providing liquidity requires additional USDC. The pool’s opening price is initialized when the market is created, not inferred from later maximum-deposit inputs. Buying moves the price. Selling depends on liquidity and the trading cutoff.",
   "This screen illustrates the checks and a hypothetical future print. It is not an email verification result. The real September 2027 observation has not arrived. The original September 2026 baseline has been authenticated on-chain; see the recorded verification in Docs.",
   "The mapping from price to growth is capped-payout equivalence, not expected index growth. Liquidity, risk preferences and discounting can affect price. Historical prices on this site are recorded on-chain swaps, not a continuous historical oracle.",
+  "Leave this screen up for the audience to scan. Each card also opens its destination when clicked. RentSafe is the product, Decentral Park is our community, and Ron and Shaurya are your presenters. Press 0 to jump straight to this closing screen.",
 ];
 
 function Reveal({ shown, children, className = "" }: { shown: boolean; children: ReactNode; className?: string }) {
@@ -112,7 +114,7 @@ export function Story() {
   const params = useParams<{ step?: string }>();
   const navigate = useNavigate();
   const parsed = Number(params.step ?? 1);
-  const step = Number.isInteger(parsed) && parsed >= 1 && parsed <= 9 ? parsed : 1;
+  const step = Number.isInteger(parsed) && parsed >= 1 && parsed <= TITLES.length ? parsed : 1;
   const [reveal, setReveal] = useState({ step, phase: 0 });
   const phase = reveal.step === step ? reveal.phase : 0;
   const [notes, setNotes] = useState(false);
@@ -122,10 +124,10 @@ export function Story() {
   const shell = useRef<HTMLDivElement>(null);
   const swipe = useRef<{ x: number; y: number }>();
   const jump = useCallback((next: number) => { setReveal({ step: next, phase: 0 }); navigate(`/story/${next}`); }, [navigate]);
-  const next = useCallback(() => { if (phase < PHASES[step - 1]) setReveal({ step, phase: phase + 1 }); else if (step < 9) jump(step + 1); }, [jump, phase, step]);
+  const next = useCallback(() => { if (phase < PHASES[step - 1]) setReveal({ step, phase: phase + 1 }); else if (step < TITLES.length) jump(step + 1); }, [jump, phase, step]);
   const previous = useCallback(() => { if (phase > 0) setReveal({ step, phase: phase - 1 }); else if (step > 1) jump(step - 1); }, [jump, phase, step]);
 
-  useEffect(() => { document.title = `RentSafe — Story ${step} of 9`; }, [step]);
+  useEffect(() => { document.title = `RentSafe — Story ${step} of ${TITLES.length}`; }, [step]);
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : null;
@@ -133,6 +135,7 @@ export function Story() {
       if (event.key === "ArrowRight" || (event.key === " " && !target?.closest("button"))) { event.preventDefault(); next(); }
       else if (event.key === "ArrowLeft") { event.preventDefault(); previous(); }
       else if (/^[1-9]$/.test(event.key)) { event.preventDefault(); jump(Number(event.key)); }
+      else if (event.key === "0") { event.preventDefault(); jump(TITLES.length); }
       else if (event.key.toLowerCase() === "n") { event.preventDefault(); setNotes(value => !value); }
       else if (event.key === "Escape") setNotes(false);
     };
@@ -162,9 +165,9 @@ export function Story() {
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { if (dx < 0) next(); else previous(); }
   }
   return <div ref={shell} className="story-shell" data-theme={dark ? "dark" : "light"} data-testid="story" data-step={step} data-phase={phase} onTouchStart={touchStart} onTouchEnd={touchEnd}>
-    <header className="story-toolbar"><Link to="/" className="story-brand" aria-label="Back to RentSafe"><ArrowLeftIcon size={18} />RentSafe</Link><span className="story-mode">The story · {step} / 9</span><div className="story-tools"><button type="button" className="story-icon-button" aria-label={dark ? "Light theme" : "Dark theme"} onClick={() => setDark(value => !value)}>{dark ? <SunIcon /> : <MoonIcon />}</button><button type="button" onClick={() => void present()} className="story-present" aria-label={fullscreen ? "Exit fullscreen" : "Present"}><ArrowsOutIcon size={18} /><span>{fullscreen ? "Exit fullscreen" : "Present"}</span></button></div></header>
-    <main className={`story-screen story-screen-${step}`} data-testid="story-screen" aria-labelledby="story-headline"><h1 id="story-headline">{TITLES[step - 1]}</h1><div className="story-body">{step === 6 ? <StoryInsurerEconomics /> : step === 9 ? <StoryMarketForecast /> : <StoryStaticScreen step={step} phase={phase} />}</div></main>
-    <footer className="story-controls"><button type="button" onClick={previous} disabled={step === 1 && phase === 0} aria-label="Previous" className="story-nav-button"><ArrowLeftIcon /><span>Previous</span></button><div className="story-progress" aria-label="Story screens">{TITLES.map((title, index) => <button type="button" key={title} onClick={() => jump(index + 1)} aria-label={`Screen ${index + 1}: ${title}`} aria-current={step === index + 1 ? "step" : undefined}><span /></button>)}</div><button type="button" onClick={next} disabled={step === 9} aria-label="Next" className="story-nav-button"><span>Next</span><ArrowRightIcon /></button><button type="button" className="story-notes-toggle" onClick={() => setNotes(value => !value)} aria-expanded={notes} aria-label="Speaker notes">N</button></footer>
+    <header className="story-toolbar"><Link to="/" className="story-brand" aria-label="Back to RentSafe"><ArrowLeftIcon size={18} />RentSafe</Link><span className="story-mode">The story · {step} / {TITLES.length}</span><div className="story-tools"><button type="button" className="story-icon-button" aria-label={dark ? "Light theme" : "Dark theme"} onClick={() => setDark(value => !value)}>{dark ? <SunIcon /> : <MoonIcon />}</button><button type="button" onClick={() => void present()} className="story-present" aria-label={fullscreen ? "Exit fullscreen" : "Present"}><ArrowsOutIcon size={18} /><span>{fullscreen ? "Exit fullscreen" : "Present"}</span></button></div></header>
+    <main className={`story-screen story-screen-${step}`} data-testid="story-screen" aria-labelledby="story-headline"><h1 id="story-headline">{TITLES[step - 1]}</h1><div className="story-body">{step === 6 ? <StoryInsurerEconomics /> : step === 9 ? <StoryMarketForecast /> : step === 10 ? <StoryConnect /> : <StoryStaticScreen step={step} phase={phase} />}</div></main>
+    <footer className="story-controls"><button type="button" onClick={previous} disabled={step === 1 && phase === 0} aria-label="Previous" className="story-nav-button"><ArrowLeftIcon /><span>Previous</span></button><div className="story-progress" aria-label="Story screens">{TITLES.map((title, index) => <button type="button" key={title} onClick={() => jump(index + 1)} aria-label={`Screen ${index + 1}: ${title}`} aria-current={step === index + 1 ? "step" : undefined}><span /></button>)}</div><button type="button" onClick={next} disabled={step === TITLES.length} aria-label="Next" className="story-nav-button"><span>Next</span><ArrowRightIcon /></button><button type="button" className="story-notes-toggle" onClick={() => setNotes(value => !value)} aria-expanded={notes} aria-label="Speaker notes">N</button></footer>
     {notes ? <aside className="story-notes" role="region" aria-label="Speaker notes"><div><strong>Speaker notes</strong><button type="button" onClick={() => setNotes(false)} aria-label="Close speaker notes"><XIcon size={20} /></button></div><p>{NOTES[step - 1]}</p></aside> : null}
     {fullscreenError ? <p className="story-fullscreen-error" role="status">{fullscreenError}</p> : null}
   </div>;
