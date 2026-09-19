@@ -12,18 +12,37 @@ import {
   writeContract,
 } from "wagmi/actions";
 import { decodeTxError, type DecodedTxError } from "./errors";
+import { EXPLORER } from "./explorer";
+import { DEPLOYMENTS } from "./registry";
 import { pushTxToast, updateTxToast } from "./txToasts";
 
+/** From the moment a hash exists, every state carries the explorer base of
+ * the chain the tx was SENT on — links must survive a header chain switch. */
 export type TxState =
   | { status: "idle" }
   | { status: "simulating" }
   | { status: "wallet" }
-  | { status: "pending"; hash: Hex }
-  | { status: "confirmed"; hash: Hex; receipt: TxReceiptLite }
+  | { status: "pending"; hash: Hex; explorerBase: string }
+  | {
+      status: "confirmed";
+      hash: Hex;
+      receipt: TxReceiptLite;
+      explorerBase: string;
+    }
   /** Submitted but not confirmed within the wait window (or the RPC dropped
    * mid-wait) — the tx may still mine; hash kept for the explorer link. */
-  | { status: "stillPending"; hash: Hex; error: DecodedTxError }
-  | { status: "reverted"; hash?: Hex; error: DecodedTxError };
+  | {
+      status: "stillPending";
+      hash: Hex;
+      error: DecodedTxError;
+      explorerBase: string;
+    }
+  | {
+      status: "reverted";
+      hash?: Hex;
+      error: DecodedTxError;
+      explorerBase?: string;
+    };
 
 export interface TxReceiptLite {
   blockNumber: bigint;
@@ -33,9 +52,23 @@ export interface TxReceiptLite {
 export interface TxRequest {
   abi: Abi;
   address: Address;
+  /** The target deployment's chain. Every simulate AND write is pinned to it:
+   * a wallet sitting on any other chain throws (surfaced as the wrong-network
+   * path) instead of signing this chain's calldata elsewhere. */
+  chainId: number;
   functionName: string;
   args?: readonly unknown[];
   account?: Address;
+  /** Native value to attach (payable calls: currency deposit, router native
+   * pay). */
+  value?: bigint;
+}
+
+/** Explorer base for the chain a tx targets, captured at send time (empty
+ * local-chain bases fall back to Blockscout so links never break outright). */
+function explorerBaseFor(chainId: number): string {
+  const base = DEPLOYMENTS[chainId]?.explorerBase;
+  return base && base.length > 0 ? base : EXPLORER;
 }
 
 const RECEIPT_TIMEOUT_MS = 120_000;
@@ -68,6 +101,7 @@ export function useTx(hookOpts?: { label?: string }) {
     ): Promise<TxState> => {
       const label = opts?.label ?? defaultLabel ?? req.functionName;
       const transformError = opts?.transformError ?? ((e: DecodedTxError) => e);
+      const explorerBase = explorerBaseFor(req.chainId);
       let hash: Hex | undefined;
       let toastId: string | undefined;
       let replacement:
@@ -76,24 +110,33 @@ export function useTx(hookOpts?: { label?: string }) {
       let final: TxState;
       try {
         setState({ status: "simulating" });
+        // chainId pins the simulation to the deployment's transport AND flows
+        // into sim.request, so writeContract passes chain:{id} to viem — a
+        // wallet on any other chain throws instead of signing a wrong-chain tx.
         const sim = await simulateContract(config, {
           abi: req.abi,
           address: req.address,
+          chainId: req.chainId,
           functionName: req.functionName,
           args: req.args as never,
           account: req.account,
+          value: req.value as never,
         });
         setState({ status: "wallet" });
         hash = await writeContract(config, sim.request);
-        setState({ status: "pending", hash });
-        toastId = pushTxToast({ hash, label, status: "pending" });
+        setState({ status: "pending", hash, explorerBase });
+        toastId = pushTxToast({ hash, label, status: "pending", explorerBase });
         const receipt = await waitForTransactionReceipt(config, {
           hash,
           timeout: RECEIPT_TIMEOUT_MS,
           onReplaced: (r) => {
             replacement = { reason: r.reason, hash: r.transaction.hash };
             hash = r.transaction.hash;
-            setState({ status: "pending", hash: r.transaction.hash });
+            setState({
+              status: "pending",
+              hash: r.transaction.hash,
+              explorerBase,
+            });
             if (toastId) {
               updateTxToast(toastId, {
                 hash: r.transaction.hash,
@@ -110,7 +153,7 @@ export function useTx(hookOpts?: { label?: string }) {
             message:
               "You cancelled this transaction in your wallet before it was mined — nothing was executed.",
           };
-          final = { status: "reverted", hash: minedHash, error };
+          final = { status: "reverted", hash: minedHash, error, explorerBase };
           if (toastId) {
             updateTxToast(toastId, {
               hash: minedHash,
@@ -124,7 +167,7 @@ export function useTx(hookOpts?: { label?: string }) {
             kind: "revert",
             message: "The transaction was mined but reverted on-chain.",
           };
-          final = { status: "reverted", hash: minedHash, error };
+          final = { status: "reverted", hash: minedHash, error, explorerBase };
           if (toastId) {
             updateTxToast(toastId, {
               hash: minedHash,
@@ -136,6 +179,7 @@ export function useTx(hookOpts?: { label?: string }) {
           final = {
             status: "confirmed",
             hash: minedHash,
+            explorerBase,
             receipt: {
               blockNumber: receipt.blockNumber,
               logs: receipt.logs.map((l) => ({
@@ -163,7 +207,12 @@ export function useTx(hookOpts?: { label?: string }) {
               : "Lost contact with the RPC while waiting — the transaction may still confirm. Track it on the explorer before re-submitting.",
             detail: decoded.detail ?? decoded.message,
           };
-          final = { status: "stillPending", hash, error: stillPending };
+          final = {
+            status: "stillPending",
+            hash,
+            error: stillPending,
+            explorerBase,
+          };
           if (toastId) {
             updateTxToast(toastId, {
               status: "pending",
@@ -171,7 +220,7 @@ export function useTx(hookOpts?: { label?: string }) {
             });
           }
         } else {
-          final = { status: "reverted", hash, error: decoded };
+          final = { status: "reverted", hash, error: decoded, explorerBase };
           if (toastId && hash) {
             updateTxToast(toastId, { status: "failed", error: decoded.message });
           }

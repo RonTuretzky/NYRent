@@ -10,5 +10,6 @@ test-results/
 # e2e runtime artifacts + per-agent foundry dirs
 e2e/.artifacts/
 e2e/fork/.artifacts/
+e2e/fork-arb/.artifacts/
 out-*/
 cache-*/

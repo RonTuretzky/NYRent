@@ -23,7 +23,7 @@ import {
   isNetworkError,
   isUserRejection,
 } from "../chain/errors.ts";
-import { coverTokenAbi } from "./abi.ts";
+import { coverTokenAbi } from "../chain/abi.ts";
 
 // ---------------------------------------------------------------- rejection
 

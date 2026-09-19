@@ -6,12 +6,13 @@ high, settled by an email. The oracle input is CRE Daily's "Market Snapshot" new
 RSA-SHA256 DKIM signature, body hash and template parsing all execute in the EVM against an
 immutable pinned key. No committee, no price feed, no trusted server, no ZK ceremony.
 
-**Live app:** https://ronturetzky.github.io/nyrent-cover/
+**Live app:** https://ronturetzky.github.io/NYRent/
 
 ![Settling series 0 in the app: the real 2026-09-17 CRE Daily .eml dropped on the settle page, all nine DKIM preflight checks passing, record-observation and settle transactions confirming, ending on the 61% payout ratio](web/public/docs/settle.gif)
 
-Recorded guides for every flow — fund, buy (WXDAI or USDC.e via Uniswap v3), settle, redeem,
-withdraw — are on the app's [in-app guides](https://ronturetzky.github.io/nyrent-cover/#/docs).
+Recorded guides for every flow — fund, buy (the pool currency or any routed token via
+Uniswap v3), settle, redeem, withdraw — are on the app's
+[in-app guides](https://ronturetzky.github.io/NYRent/#/docs).
 
 - **Anyone underwrites** — there are no roles at all. `createSeries` escrows the creator's own
   capital 1:1 as that series' backing (payout 0 at/below $88.00, 1 at/above $96.00 for the
@@ -37,15 +38,15 @@ record, fingerprints, Gmail `dkim=pass`, reproducible local verification — is 
 [docs/VERIFICATION.md](docs/VERIFICATION.md). ([docs/SPEC.md](docs/SPEC.md) is the frozen
 legacy record of the original sponsor-model build.)
 
-**Unaudited. Experimental. The demo series uses tiny amounts of real WXDAI; use tiny amounts.**
+**Unaudited. Experimental. The demo series uses tiny amounts of real currency; use tiny amounts.**
 
 ## Why on-chain DKIM (and not a Groth16 circuit)
 
 This project mirrors the discipline of issue.fund (pinned immutable key, strict Solidity-parsed
 template, timestamp windows, one-shot settlement, local preflight) but verifies the email
 directly in the EVM: the newsletter's canonical body is 102 KB — far beyond a zk-email circuit's
-body bound — and a mass newsletter needs no privacy. Gnosis calldata makes direct verification
-cheap. Full rationale: [docs/PROTOCOL.md](docs/PROTOCOL.md).
+body bound — and a mass newsletter needs no privacy. Cheap calldata on the deployed chains
+makes direct verification affordable. Full rationale: [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
 ## Quickstart
 
@@ -70,11 +71,26 @@ npm --prefix web install && npm --prefix web run dev
 Deploy/settlement runbooks (env, gas estimate discipline, Blockscout verification):
 [docs/OPERATIONS.md](docs/OPERATIONS.md). What every suite covers:
 [docs/TESTING.md](docs/TESTING.md). Browser-facing docs: the live app's `/docs` route
-(https://ronturetzky.github.io/nyrent-cover/#/docs).
+(https://ronturetzky.github.io/NYRent/#/docs).
 
-## Addresses (Gnosis, chainId 100)
+## Current deployments (permissionless version, 2026-09-19)
 
-Deployed 2026-09-18 and settled the same day with the real 2026-09-17 newsletter. All three
+One contract version on two chains, all eight contracts Sourcify `exact_match` verified.
+Both pools launched with **zero series** — underwriting is a permissionless post-deploy act
+(see the on-hold ops plan in [docs/OPERATIONS.md](docs/OPERATIONS.md)).
+
+| Contract | Gnosis (100) | Arbitrum One (42161) |
+|---|---|---|
+| `CoverPool` | [`0x68A3b66c…9Aa3`](https://gnosis.blockscout.com/address/0x68A3b66cb9d66c359B83d6CaAEeAABbA0cA29Aa3) | [`0x6699fb5c…5e4c`](https://arbiscan.io/address/0x6699fb5cdADb6065c71457Dc44A6f9d0688a5e4c) |
+| `CredailyRentOracle` | [`0xCBD1F13e…6E43`](https://gnosis.blockscout.com/address/0xCBD1F13ed4F376fBE662d4634de52C31bEFb6E43) | [`0x128fF279…59B3`](https://arbiscan.io/address/0x128fF279AbD137DE6e378E8aCcefFe77Ea5259B3) |
+| `CoverToken` | [`0x821d100A…C857`](https://gnosis.blockscout.com/address/0x821d100Aa36Beec16D830C7E2B8D5249AF62C857) | [`0xaB1abFCa…925E`](https://arbiscan.io/address/0xaB1abFCa157aAD0bCE63A0a578c20122e1a9925E) |
+| `SwapAndBuyRouter` | [`0x36861cbD…5f8b`](https://gnosis.blockscout.com/address/0x36861cbD424CDAaf9EF981Dd8C6a89F77CEB5f8b) | [`0xFE9CA93d…2F2F`](https://arbiscan.io/address/0xFE9CA93d607f38e152a3b3A1CB320950209c2F2F) |
+| Currency | WXDAI `0xe91D…a97d` (18 dec) | USDC `0xaf88…5831` (6 dec) |
+
+## Legacy deployment (retired sponsor-model v1 — Gnosis, chainId 100)
+
+Deployed 2026-09-18 and settled the same day with the real 2026-09-17 newsletter; retired
+2026-09-19 (free capital withdrawn, outstanding sold cover stays backed). All three
 contracts are source-verified (Sourcify `exact_match`, imported by Blockscout).
 
 | Contract | Address |

@@ -6,15 +6,12 @@ import {
   XCircleIcon,
 } from "@phosphor-icons/react";
 import type { TxState } from "../chain/useTx";
-import { appChain } from "../chain/wagmi";
+import { txUrl } from "../chain/explorer";
 
-function explorerTxUrl(hash: string): string | undefined {
-  const base = appChain.blockExplorers?.default?.url;
-  return base ? `${base.replace(/\/$/, "")}/tx/${hash}` : undefined;
-}
-
-function HashLink({ hash }: { hash: string }) {
-  const url = explorerTxUrl(hash);
+function HashLink({ hash, base }: { hash: string; base?: string }) {
+  // `base` is the explorer of the chain the tx was SENT on (captured in
+  // TxState at send time), so the link survives a header chain switch.
+  const url = txUrl(hash, base ?? "");
   const label = `${hash.slice(0, 10)}…${hash.slice(-8)}`;
   return url ? (
     <a
@@ -67,7 +64,8 @@ export function TxStatus({
         data-testid="tx-pending"
       >
         <CircleNotchIcon size={18} className="animate-spin" />
-        {prefix}pending — <HashLink hash={state.hash} />
+        {prefix}pending —{" "}
+        <HashLink hash={state.hash} base={state.explorerBase} />
       </div>
     );
   }
@@ -78,7 +76,8 @@ export function TxStatus({
         data-testid="tx-confirmed"
       >
         <CheckCircleIcon size={18} weight="fill" />
-        {prefix}confirmed — <HashLink hash={state.hash} />
+        {prefix}confirmed —{" "}
+        <HashLink hash={state.hash} base={state.explorerBase} />
       </div>
     );
   }
@@ -94,7 +93,7 @@ export function TxStatus({
         <div className="flex items-center gap-2 font-bold text-system-warning">
           <ClockIcon size={18} weight="fill" />
           {prefix}submitted — still waiting for confirmation —{" "}
-          <HashLink hash={state.hash} />
+          <HashLink hash={state.hash} base={state.explorerBase} />
         </div>
         <p className="mt-1">{state.error.message}</p>
       </div>
@@ -118,7 +117,7 @@ export function TxStatus({
         {cancelled ? "cancelled" : "failed"}
         {state.hash ? (
           <span className="font-normal">
-            — <HashLink hash={state.hash} />
+            — <HashLink hash={state.hash} base={state.explorerBase} />
           </span>
         ) : null}
       </div>

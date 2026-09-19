@@ -80,6 +80,25 @@ export async function warpTo(timestamp: bigint): Promise<void> {
   await testClient.mine({ blocks: 1 });
 }
 
+/** Current chain time (`block.timestamp` of the head block). */
+export async function chainNow(): Promise<bigint> {
+  return (await publicClient.getBlock()).timestamp;
+}
+
+/**
+ * Pin the BROWSER clock to the (warped, past) chain clock. The app gates every
+ * sale/claim window on `Date.now()` (chain/format.ts `nowSec`), but this suite
+ * runs the chain ~9 days in the past (anvil --timestamp 1789000000, SPEC §7),
+ * so an unfaked browser would render "Sale closed" for a series the CONTRACT
+ * still sells. Playwright's fake clock starts at the given (default: current)
+ * chain time and keeps ticking in real time, so polling/timers behave normally.
+ * MUST run before `page.goto`.
+ */
+export async function alignClock(page: Page, at?: bigint): Promise<void> {
+  const t = at ?? (await chainNow());
+  await page.clock.install({ time: new Date(Number(t) * 1000) });
+}
+
 // Frozen SPEC §2 signatures only. The Integrate phase compiles the real ABIs; these
 // minimal fragments keep the suite independent of Foundry build artifacts.
 export const oracleAbi = parseAbi([
@@ -96,6 +115,27 @@ export const coverTokenAbi = parseAbi([
   "function balanceOf(address account, uint256 id) view returns (uint256)",
 ]);
 export const poolViewAbi = parseAbi(["function currency() view returns (address)"]);
+/** Permissionless-pool reads the suite re-checks over RPC (frozen ABI shape —
+ * mirrors src/CoverPool.sol's Series struct field for field). */
+export const poolSeriesAbi = parseAbi([
+  "function seriesCount() view returns (uint256)",
+  "struct Series { address creator; uint32 strikeLowCents; uint32 strikeHighCents; uint16 premiumRateBps; bool settled; bool cancelled; uint64 saleEnd; uint64 obsStart; uint64 obsEnd; uint64 redeemEnd; uint128 escrow; uint128 sold; uint128 premiumsAccrued; uint128 paidOut; uint256 withdrawn; bool residualWithdrawn; uint64 payoutRatioWad; uint64 observationT; bytes32 emailId; }",
+  "function series(uint256 seriesId) view returns (Series memory)",
+]);
+
+export const seriesCount = () =>
+  publicClient.readContract({
+    address: deployment().pool,
+    abi: poolSeriesAbi,
+    functionName: "seriesCount",
+  });
+export const readSeries = (seriesId: bigint) =>
+  publicClient.readContract({
+    address: deployment().pool,
+    abi: poolSeriesAbi,
+    functionName: "series",
+    args: [seriesId],
+  });
 
 export const currencyBalance = (holder: `0x${string}`) =>
   publicClient.readContract({
@@ -147,20 +187,44 @@ export async function installWallet(
 }
 
 /**
- * Connect through the app's RainbowKit ConnectButton + modal; no-op when already
- * connected. The app configures the injected wallet only (web/src/chain/wagmi.ts),
- * which RainbowKit lists as "Browser Wallet"; wagmi's EIP-6963 discovery may list
- * the shim as "E2E Test Wallet" instead.
+ * Ensure the wallet is connected. wagmi's reconnect-on-mount usually
+ * AUTO-CONNECTS the shim (it answers `eth_accounts` unconditionally, so the
+ * injected connector looks pre-authorised) a beat after hydration — wait for
+ * that first; only drive RainbowKit's ConnectButton + modal when it doesn't
+ * happen. wagmi's EIP-6963 discovery may list the shim as "E2E Test Wallet"
+ * rather than "Browser Wallet".
  */
 export async function connectWallet(page: Page): Promise<void> {
+  // Connected = the account chip — or RainbowKit's "Wrong network" chip when
+  // the shim sits on a chain the app doesn't serve (failures.spec.ts).
+  const account = page
+    .locator(
+      '[data-testid="rk-account-button"], [data-testid="rk-wrong-network-button"]',
+    )
+    .first();
+  const autoConnected = await account
+    .waitFor({ state: "visible", timeout: 4000 })
+    .then(() => true)
+    .catch(() => false);
+  if (autoConnected) return;
   const connect = page.getByRole("button", { name: /connect wallet/i }).first();
-  if (!(await connect.isVisible().catch(() => false))) return;
-  await connect.click();
-  await page
-    .getByRole("button", { name: /E2E Test Wallet|Injected|Browser/i })
-    .first()
-    .click();
-  await expect(connect).toBeHidden();
+  if (await connect.isVisible().catch(() => false)) {
+    // A late auto-connect can detach the button mid-click; that's fine — the
+    // account chip assertion below is the real postcondition.
+    await connect.click().catch(() => {});
+    const wallet = page
+      .getByRole("button", { name: /E2E Test Wallet|Injected|Browser/i })
+      .first();
+    if (
+      await wallet
+        .waitFor({ state: "visible", timeout: 3000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      await wallet.click().catch(() => {});
+    }
+  }
+  await expect(account).toBeVisible({ timeout: 15000 });
 }
 
 /**

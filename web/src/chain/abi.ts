@@ -313,13 +313,39 @@ export const poolAbi = [
         "name": "oracle_",
         "type": "address",
         "internalType": "contract IObservationOracle"
-      },
-      {
-        "name": "sponsor_",
-        "type": "address",
-        "internalType": "address"
       }
     ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "MIN_REDEEM_WINDOW",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "addCapacity",
+    "inputs": [
+      {
+        "name": "seriesId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
@@ -338,6 +364,47 @@ export const poolAbi = [
       },
       {
         "name": "maxPremium",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "buyProtectionFor",
+    "inputs": [
+      {
+        "name": "seriesId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxClaim",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxPremium",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "cancelSeries",
+    "inputs": [
+      {
+        "name": "seriesId",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -414,32 +481,6 @@ export const poolAbi = [
   },
   {
     "type": "function",
-    "name": "freeCapital",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "fundPool",
-    "inputs": [
-      {
-        "name": "amt",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "oracle",
     "inputs": [],
     "outputs": [
@@ -510,57 +551,6 @@ export const poolAbi = [
   },
   {
     "type": "function",
-    "name": "redeemedPayout",
-    "inputs": [
-      {
-        "name": "seriesId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "reservedOf",
-    "inputs": [
-      {
-        "name": "seriesId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "salesPaused",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "series",
     "inputs": [
       {
@@ -576,6 +566,11 @@ export const poolAbi = [
         "internalType": "struct CoverPool.Series",
         "components": [
           {
+            "name": "creator",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
             "name": "strikeLowCents",
             "type": "uint32",
             "internalType": "uint32"
@@ -589,6 +584,16 @@ export const poolAbi = [
             "name": "premiumRateBps",
             "type": "uint16",
             "internalType": "uint16"
+          },
+          {
+            "name": "settled",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "cancelled",
+            "type": "bool",
+            "internalType": "bool"
           },
           {
             "name": "saleEnd",
@@ -611,7 +616,7 @@ export const poolAbi = [
             "internalType": "uint64"
           },
           {
-            "name": "capacity",
+            "name": "escrow",
             "type": "uint128",
             "internalType": "uint128"
           },
@@ -621,7 +626,22 @@ export const poolAbi = [
             "internalType": "uint128"
           },
           {
-            "name": "settled",
+            "name": "premiumsAccrued",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "paidOut",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "withdrawn",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "residualWithdrawn",
             "type": "bool",
             "internalType": "bool"
           },
@@ -660,8 +680,32 @@ export const poolAbi = [
   },
   {
     "type": "function",
-    "name": "setSalesPaused",
+    "name": "seriesPaused",
     "inputs": [
+      {
+        "name": "seriesId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setSeriesPaused",
+    "inputs": [
+      {
+        "name": "seriesId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
       {
         "name": "paused",
         "type": "bool",
@@ -691,19 +735,6 @@ export const poolAbi = [
   },
   {
     "type": "function",
-    "name": "sponsor",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "token",
     "inputs": [],
     "outputs": [
@@ -717,23 +748,10 @@ export const poolAbi = [
   },
   {
     "type": "function",
-    "name": "totalReserved",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "total",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "withdrawExcess",
+    "name": "withdrawResidual",
     "inputs": [
       {
-        "name": "amt",
+        "name": "seriesId",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -743,10 +761,16 @@ export const poolAbi = [
   },
   {
     "type": "event",
-    "name": "ExcessWithdrawn",
+    "name": "CapacityAdded",
     "inputs": [
       {
-        "name": "to",
+        "name": "seriesId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "creator",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -756,22 +780,9 @@ export const poolAbi = [
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "PoolFunded",
-    "inputs": [
-      {
-        "name": "from",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
       },
       {
-        "name": "amount",
+        "name": "newEscrow",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -791,6 +802,12 @@ export const poolAbi = [
       },
       {
         "name": "buyer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "recipient",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -843,13 +860,50 @@ export const poolAbi = [
   },
   {
     "type": "event",
-    "name": "SalesPausedSet",
+    "name": "ResidualWithdrawn",
     "inputs": [
       {
-        "name": "paused",
-        "type": "bool",
+        "name": "seriesId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "creator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "bool"
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SeriesCancelled",
+    "inputs": [
+      {
+        "name": "seriesId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "creator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "refund",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -863,6 +917,12 @@ export const poolAbi = [
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
+      },
+      {
+        "name": "creator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
         "name": "strikeLowCents",
@@ -917,6 +977,25 @@ export const poolAbi = [
   },
   {
     "type": "event",
+    "name": "SeriesPausedSet",
+    "inputs": [
+      {
+        "name": "seriesId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "paused",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "SeriesSettled",
     "inputs": [
       {
@@ -965,29 +1044,13 @@ export const poolAbi = [
   },
   {
     "type": "error",
+    "name": "AlreadySold",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "CapacityExceeded",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "Insolvent",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InsufficientFreeCapital",
-    "inputs": [
-      {
-        "name": "requested",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "free",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
   },
   {
     "type": "error",
@@ -1007,12 +1070,12 @@ export const poolAbi = [
   },
   {
     "type": "error",
-    "name": "NotSettled",
+    "name": "NotCreator",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "NotSponsor",
+    "name": "NotSettled",
     "inputs": []
   },
   {
@@ -1025,6 +1088,11 @@ export const poolAbi = [
         "internalType": "uint64"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "PremiumRoundsToZero",
+    "inputs": []
   },
   {
     "type": "error",
@@ -1045,6 +1113,21 @@ export const poolAbi = [
   {
     "type": "error",
     "name": "RedeemWindowClosed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RedeemWindowOpen",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ResidualAlreadyWithdrawn",
     "inputs": []
   },
   {
@@ -1070,6 +1153,16 @@ export const poolAbi = [
   },
   {
     "type": "error",
+    "name": "SeriesClosed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ZeroAmount",
     "inputs": []
   }
@@ -1084,6 +1177,11 @@ export const coverTokenAbi = [
         "name": "pool_",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "currencyDecimals_",
+        "type": "uint8",
+        "internalType": "uint8"
       }
     ],
     "stateMutability": "nonpayable"
@@ -1158,6 +1256,19 @@ export const coverTokenAbi = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "currencyDecimals",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1339,7 +1450,7 @@ export const coverTokenAbi = [
         "internalType": "string"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "event",
@@ -1573,7 +1684,214 @@ export const coverTokenAbi = [
   }
 ] as const satisfies Abi;
 
-/** WXDAI (canonical wrapped xDAI at 0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d) + ERC-20. */
+/** src/SwapAndBuyRouter.sol:SwapAndBuyRouter (forge inspect). */
+export const routerAbi = [
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "swapRouter_",
+        "type": "address",
+        "internalType": "contract ISwapRouter02"
+      },
+      {
+        "name": "pool_",
+        "type": "address",
+        "internalType": "contract ICoverPool"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "pool",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ICoverPool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "swapAndBuy",
+    "inputs": [
+      {
+        "name": "tokenIn",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amountInMaximum",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "path",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "seriesId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxClaim",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amountIn",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "swapRouter",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ISwapRouter02"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "usdc",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "weth9",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "SwappedAndBought",
+    "inputs": [
+      {
+        "name": "seriesId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "buyer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "tokenIn",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amountIn",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "premium",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxClaim",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InvalidPath",
+    "inputs": [
+      {
+        "name": "what",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NativeInputNotWeth",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NativeValueMismatch",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amountInMaximum",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SafeERC20FailedOperation",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroAmount",
+    "inputs": []
+  }
+] as const satisfies Abi;
+
+/** Pool currencies (WXDAI on Gnosis, USDC on Arbitrum) + minimal ERC-20; deposit/withdraw are WETH9-style (WXDAI only). */
 export const erc20Abi = [
   {
     "type": "function",
@@ -1808,29 +2126,13 @@ export const allErrorsAbi = [
   },
   {
     "type": "error",
+    "name": "AlreadySold",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "CapacityExceeded",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "Insolvent",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InsufficientFreeCapital",
-    "inputs": [
-      {
-        "name": "requested",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "free",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
   },
   {
     "type": "error",
@@ -1850,12 +2152,12 @@ export const allErrorsAbi = [
   },
   {
     "type": "error",
-    "name": "NotSettled",
+    "name": "NotCreator",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "NotSponsor",
+    "name": "NotSettled",
     "inputs": []
   },
   {
@@ -1868,6 +2170,11 @@ export const allErrorsAbi = [
         "internalType": "uint64"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "PremiumRoundsToZero",
+    "inputs": []
   },
   {
     "type": "error",
@@ -1892,6 +2199,21 @@ export const allErrorsAbi = [
   },
   {
     "type": "error",
+    "name": "RedeemWindowOpen",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ResidualAlreadyWithdrawn",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "SafeERC20FailedOperation",
     "inputs": [
       {
@@ -1909,6 +2231,16 @@ export const allErrorsAbi = [
   {
     "type": "error",
     "name": "SalesArePaused",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SeriesClosed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
     "inputs": []
   },
   {
@@ -2027,5 +2359,37 @@ export const allErrorsAbi = [
     "type": "error",
     "name": "TransfersDisabled",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidPath",
+    "inputs": [
+      {
+        "name": "what",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NativeInputNotWeth",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NativeValueMismatch",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amountInMaximum",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   }
 ] as const satisfies Abi;

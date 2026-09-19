@@ -1,0 +1,32 @@
+{
+  "100": {
+    "chainId": 100,
+    "name": "Gnosis Chain",
+    "oracle": "0xCBD1F13ed4F376fBE662d4634de52C31bEFb6E43",
+    "token": "0x821d100Aa36Beec16D830C7E2B8D5249AF62C857",
+    "pool": "0x68A3b66cb9d66c359B83d6CaAEeAABbA0cA29Aa3",
+    "router": "0x36861cbD424CDAaf9EF981Dd8C6a89F77CEB5f8b",
+    "currency": {
+      "address": "0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d",
+      "symbol": "WXDAI",
+      "decimals": 18
+    },
+    "seriesIds": [],
+    "explorerBase": "https://gnosis.blockscout.com"
+  },
+  "42161": {
+    "chainId": 42161,
+    "name": "Arbitrum One",
+    "oracle": "0x128fF279AbD137DE6e378E8aCcefFe77Ea5259B3",
+    "token": "0xaB1abFCa157aAD0bCE63A0a578c20122e1a9925E",
+    "pool": "0x6699fb5cdADb6065c71457Dc44A6f9d0688a5e4c",
+    "router": "0xFE9CA93d607f38e152a3b3A1CB320950209c2F2F",
+    "currency": {
+      "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      "symbol": "USDC",
+      "decimals": 6
+    },
+    "seriesIds": [],
+    "explorerBase": "https://arbiscan.io"
+  }
+}

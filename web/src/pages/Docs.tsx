@@ -13,15 +13,29 @@ import {
   PiggyBankIcon,
   PlugsIcon,
   ReceiptIcon,
+  RobotIcon,
+  ShieldCheckIcon,
   SwapIcon,
 } from "@phosphor-icons/react";
 import { Card, StatRow } from "../components/States";
-import { deployment, isDeployed, ZERO_ADDRESS } from "../chain/deployment";
+import { useActiveDeployment } from "../chain/registry";
 import { addressUrl, txUrl } from "../chain/explorer";
 import { LIFECYCLE_TXS, SETTLEMENT_EMAIL_ID } from "../chain/lifecycle";
 import { truncateAddress, truncateHex } from "../chain/format";
 
-const REPO = "https://github.com/RonTuretzky/nyrent-cover";
+const REPO = "https://github.com/RonTuretzky/NYRent";
+
+/** The retired sponsor-model Gnosis deployment — preserved verbatim as the
+ * historical record (it settled with the real 2026-09-17 email). No live
+ * reads ever touch these addresses. */
+const LEGACY_GNOSIS_V1 = {
+  explorerBase: "https://gnosis.blockscout.com",
+  oracle: "0xdd45a0f7fcA25dD540625130d6c252b1880D0561",
+  pool: "0x7B22Ed9499aBF9d081A6bA4a632Ab81DE588f0f3",
+  token: "0x48Db7336C15DC4439aE3F023e24FAA26b400CC87",
+  windDownTx:
+    "0x4b5175eacee972e65c018fd2ca4ccc37d0e15cee730aacc0aff79e3204878391",
+} as const;
 
 const DOCS = [
   {
@@ -131,7 +145,7 @@ const FLOWS: Flow[] = [
     blurb: "Pay a fixed-rate premium, mint non-transferable cover units 1:1 with your max claim.",
     steps: [
       "Enter your max claim — the premium quote updates live.",
-      "Open the pricing breakdown: expected claim, margin, band-implied exposure.",
+      "Open the pricing breakdown behind “Show the math”: your price, where it goes, how the payout ramps.",
       "Pick WXDAI (or xDAI), approve, then buy.",
       "Your cover balance appears once the transaction confirms.",
     ],
@@ -145,12 +159,12 @@ const FLOWS: Flow[] = [
     n: 5,
     icon: SwapIcon,
     title: "Pay the premium in USDC.e",
-    blurb: "No WXDAI? The buy page routes other Gnosis tokens through the real Uniswap v3 pools.",
+    blurb:
+      "No pool currency? The buy page routes other tokens through the real Uniswap v3 pools. This recording shows the OLD four-step swap flow — the live app now does the whole thing in one router transaction.",
     steps: [
       "Choose USDC.e in the token selector — the quote reprices via QuoterV2.",
-      "Approve the swap, then swap via SwapRouter02.",
-      "Approve the pool, then buy.",
-      "Four confirmations later the cover is minted.",
+      "The recording then walks the old stepper: approve the swap, swap, approve the pool, buy — four confirmations.",
+      "The live app collapses all of that: approve the payment token once (skipped entirely for the native coin), then ONE SwapAndBuyRouter transaction swaps, buys and refunds any unused input atomically.",
     ],
     media: "buy-with-usdce.gif",
     alt: "Buying 1 WXDAI of cover paying in USDC.e on a Gnosis mainnet fork: real Uniswap v3 quote, then a four-step stepper of approve swap, swap, approve pool, buy.",
@@ -211,9 +225,9 @@ const FLOWS: Flow[] = [
     n: 9,
     icon: FileTextIcon,
     title: "Verify the real deployment",
-    blurb: "This page carries the pinned key, the rules, and the real Gnosis addresses and transactions.",
+    blurb: "This page carries the pinned key, the rules, and the real contract addresses and transactions.",
     steps: [
-      "Scroll this page: the ten settlement rules and the Sourcify-verified contract addresses.",
+      "Scroll this page: the ten settlement rules and the verified contract addresses.",
       "Cross-check the recorded lifecycle — three permanent mainnet transactions.",
       "Follow the repository docs for the full evidence chain.",
     ],
@@ -348,7 +362,7 @@ const RULES: { pool?: boolean; body: ReactNode }[] = [
     body: (
       <>
         Payout ratio = <Code>clamp((cents − low) / (high − low), 0, 1)</Code> —
-        the demo strikes $88.00 → $96.00 put $92.88 at 61%.
+        the reference strikes $88.00 → $96.00 put $92.88 at 61%.
       </>
     ),
   },
@@ -356,18 +370,25 @@ const RULES: { pool?: boolean; body: ReactNode }[] = [
     pool: true,
     body: (
       <>
-        Solvency invariant: reserved claims never exceed the pool balance, the
-        sponsor can only withdraw free capital, and pause never blocks redeem.
+        Per-series escrow: every claim unit is backed 1:1 by its own series'
+        escrow (<Code>sold ≤ escrow</Code>), claims draw only from that
+        escrow, and the creator's per-series pause never blocks settle or
+        redeem. There is no global pause and no roles at all.
       </>
     ),
   },
 ];
 
-function AddressLink({ address }: { address: string }) {
-  if (address === ZERO_ADDRESS) return <>not deployed</>;
+function AddressLink({
+  address,
+  explorerBase,
+}: {
+  address: string;
+  explorerBase: string;
+}) {
   return (
     <a
-      href={addressUrl(address)}
+      href={addressUrl(address, explorerBase)}
       target="_blank"
       rel="noopener noreferrer"
       className="underline decoration-dotted"
@@ -377,7 +398,46 @@ function AddressLink({ address }: { address: string }) {
   );
 }
 
+/** Verified Uniswap v3 payment routes per chain (docs/UNISWAP.md). */
+const UNISWAP_ROUTES: Record<
+  string,
+  { token: string; note: string }[]
+> = {
+  "Gnosis Chain": [
+    { token: "xDAI (native)", note: "wrapped 1:1 to WXDAI — no swap fee" },
+    { token: "WXDAI", note: "the pool currency itself — no swap" },
+    {
+      token: "USDC.e",
+      note: "0x2a22…76F0 · 0.01% fee pool → WXDAI",
+    },
+    {
+      token: "GNO",
+      note: "two hops: GNO → USDC.e (0.30%) → WXDAI (0.01%)",
+    },
+  ],
+  "Arbitrum One": [
+    { token: "ETH (native)", note: "wrapped to WETH, then 0.05% pool → USDC" },
+    { token: "USDC", note: "the pool currency itself — no swap" },
+    {
+      token: "WETH",
+      note: "0x82aF…bab1 · 0.05% fee pool → USDC",
+    },
+    { token: "USDT", note: "0.01% fee pool → USDC" },
+    {
+      token: "USDC.e",
+      note: "0xFF97…5CC8 · 0.01% fee pool → USDC",
+    },
+    {
+      token: "ARB",
+      note: "0.05% pool (0.30% fallback) — depth is thin, so larger purchases may get a worse rate; the buy page shows the worst-case total before you confirm",
+    },
+  ],
+};
+
 export function Docs() {
+  const { deployment } = useActiveDeployment();
+  const routes = UNISWAP_ROUTES[deployment.name] ?? [];
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <header>
@@ -385,19 +445,23 @@ export function Docs() {
           Documentation
         </h1>
         <p className="font-parkBody text-surface-grey-2 mt-1">
-          Everything about how settlement works, what is trusted, and how to
-          verify it yourself. The{" "}
+          RentSafe pays you when the reported rent number goes up. This page
+          is the full disclosure behind that sentence: exactly which rent
+          number settles the market (an index of Manhattan office rent —
+          commercial, not residential), how the signed newsletter is verified,
+          what is trusted, and how to check everything yourself. The{" "}
           <Link to="/" className="underline decoration-dotted">
             home page
           </Link>{" "}
-          has the how-it-works walkthrough and the payout-curve explainer;
-          this page is the reference.
+          has the plain-language walkthrough; this page is the reference.
         </p>
         <div className="flex gap-2 flex-wrap mt-4">
-          <Chip size="small">Gnosis · chainId {deployment.chainId}</Chip>
+          <Chip size="small">
+            {deployment.name} · chainId {deployment.chainId}
+          </Chip>
           <Chip size="small">Pinned key d=newyork.credaily.com s=b37</Chip>
           <Chip size="small">2026-09-17 issue: $92.88 / SF → 61% ratio</Chip>
-          <Chip size="small">Unaudited demo — tiny amounts</Chip>
+          <Chip size="small">Unaudited experiment — tiny amounts</Chip>
         </div>
       </header>
 
@@ -407,9 +471,13 @@ export function Docs() {
         </h2>
         <p className="font-parkBody text-sm text-surface-grey-2 border-l-4 border-system-warning pl-3 py-0.5">
           Honesty note: these recordings were made on a local Anvil /
-          Gnosis-mainnet-fork stack running the same contracts with the real
-          2026-09-17 newsletter <Code>.eml</Code> — mainnet series 0 is already
-          settled, so the flows cannot be re-recorded live. The permanent
+          Gnosis-mainnet-fork stack running the earlier sponsor-model
+          contracts with the real 2026-09-17 newsletter <Code>.eml</Code> —
+          that deployment's series 0 is already settled, so the flows cannot
+          be re-recorded live. The live app is now the permissionless version
+          (see Underwriting below); the settle and redeem mechanics shown are
+          unchanged, while pay-with-any-token is now a single router
+          transaction (flow 5 explains the difference). The permanent
           on-chain results are in the{" "}
           <button
             type="button"
@@ -420,7 +488,7 @@ export function Docs() {
             }
             className="underline decoration-dotted"
           >
-            recorded-lifecycle table
+            legacy-deployment table
           </button>{" "}
           below.
         </p>
@@ -472,58 +540,254 @@ export function Docs() {
         </ol>
       </Card>
 
+      {/* NEW: underwriting */}
+      <Card>
+        <div className="flex items-center gap-2 mb-1">
+          <ShieldCheckIcon size={22} className="text-core-green" />
+          <h2 className="font-parkDisplay font-bold text-lg">Underwriting</h2>
+        </div>
+        <p className="font-parkBody text-sm text-text-standard">
+          The pool is fully permissionless — there are NO roles in the
+          contract. Anyone calls <Code>createSeries</Code> with strikes,
+          premium rate, windows and capacity, and the call pulls the full
+          capacity from the caller as that series' escrow. Every unit of
+          protection sold is backed 1:1 by that escrow alone: accounting is
+          strictly per series, so one creator's claims can never touch
+          another's money.
+        </p>
+        <ul className="font-parkBody text-sm text-surface-grey-2 mt-3 space-y-1.5 list-disc pl-5">
+          <li>
+            Creator rights (and nothing more): pause their own series' sales,
+            top up escrow before the sale ends, cancel while unsold (full
+            refund), withdraw the residual — escrow + premiums − payouts —
+            after the claim window. Terms themselves are immutable.
+          </li>
+          <li>
+            <Code>saleEnd ≤ obsStart</Code> is enforced on-chain: sales close
+            before a qualifying rent reading can exist, so nobody can buy a
+            known outcome against the creator's escrow.
+          </li>
+          <li>
+            The claim window must last ≥ 7 days after the observation window
+            (<Code>MIN_REDEEM_WINDOW</Code>), so holders always get a real
+            chance to settle and claim.
+          </li>
+        </ul>
+        <p className="font-parkBody text-sm text-surface-grey-2 mt-3">
+          Try it on the{" "}
+          <Link to="/underwrite" className="underline">
+            Underwrite page
+          </Link>{" "}
+          · full mechanics in{" "}
+          <a
+            href={`${REPO}/blob/main/docs/PROTOCOL.md`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-dotted"
+          >
+            PROTOCOL.md
+          </a>
+          .
+        </p>
+      </Card>
+
+      {/* NEW: pay with any token */}
+      <Card>
+        <div className="flex items-center gap-2 mb-1">
+          <SwapIcon size={22} className="text-core-green" />
+          <h2 className="font-parkDisplay font-bold text-lg">
+            Pay with any token — Uniswap
+          </h2>
+        </div>
+        <p className="font-parkBody text-sm text-text-standard">
+          The <Code>SwapAndBuyRouter</Code> makes any supported token a
+          one-transaction purchase: it pulls your token (or wraps the native
+          coin), exact-output swaps to exactly the quoted premium in the pool
+          currency via Uniswap v3, buys the protection minted directly to
+          YOU, and refunds every leftover wei. Ownerless, immutable, holds
+          nothing between transactions; any failing leg reverts the whole
+          call.
+        </p>
+        <div className="overflow-x-auto mt-3">
+          <table className="w-full font-parkBody text-sm">
+            <thead>
+              <tr className="text-left text-surface-grey-2 border-b border-paper-2">
+                <th className="py-2 pr-4">Token ({deployment.name})</th>
+                <th className="py-2">Verified route</th>
+              </tr>
+            </thead>
+            <tbody>
+              {routes.map((r) => (
+                <tr key={r.token} className="border-b border-paper-1">
+                  <td className="py-2 pr-4 font-bold">{r.token}</td>
+                  <td className="py-2 text-surface-grey-2">{r.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="font-parkBody text-sm text-surface-grey-2 mt-3">
+          Why is the protection itself never pooled on Uniswap? Cover is
+          soulbound — it can't move after minting, so there is no secondary
+          market to pool. Only the PREMIUM leg touches Uniswap; the cover
+          mints straight to your address. Details and pool evidence in{" "}
+          <a
+            href={`${REPO}/blob/main/docs/UNISWAP.md`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-dotted"
+          >
+            UNISWAP.md
+          </a>
+          .
+        </p>
+      </Card>
+
+      {/* NEW: reference agent */}
+      <Card>
+        <div className="flex items-center gap-2 mb-1">
+          <RobotIcon size={22} className="text-core-green" />
+          <h2 className="font-parkDisplay font-bold text-lg">
+            The reference agent
+          </h2>
+        </div>
+        <p className="font-parkBody text-sm text-text-standard">
+          A two-sided market maker keeps the order book honest: it computes a
+          fair value for each strike band from the rent-index history, then
+          works both legs — UNDERWRITING new standard series when premiums
+          would clear above fair value, and ARB-BUYING any cover offered
+          below it. Inventory leans against whichever side it's overweight,
+          so it never becomes a one-way seller.
+        </p>
+        <p className="font-parkBody text-sm text-surface-grey-2 mt-3">
+          On Arbitrum the agent's keys live in Bankr custody rather than on
+          the box running the loop. Design, policy knobs and run logs in{" "}
+          <a
+            href={`${REPO}/blob/main/agent/README.md`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-dotted"
+          >
+            agent/README.md
+          </a>
+          .
+        </p>
+      </Card>
+
       <Card>
         <h2 className="font-parkDisplay font-bold text-lg mb-3">
-          Contract addresses (Gnosis, chain {deployment.chainId})
+          Contract addresses ({deployment.name}, chain {deployment.chainId})
         </h2>
-        {!isDeployed ? (
-          <p className="font-parkBody text-sm text-system-warning font-bold mb-2">
-            Placeholders — not deployed yet.
-          </p>
-        ) : null}
         <StatRow
           label="Oracle"
-          value={<AddressLink address={deployment.oracle} />}
+          value={
+            <AddressLink
+              address={deployment.oracle}
+              explorerBase={deployment.explorerBase}
+            />
+          }
           mono
         />
         <StatRow
           label="Cover pool"
-          value={<AddressLink address={deployment.pool} />}
+          value={
+            <AddressLink
+              address={deployment.pool}
+              explorerBase={deployment.explorerBase}
+            />
+          }
           mono
         />
         <StatRow
           label="Cover token"
-          value={<AddressLink address={deployment.token} />}
+          value={
+            <AddressLink
+              address={deployment.token}
+              explorerBase={deployment.explorerBase}
+            />
+          }
           mono
         />
         <StatRow
-          label="Currency (WXDAI)"
-          value={<AddressLink address={deployment.currency} />}
+          label={`Currency (${deployment.currency.symbol})`}
+          value={
+            <AddressLink
+              address={deployment.currency.address}
+              explorerBase={deployment.explorerBase}
+            />
+          }
           mono
         />
-        {isDeployed ? (
-          <p className="font-parkBody text-sm text-surface-grey-2 mt-3">
-            Status: deployed · chainId {deployment.chainId} · series{" "}
-            {deployment.seriesIds.join(", ")}. All three contracts are Sourcify
-            exact_match verified.
-          </p>
+        {deployment.router ? (
+          <StatRow
+            label="Swap-and-buy router"
+            value={
+              <AddressLink
+                address={deployment.router}
+                explorerBase={deployment.explorerBase}
+              />
+            }
+            mono
+          />
         ) : null}
+        <p className="font-parkBody text-sm text-surface-grey-2 mt-3">
+          Both live chains run the SAME permissionless contract version —
+          switch chains in the header to see the other set. Use the chain
+          switcher; nothing here reads the retired deployment below.
+        </p>
       </Card>
 
+      {/* Legacy deployment — the settled v1 record, preserved verbatim */}
       <Card>
         <h2
           id="recorded-lifecycle"
           className="font-parkDisplay font-bold text-lg mb-1 scroll-mt-24"
         >
-          Recorded lifecycle
+          Legacy deployment (settled with the real 2026-09-17 email)
         </h2>
         <p className="font-parkBody text-sm text-surface-grey-2 mb-2">
-          Series 0 settled on-chain 2026-09-18 with the real 2026-09-17
-          newsletter (emailId{" "}
+          RETIRED — the original sponsor-model deployment on Gnosis. It is
+          kept here purely as the historical record: its series 0 settled at
+          0.61 with the real 2026-09-17 newsletter (emailId{" "}
           <span className="font-mono text-xs">
             {truncateHex(SETTLEMENT_EMAIL_ID, 6)}
           </span>
-          ). Three permanent transactions:
+          ), and its series 1 was wound down — free capital withdrawn while
+          all outstanding sold cover stays backed. The app never reads these
+          contracts. All three are Sourcify exact_match verified.
+        </p>
+        <StatRow
+          label="Oracle (retired)"
+          value={
+            <AddressLink
+              address={LEGACY_GNOSIS_V1.oracle}
+              explorerBase={LEGACY_GNOSIS_V1.explorerBase}
+            />
+          }
+          mono
+        />
+        <StatRow
+          label="Cover pool (retired)"
+          value={
+            <AddressLink
+              address={LEGACY_GNOSIS_V1.pool}
+              explorerBase={LEGACY_GNOSIS_V1.explorerBase}
+            />
+          }
+          mono
+        />
+        <StatRow
+          label="Cover token (retired)"
+          value={
+            <AddressLink
+              address={LEGACY_GNOSIS_V1.token}
+              explorerBase={LEGACY_GNOSIS_V1.explorerBase}
+            />
+          }
+          mono
+        />
+        <p className="font-parkBody text-sm text-surface-grey-2 mt-3 mb-2">
+          Series 0's full life — three permanent transactions:
         </p>
         {LIFECYCLE_TXS.map((tx) => (
           <div
@@ -535,7 +799,7 @@ export function Docs() {
                 {tx.step}
               </span>
               <a
-                href={txUrl(tx.hash)}
+                href={txUrl(tx.hash, LEGACY_GNOSIS_V1.explorerBase)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono text-xs underline decoration-dotted break-all text-right"
@@ -548,6 +812,28 @@ export function Docs() {
             </p>
           </div>
         ))}
+        <div className="py-2 border-t border-paper-1 mt-1">
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="font-parkDisplay font-bold text-sm text-text-standard">
+              series 1 wind-down
+            </span>
+            <a
+              href={txUrl(
+                LEGACY_GNOSIS_V1.windDownTx,
+                LEGACY_GNOSIS_V1.explorerBase,
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-xs underline decoration-dotted break-all text-right"
+            >
+              {truncateHex(LEGACY_GNOSIS_V1.windDownTx, 8)}
+            </a>
+          </div>
+          <p className="font-parkBody text-sm text-surface-grey-2 mt-0.5">
+            Free capital withdrawn; outstanding sold cover remains fully
+            backed until its claim window closes.
+          </p>
+        </div>
       </Card>
 
       <div className="space-y-3">

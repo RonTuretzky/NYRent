@@ -1,19 +1,20 @@
 import { WarningIcon, PlugsIcon } from "@phosphor-icons/react";
 import { useAccount, useSwitchChain } from "wagmi";
 import { Button } from "@decentralpark/ui";
-import { deployment, isDeployed, ZERO_ADDRESS } from "../chain/deployment";
-import { appChain } from "../chain/wagmi";
+import {
+  TEST_DEPLOYMENT,
+  isLiveDeployment,
+  useActiveDeployment,
+} from "../chain/registry";
 
-/** Unmistakable banner while the app is inert, naming the actual cause:
- * zero-address placeholders in deployment.json, or the production guard
- * refusing a deployment.json that points at a non-Gnosis chain. */
+/**
+ * Dev/e2e nicety: deployment.json points at a local chain but still carries
+ * zero-address placeholders, so the registry refused to serve it and the app
+ * fell back to the baked production deployments. Production builds never see
+ * this (their deployments are baked real).
+ */
 export function NotDeployedBanner() {
-  if (isDeployed) return null;
-  const hasZeroAddress =
-    deployment.oracle === ZERO_ADDRESS ||
-    deployment.pool === ZERO_ADDRESS ||
-    deployment.token === ZERO_ADDRESS ||
-    deployment.currency === ZERO_ADDRESS;
+  if (!TEST_DEPLOYMENT || isLiveDeployment(TEST_DEPLOYMENT)) return null;
   return (
     <div
       data-testid="not-deployed-banner"
@@ -22,29 +23,23 @@ export function NotDeployedBanner() {
     >
       <WarningIcon size={22} weight="fill" className="shrink-0 mt-0.5" />
       <div className="font-parkBody text-sm">
-        <span className="font-bold">Not deployed yet.</span>{" "}
-        {hasZeroAddress ? (
-          <>
-            The contract addresses in <code>deployment.json</code> are zero
-            placeholders — nothing is on-chain for this app yet. All figures
-            below are unavailable until the operator deploys and writes real
-            addresses.
-          </>
-        ) : (
-          <>
-            This production build's <code>deployment.json</code> points at
-            chain {deployment.chainId}, not Gnosis (100), so the wrong-chain
-            guard keeps the app inert. Rebuild against a Gnosis deployment —
-            test builds may opt out with <code>VITE_ALLOW_TEST_CHAIN=1</code>.
-          </>
-        )}
+        <span className="font-bold">Local deployment not ready.</span>{" "}
+        <code>deployment.json</code> points at chain {TEST_DEPLOYMENT.chainId}{" "}
+        but its contract addresses are zero placeholders, so this test chain
+        is not being served — the app is showing the baked production
+        deployments instead. Run the deploy script to write real addresses.
       </div>
     </div>
   );
 }
 
-/** Wrong-network banner with a one-click switch to the app chain (Gnosis). */
+/**
+ * Wrong-network banner: compares the WALLET chain to the ACTIVE deployment
+ * (the chain the header switcher selected) and offers a one-click
+ * switchChain to it.
+ */
 export function WrongNetworkBanner() {
+  const { deployment } = useActiveDeployment();
   const { isConnected, chainId } = useAccount();
   const { switchChain, isPending, error } = useSwitchChain();
 
@@ -58,8 +53,8 @@ export function WrongNetworkBanner() {
     >
       <PlugsIcon size={22} weight="fill" className="shrink-0" />
       <span className="font-parkBody text-sm flex-1 min-w-48">
-        Your wallet is on the wrong network — NY Rent Cover lives on{" "}
-        <span className="font-bold">{appChain.name}</span> (chain{" "}
+        Your wallet is on a different network — RentSafe is reading{" "}
+        <span className="font-bold">{deployment.name}</span> (chain{" "}
         {deployment.chainId}).
       </span>
       <Button
@@ -69,12 +64,12 @@ export function WrongNetworkBanner() {
         isLoading={isPending}
         onClick={() => switchChain({ chainId: deployment.chainId })}
       >
-        Switch to {appChain.name}
+        Switch to {deployment.name}
       </Button>
       {error ? (
         <span className="font-parkBody text-xs basis-full">
           Switch failed: {error.message.split("\n")[0]} — switch networks in
-          your wallet instead.
+          your wallet instead, or pick your wallet's network in the header.
         </span>
       ) : null}
     </div>

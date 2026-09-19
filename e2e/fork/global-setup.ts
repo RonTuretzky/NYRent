@@ -1,10 +1,12 @@
 // Owns the mainnet-fork stack:
 //   1. anvil --fork-url <Gnosis> on 127.0.0.1:8549 (real chainId 100 state)
-//   2. impersonated REAL sponsor funds the REAL pool and creates a series with
-//      an OPEN sale window (mainnet's demo series is already settled)
-//   3. the buyer (anvil dev #0, fork-funded xDAI) receives real USDC.e from a
-//      large on-fork holder (the GNO/USDC.e Uniswap pool — NOT the route pool)
-//   4. production `vite build` against the committed real deployment.json with
+//   2. an impersonated FRESH creator escrows real WXDAI into the REAL
+//      permissionless pool via createSeries — sale window OPEN for the suite
+//      (the live pool ships with zero series; anyone can create one)
+//   3. the buyer (fresh code-less address, fork-funded xDAI) receives real
+//      USDC.e from a large on-fork holder (the GNO/USDC.e Uniswap pool — NOT
+//      the route pool)
+//   4. production `vite build` against the committed real deployments with
 //      VITE_RPC_URL pointed at the fork, served on 127.0.0.1:5175
 // No mainnet transaction is ever broadcast; the upstream RPC only serves reads.
 import { spawn, spawnSync, type SpawnSyncOptions } from "node:child_process";
@@ -14,6 +16,7 @@ import { encodeFunctionData, parseEther, parseUnits } from "viem";
 import {
   ART_DIR,
   BUYER,
+  CREATOR,
   FORK_PORT,
   FORK_PREVIEW_URL,
   FORK_PREVIEW_PORT,
@@ -21,7 +24,6 @@ import {
   PIDS_PATH,
   POOL,
   REPO_ROOT,
-  SPONSOR,
   STATE_PATH,
   UNI_WXDAI_USDCE_POOL,
   UPSTREAM_RPC_URL,
@@ -59,8 +61,7 @@ const forkUp = async (): Promise<boolean> =>
 const previewUp = async (): Promise<boolean> =>
   (await fetch(FORK_PREVIEW_URL)).ok;
 
-const FUND = parseEther("5"); // sponsor tops the pool up so a 1-WXDAI claim fits
-const CAPACITY = parseEther("2");
+const CAPACITY = parseEther("2"); // creator-escrowed: backs the 1-WXDAI buy 1:1
 const BUYER_USDCE = parseUnits("100", 6);
 
 export default async function globalSetup(): Promise<void> {
@@ -89,15 +90,22 @@ export default async function globalSetup(): Promise<void> {
   savePids();
   await waitFor(forkUp, `anvil fork of ${UPSTREAM_RPC_URL} on :${FORK_PORT}`);
 
-  // The buyer must be a code-less EOA on the fork (see support.ts on why the
-  // dev accounts don't qualify), funded with fork-only xDAI for gas + wraps.
-  const buyerCode = await rpc<string>("eth_getCode", [BUYER, "latest"]);
-  if (buyerCode !== "0x") {
-    throw new Error(`buyer ${BUYER} unexpectedly has code on the fork`);
+  // The buyer and creator must be code-less EOAs on the fork (see support.ts
+  // on why the dev accounts don't qualify), funded with fork-only xDAI.
+  for (const [who, label] of [
+    [BUYER, "buyer"],
+    [CREATOR, "creator"],
+  ] as const) {
+    const code = await rpc<string>("eth_getCode", [who, "latest"]);
+    if (code !== "0x") {
+      throw new Error(`${label} ${who} unexpectedly has code on the fork`);
+    }
+    await rpc("anvil_setBalance", [who, "0x8ac7230489e80000"]); // 10 xDAI
   }
-  await rpc("anvil_setBalance", [BUYER, "0x8ac7230489e80000"]); // 10 xDAI
 
-  // 2. The REAL sponsor (impersonated, fork-only) prepares an open series.
+  // 2. The impersonated creator escrows CAPACITY into the REAL permissionless
+  //    pool: wrap → approve → createSeries pulls the escrow (no sponsor, no
+  //    fundPool — the pool has no roles at all). Sale window OPEN all suite.
   const seriesId = Number(
     await forkClient.readContract({
       address: POOL,
@@ -106,51 +114,41 @@ export default async function globalSetup(): Promise<void> {
     }),
   );
   const now = (await forkClient.getBlock()).timestamp;
-  await rpc("anvil_setBalance", [SPONSOR, "0x21e19e0c9bab2400000"]); // 10k xDAI
-  await rpc("anvil_impersonateAccount", [SPONSOR]);
+  await rpc("anvil_impersonateAccount", [CREATOR]);
   await sendTx({
-    from: SPONSOR,
+    from: CREATOR,
     to: WXDAI,
-    value: FUND,
+    value: CAPACITY,
     data: encodeFunctionData({ abi: erc20Abi, functionName: "deposit" }),
   });
   await sendTx({
-    from: SPONSOR,
+    from: CREATOR,
     to: WXDAI,
     data: encodeFunctionData({
       abi: erc20Abi,
       functionName: "approve",
-      args: [POOL, FUND],
+      args: [POOL, CAPACITY],
     }),
   });
   await sendTx({
-    from: SPONSOR,
-    to: POOL,
-    data: encodeFunctionData({
-      abi: poolAbi,
-      functionName: "fundPool",
-      args: [FUND],
-    }),
-  });
-  await sendTx({
-    from: SPONSOR,
+    from: CREATOR,
     to: POOL,
     data: encodeFunctionData({
       abi: poolAbi,
       functionName: "createSeries",
       args: [
-        8800, // strikeLowCents (same strikes as the live demo series)
+        8800, // strikeLowCents (same strikes as the anvil demo series)
         9600, // strikeHighCents
         2850, // premiumRateBps
         now + 86_400n, // saleEnd — OPEN for the whole suite
-        now + 86_400n, // obsStart (saleEnd ≤ obsStart: production-shaped series)
+        now + 86_400n, // obsStart (saleEnd ≤ obsStart: contract invariant)
         now + 2n * 86_400n, // obsEnd
-        now + 30n * 86_400n, // redeemEnd
+        now + 30n * 86_400n, // redeemEnd (≥ obsEnd + 7d claim window)
         CAPACITY,
       ],
     }),
   });
-  await rpc("anvil_stopImpersonatingAccount", [SPONSOR]);
+  await rpc("anvil_stopImpersonatingAccount", [CREATOR]);
 
   const count = await forkClient.readContract({
     address: POOL,

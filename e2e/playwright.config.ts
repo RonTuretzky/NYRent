@@ -3,9 +3,9 @@
 import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: ".",
-  // The mainnet-fork suite has its own config/stack (fork/playwright.config.ts,
-  // anvil on 8549); never run it as part of the local-chain suite.
-  testIgnore: "**/fork/**",
+  // The mainnet-fork suites have their own configs/stacks (fork/ on 8549,
+  // fork-arb/ on 8550); never run them as part of the local-chain suite.
+  testIgnore: ["**/fork/**", "**/fork-arb/**"],
   timeout: 90000,
   expect: { timeout: 15000 },
   fullyParallel: false,

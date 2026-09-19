@@ -8,13 +8,16 @@ export function formatCents(cents: number | bigint): string {
   return `$${(n / 100).toFixed(2)}`;
 }
 
-/** Currency amounts (WXDAI, 18 decimals) with sensible precision. */
+/** Currency amounts with sensible precision. `decimals`/`symbol` are
+ * REQUIRED and must come from the active deployment's currency (18-dec vs
+ * 6-dec chains render the same wei count wildly differently) — no defaults,
+ * so tsc flags any call site that forgets. */
 export function formatCurrency(
   wei: bigint | undefined,
-  opts: { decimals?: number; symbol?: string; precision?: number } = {},
+  opts: { decimals: number; symbol: string; precision?: number },
 ): string {
   if (wei === undefined) return "—";
-  const { decimals = 18, symbol = "WXDAI", precision = 6 } = opts;
+  const { decimals, symbol, precision = 6 } = opts;
   const asString = formatUnits(wei, decimals);
   const num = Number(asString);
   const shown =
@@ -26,7 +29,9 @@ export function formatCurrency(
   return `${shown} ${symbol}`;
 }
 
-export function parseCurrency(input: string, decimals = 18): bigint | null {
+/** Decimal input → currency wei. `decimals` is REQUIRED (the active
+ * deployment's currency decimals) — same rationale as formatCurrency. */
+export function parseCurrency(input: string, decimals: number): bigint | null {
   const trimmed = input.trim();
   if (!/^\d*\.?\d*$/.test(trimmed) || trimmed === "" || trimmed === ".") {
     return null;

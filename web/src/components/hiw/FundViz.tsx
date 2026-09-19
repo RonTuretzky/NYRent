@@ -10,7 +10,7 @@ import {
 } from "./shared";
 
 /**
- * Step 1 — FUND. Green WXDAI dots travel sponsor → pool; each arrival bumps
+ * Step 1 — FUND. Green currency dots travel underwriter → pool; each arrival bumps
  * a brief border pulse and raises the vault's fill level one increment, then
  * the level soft-fades and the cycle restarts.
  */
@@ -21,12 +21,12 @@ const ARRIVALS = [0.3, 0.54, 0.78] as const;
 
 export function FundViz({ reducedMotion }: { reducedMotion: boolean }) {
   return (
-    <VizCard caption="WXDAI collateral → pool · fully backed">
+    <VizCard caption="escrowed collateral → pool · fully backed">
       <svg
         viewBox="0 0 420 240"
         className="w-full h-auto"
         role="img"
-        aria-label="The sponsor deposits WXDAI collateral into the cover pool; the pool's fill level rises with each deposit."
+        aria-label="The underwriter deposits currency as escrow into the cover pool; the pool's fill level rises with each deposit."
       >
         <Track d={PATH} />
 
@@ -36,8 +36,8 @@ export function FundViz({ reducedMotion }: { reducedMotion: boolean }) {
           w={120}
           h={80}
           color={C.green}
-          title="Sponsor"
-          sub="WXDAI capital"
+          title="Underwriter"
+          sub="escrowed capital"
           icon={<BankIcon size={22} color={C.green} weight="bold" />}
         />
 

@@ -10,10 +10,13 @@ import {
   FileArrowUpIcon,
   XCircleIcon,
 } from "@phosphor-icons/react";
-import { deployment, isDeployed } from "../chain/deployment";
+import { isLiveDeployment, useActiveDeployment } from "../chain/registry";
 import { oracleAbi, poolAbi } from "../chain/contracts";
-import { useObservations, useSeries } from "../chain/hooks";
-import { useAllSeries } from "../chain/hooks";
+import {
+  useOracleObservations,
+  useSeriesIndex,
+  useSeriesRow,
+} from "../chain/poolHooks";
 import { useTx } from "../chain/useTx";
 import { TxStatus } from "../components/TxStatus";
 import {
@@ -37,11 +40,12 @@ import {
 
 /** /settle without an id: pick a series. */
 export function SettlePicker() {
-  const { series, isLoading, rpcError } = useAllSeries();
-  if (!isDeployed) {
+  const { deployment } = useActiveDeployment();
+  const { rows: series, isLoading, rpcError } = useSeriesIndex();
+  if (!isLiveDeployment(deployment)) {
     return (
       <EmptyState title="Not deployed yet">
-        Settlement opens once contracts are live.
+        Settlement opens once contracts are live on {deployment.name}.
       </EmptyState>
     );
   }
@@ -98,8 +102,9 @@ type FileState =
 export function Settle() {
   const { id } = useParams();
   const seriesId = id !== undefined ? Number(id) : undefined;
-  const { series: s, isLoading, rpcError } = useSeries(seriesId);
-  const { observations } = useObservations();
+  const { deployment } = useActiveDeployment();
+  const { series: s, isLoading, rpcError } = useSeriesRow(seriesId);
+  const { observations } = useOracleObservations();
   const { address, isConnected, chainId } = useAccount();
   const { openConnectModal } = useConnectModal();
 
@@ -153,10 +158,10 @@ export function Settle() {
   const now = nowSec();
   const wrongNetwork = isConnected && chainId !== deployment.chainId;
 
-  if (!isDeployed) {
+  if (!isLiveDeployment(deployment)) {
     return (
       <EmptyState title="Not deployed yet">
-        Settlement opens once contracts are live.
+        Settlement opens once contracts are live on {deployment.name}.
       </EmptyState>
     );
   }
@@ -198,6 +203,7 @@ export function Settle() {
       {
         abi: oracleAbi,
         address: deployment.oracle,
+        chainId: deployment.chainId,
         functionName: "submitObservation",
         args: [
           toHex(parsed.signedHeaders),
@@ -241,6 +247,7 @@ export function Settle() {
       {
         abi: poolAbi,
         address: deployment.pool,
+        chainId: deployment.chainId,
         functionName: "settle",
         args: [BigInt(seriesId!), recordedIndex],
         account: address,
@@ -502,7 +509,7 @@ export function Settle() {
                         className="underline font-bold"
                         to={`/redeem/${seriesId}`}
                       >
-                        Redeem your cover →
+                        Claim your payout →
                       </Link>
                     </p>
                   ) : null}

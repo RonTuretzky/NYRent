@@ -58,7 +58,7 @@ function ToastCard({
         ) : null}
         {toast.hash ? (
           <a
-            href={txUrl(toast.hash)}
+            href={txUrl(toast.hash, toast.explorerBase)}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-0.5 inline-block underline decoration-dotted text-surface-grey-2 break-all"

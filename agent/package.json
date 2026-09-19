@@ -3,16 +3,21 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Daily rent-scout agent for NY Rent Cover (Node 22+, viem): collectors (real endpoints), deterministic policy, and Gnosis executors. Fixtures are captured responses used for parser unit tests.",
+  "description": "Two-sided market-maker agent for NY Rent Cover (Node 22+, viem) on the permissionless CoverPool (Gnosis WXDAI + Arbitrum USDC): collectors (real endpoints), deterministic policy (sell/buy/manage), per-target executors. Fixtures are captured responses used for parser unit tests.",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "start": "node run.mjs",
-    "test": "node --test 'policy/**/*.test.mjs' 'collectors/**/*.test.mjs' 'executors/*.test.mjs'",
+    "test": "node --test '*.test.mjs' 'policy/**/*.test.mjs' 'collectors/**/*.test.mjs' 'executors/*.test.mjs'",
     "test:policy": "node --test 'policy/**/*.test.mjs'",
     "test:executors": "node --test 'executors/*.test.mjs'",
+    "test:runner": "node --test '*.test.mjs'",
     "test:fork": "node executors/fork-proof.mjs",
+    "test:fork:arbitrum": "node executors/fork-proof.mjs --target arbitrum",
+    "test:fork:bankr": "node executors/bankr-fork-proof.mjs",
+    "test:fork:cycle": "node executors/mm-cycle-fork-proof.mjs",
+    "test:fork:cycle:arbitrum": "node executors/mm-cycle-fork-proof.mjs --target arbitrum",
     "collect": "node collectors/collect.mjs"
   },
   "dependencies": {

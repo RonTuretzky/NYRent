@@ -3,13 +3,20 @@ import { Link } from "react-router-dom";
 import { LiftedButton, Chip } from "@decentralpark/ui";
 import {
   ArrowRightIcon,
+  CompassIcon,
   EnvelopeSimpleIcon,
   ShieldCheckIcon,
   VaultIcon,
 } from "@phosphor-icons/react";
 import { PayoutCurve } from "../components/PayoutCurve";
-import { useAllSeries } from "../chain/hooks";
-import { isDeployed } from "../chain/deployment";
+import { useSeriesIndex } from "../chain/poolHooks";
+import {
+  DEPLOYMENTS,
+  PRODUCTION_CHAIN_IDS,
+  isLiveDeployment,
+  useActiveDeployment,
+} from "../chain/registry";
+import { addressUrl } from "../chain/explorer";
 
 // The 800+-line animated explainer is below the fold on every visit — load it
 // as its own chunk so the eager landing bundle stays small. The Suspense
@@ -29,8 +36,10 @@ function HowItWorksSkeleton() {
 }
 
 export function Landing() {
-  const { series } = useAllSeries();
-  const demo = series[0]?.series;
+  const { deployment } = useActiveDeployment();
+  const { rows } = useSeriesIndex();
+  const demo = rows[0]?.series;
+  const live = isLiveDeployment(deployment);
 
   // Curve preview: live settled point when available, else the verified
   // fixture value ($92.88 → 61% between the demo strikes).
@@ -46,36 +55,66 @@ export function Landing() {
       }
     : { cents: 9288, ratioWad: 610_000_000_000_000_000n };
 
+  // Chain names in copy come from the registry, never hardcoded.
+  const chains = Object.values(DEPLOYMENTS).filter((d) =>
+    PRODUCTION_CHAIN_IDS.includes(d.chainId),
+  );
+
   return (
     <div className="space-y-16">
-      {/* hero */}
+      {/* hero — plain rent story, no index jargon (specifics live one level
+          down: series detail + docs) */}
       <section className="pt-8 sm:pt-14 text-center max-w-3xl mx-auto">
         <div className="flex justify-center gap-2 flex-wrap mb-6">
-          <Chip size="small">Gnosis Chain</Chip>
-          <Chip size="small">Fully collateralized</Chip>
-          <Chip size="small">DKIM-settled</Chip>
-          <Chip size="small">Unaudited demo — tiny amounts</Chip>
+          <Chip size="small">{chains.map((d) => d.name).join(" + ")}</Chip>
+          <Chip size="small">Money escrowed up front</Chip>
+          <Chip size="small">Unaudited experiment — tiny amounts</Chip>
         </div>
         <h1 className="font-parkDisplay font-bold text-4xl sm:text-6xl tracking-tight text-text-standard">
-          Manhattan office-rent protection,{" "}
-          <span className="text-core-green">settled by an email.</span>
+          Rent goes up.{" "}
+          <span className="text-core-green">RentSafe pays you when it does.</span>
         </h1>
         <p className="font-parkBody text-lg text-surface-grey-2 mt-6">
-          NY Rent Cover pays out when CRE Daily's Market Snapshot reports
-          Manhattan office rents above your strike. No oracle committee, no
-          trusted server — the newsletter's own RSA-2048 DKIM signature is
-          verified on-chain, and the printed “$/SF” number settles the market.
+          Pay a small one-time price for protection. If the reported rent
+          number rises past your level, you get paid — automatically, from
+          money that was locked up before you ever bought. The rent number
+          comes from rent newsletters that are cryptographically signed, so
+          nobody can fake it: the newsletter itself is the oracle.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
+          <Link to="/choose">
+            <LiftedButton rightIcon={<CompassIcon size={20} />}>
+              Help me choose
+            </LiftedButton>
+          </Link>
           <Link to="/series">
-            <LiftedButton rightIcon={<ArrowRightIcon size={20} />}>
+            <LiftedButton
+              preset="secondary"
+              rightIcon={<ArrowRightIcon size={20} />}
+            >
               View series
             </LiftedButton>
           </Link>
-          <Link to="/docs">
-            <LiftedButton preset="secondary">Read the protocol</LiftedButton>
-          </Link>
         </div>
+        <p className="font-parkBody text-xs text-surface-grey mt-5">
+          Live on{" "}
+          {chains.map((d, i) => (
+            <span key={d.chainId}>
+              {i > 0 ? " and " : ""}
+              <a
+                href={addressUrl(d.pool, d.explorerBase)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-dotted"
+              >
+                {d.name}
+              </a>{" "}
+              ({d.currency.symbol})
+            </span>
+          ))}
+          . The index behind it tracks Manhattan office rent (commercial, not
+          residential).
+        </p>
       </section>
 
       {/* how it works */}
@@ -85,9 +124,10 @@ export function Landing() {
             How it works
           </h2>
           <p className="font-parkBody text-surface-grey-2 mt-3">
-            Five steps from collateral to claim, each with its mechanics
-            looping beside it. Every moving dot is a real on-chain transfer
-            except one: the email, which is cryptography, not custody.
+            Someone locks up money to back the protection. You pay once and
+            you're covered. A signed rent newsletter — which nobody can forge
+            — sets the result, and if rent rose past your level you claim
+            your payout. Watch each step loop below.
           </p>
         </div>
         <Suspense fallback={<HowItWorksSkeleton />}>
@@ -99,28 +139,28 @@ export function Landing() {
       <section className="grid sm:grid-cols-3 gap-5 max-w-5xl mx-auto">
         <Pillar
           icon={<VaultIcon size={28} weight="bold" />}
-          title="Solvent by construction"
+          title="The money is already there"
         >
-          The pool can never sell more max-claim than the capital it holds.
-          Reserves are locked from purchase to redemption, and redemption can
-          never be paused.
+          Whoever underwrites a series deposits its full payout capacity into
+          the contract before a single unit is sold. Your potential payout is
+          held where nobody can pause it or take it away.
         </Pillar>
         <Pillar
           icon={<EnvelopeSimpleIcon size={28} weight="bold" />}
-          title="The email is the oracle"
+          title="The newsletter is the oracle"
         >
-          CRE Daily signs every newsletter with DKIM. The oracle contract
-          verifies that signature against a pinned key and parses “Manhattan
-          Office Rent … $92.88 / SF” straight out of the body. VERIFIED against
-          the real 102 KB email.
+          The rent number comes from a rent newsletter carrying the
+          publisher's cryptographic signature (DKIM), verified on-chain
+          against a pinned key. No committee, no trusted server — an email
+          nobody can fake settles the market.
         </Pillar>
         <Pillar
           icon={<ShieldCheckIcon size={28} weight="bold" />}
-          title="Permissionless settlement"
+          title="Anyone can settle"
         >
-          Anyone holding the email can settle — upload the .eml, the app runs
-          the full DKIM preflight locally, then submits it on-chain. First
-          qualifying observation wins, once.
+          Whoever holds the newsletter can settle a series — upload the raw
+          email, the app checks every rule locally, then submits it on-chain.
+          First qualifying reading wins, once.
         </Pillar>
       </section>
 
@@ -128,12 +168,12 @@ export function Landing() {
       <section className="max-w-3xl mx-auto">
         <div className="text-center mb-6">
           <h2 className="font-parkDisplay font-bold text-3xl text-text-standard">
-            A linear payout between two strikes
+            The higher rent goes, the more you're paid
           </h2>
           <p className="font-parkBody text-surface-grey-2 mt-3">
-            {isDeployed && demo
-              ? "The live demo series pays 0% at the low strike and 100% at the high strike."
-              : "Example: strikes at $88.00 and $96.00. At the verified fixture value of $92.88 the payout ratio is 61%."}
+            {live && demo
+              ? "Each series pays 0% at its low level and 100% at its high level, sliding linearly in between."
+              : "Example: levels at $88.00 and $96.00. At the verified reading of $92.88 the payout ratio is 61%."}
           </p>
         </div>
         <div className="bg-paper-0 border-2 border-paper-2 rounded-2xl p-6">
@@ -144,6 +184,13 @@ export function Landing() {
             ratioWad={preview.ratioWad}
           />
         </div>
+        <p className="font-parkBody text-xs text-surface-grey text-center mt-4">
+          Want the full mechanics, addresses and evidence chain?{" "}
+          <Link to="/docs" className="underline decoration-dotted">
+            Read the docs
+          </Link>
+          .
+        </p>
       </section>
     </div>
   );

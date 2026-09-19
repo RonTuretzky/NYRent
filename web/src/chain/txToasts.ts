@@ -8,6 +8,9 @@ export interface TxToastEntry {
   label: string;
   status: TxToastStatus;
   error?: string;
+  /** Explorer base of the chain the tx was SENT on, captured at push time —
+   * the link must keep pointing at that chain after a header chain switch. */
+  explorerBase: string;
 }
 
 export interface TxToast extends TxToastEntry {

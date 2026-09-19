@@ -2,11 +2,18 @@
 // junk files fail friendly, over-capacity buys are blocked client-side, and a
 // wallet on the wrong chain is told so and can recover.
 // File runs before journey.spec.ts (alphabetical, single worker) and is written to
-// be order-independent: nothing here mutates chain state.
+// be order-independent: nothing here mutates chain state. Chain-window-sensitive
+// pages get the browser clock pinned to the (past) anvil clock via alignClock.
 import { test, expect } from "@playwright/test";
-import { connectWallet, installWallet, tamperedEml } from "./support/helpers";
+import {
+  alignClock,
+  connectWallet,
+  installWallet,
+  tamperedEml,
+} from "./support/helpers";
 
 test("a tampered email fails exactly the body-hash preflight check", async ({ page }) => {
+  await alignClock(page);
   await installWallet(page);
   await page.goto("/#/settle/0");
   await connectWallet(page);
@@ -30,6 +37,7 @@ test("a tampered email fails exactly the body-hash preflight check", async ({ pa
 });
 
 test("a file that is not an email gets a friendly error", async ({ page }) => {
+  await alignClock(page);
   await installWallet(page);
   await page.goto("/#/settle/0");
   await connectWallet(page);
@@ -42,6 +50,9 @@ test("a file that is not an email gets a friendly error", async ({ page }) => {
 });
 
 test("buying over the series capacity is blocked client-side", async ({ page }) => {
+  // The buy form only renders while the sale is OPEN — which the app judges
+  // by the browser clock, so it must track the warped chain clock.
+  await alignClock(page);
   await installWallet(page, { accountIndex: 1 });
   await page.goto("/#/buy/0");
   await connectWallet(page);

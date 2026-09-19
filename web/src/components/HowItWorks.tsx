@@ -26,8 +26,8 @@ interface Step {
 const STEPS: Step[] = [
   {
     key: "fund",
-    title: "The sponsor collateralizes the pool",
-    body: "The sponsor deposits WXDAI into the cover pool up front. Every unit of protection the pool can ever sell is backed 1:1 by capital that is already on-chain — there is no leverage and no promise to pay later.",
+    title: "An underwriter escrows the payout money",
+    body: "Anyone can underwrite a series: they deposit the full payout capacity into the contract up front. Every unit of protection that series can ever sell is backed 1:1 by money that is already on-chain — no leverage, no promise to pay later.",
     viz: FundViz,
   },
   {
@@ -51,7 +51,7 @@ const STEPS: Step[] = [
   {
     key: "redeem",
     title: "Holders redeem, the rest releases",
-    body: "Holders burn cover tokens and are paid maxClaim × ratio from reserves — redemption can never be paused. After the claim window, unclaimed reserves release back to the sponsor's free capital.",
+    body: "Holders burn cover tokens and are paid maxClaim × ratio from reserves — redemption can never be paused. After the claim window, whatever went unclaimed returns to the underwriter who escrowed it, along with the premiums.",
     viz: RedeemViz,
   },
 ];

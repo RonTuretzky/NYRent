@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CloudSlashIcon, TrayIcon } from "@phosphor-icons/react";
 import { Button } from "@decentralpark/ui";
-import { appChain } from "../chain/wagmi";
+import { chainById } from "../chain/wagmi";
+import { useActiveDeployment } from "../chain/registry";
 
 export function LoadingSkeleton({
   lines = 3,
@@ -53,21 +54,21 @@ export function EmptyState({
   );
 }
 
-function rpcHost(): string {
-  try {
-    return new URL(appChain.rpcUrls.default.http[0]).host;
-  } catch {
-    return "the RPC endpoint";
-  }
-}
-
 /**
  * Distinct state for transport/network read failures — the chain could not be
  * reached, which is NOT the same as "no data exists". Rendered by pages when a
- * read hook reports `rpcError`.
+ * read hook reports `rpcError`. Names the ACTIVE chain's endpoint.
  */
 export function RpcDownState({ onRetry }: { onRetry?: () => void }) {
   const queryClient = useQueryClient();
+  const { deployment } = useActiveDeployment();
+  let host = "the RPC endpoint";
+  try {
+    const url = chainById(deployment.chainId)?.rpcUrls.default.http[0];
+    if (url) host = new URL(url).host;
+  } catch {
+    /* keep the generic label */
+  }
   return (
     <div
       className="border-2 border-dashed border-paper-2 rounded-2xl px-6 py-10 text-center bg-paper-0"
@@ -78,12 +79,11 @@ export function RpcDownState({ onRetry }: { onRetry?: () => void }) {
         <CloudSlashIcon size={40} />
       </div>
       <p className="font-parkDisplay font-bold text-text-standard mt-3">
-        Can't reach the Gnosis RPC
+        Can't reach the {deployment.name} RPC
       </p>
       <div className="font-parkBody text-sm text-surface-grey-2 mt-1 max-w-md mx-auto">
-        On-chain data could not be loaded — {rpcHost()} may be down,
-        rate-limited, or blocked by your connection. Nothing is wrong with the
-        pool itself.
+        On-chain data could not be loaded — {host} may be down, rate-limited,
+        or blocked by your connection. Nothing is wrong with the pool itself.
       </div>
       <div className="mt-4 flex justify-center">
         <Button
@@ -136,13 +136,16 @@ export function RpcStaleBanner() {
 export function Card({
   children,
   className = "",
+  "data-testid": testId,
 }: {
   children: ReactNode;
   className?: string;
+  "data-testid"?: string;
 }) {
   return (
     <div
       className={`bg-paper-0 border-2 border-paper-2 rounded-2xl p-5 sm:p-6 ${className}`}
+      data-testid={testId}
     >
       {children}
     </div>

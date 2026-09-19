@@ -1,44 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { formatUnits } from "viem";
 import {
-  useAccount,
-  useCapabilities,
-  useConfig,
-  useSendCalls,
-  useWaitForCallsStatus,
-} from "wagmi";
-import { waitForCallsStatus } from "wagmi/actions";
+  Link,
+  useLocation,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
+import { useAccount, useSwitchChain } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { Button } from "@decentralpark/ui";
-import { deployment, isDeployed } from "../chain/deployment";
-import { erc20Abi, poolAbi } from "../chain/contracts";
+import { isLiveDeployment, useActiveDeployment } from "../chain/registry";
 import {
-  useCoverBalance,
-  useCurrencyMeta,
-  usePoolStats,
-  useQuote,
-  useSeries,
-  useUserCurrency,
-} from "../chain/hooks";
-import { useTx, type TxState } from "../chain/useTx";
-import { decodeTxError, type DecodedTxError } from "../chain/errors";
-import { pushTxToast, updateTxToast } from "../chain/txToasts";
-import { txUrl } from "../chain/explorer";
+  useCoverUnits,
+  useSeriesRow,
+  useWalletCurrency,
+} from "../chain/poolHooks";
 import {
-  PAYMENT_TOKENS,
-  SWAP_ROUTER_02,
-  buildBuyBatch,
-  buildSwapTxRequest,
+  approveCurrencyRequest,
+  approveRouterRequest,
+  buyProtectionRequest,
+  premiumFor,
+  premiumRoundsToZero,
+  swapAndBuyRequest,
+  wrapNativeRequest,
+} from "../chain/router";
+import {
   friendlySwapError,
-  supportsAtomicBatch,
-  swapsAvailable,
   usePaymentBalances,
+  usePaymentTokens,
   useRouterAllowance,
   useSwapQuote,
-  useWrapTx,
-  type PaymentTokenId,
+  type PaymentToken,
 } from "../chain/swap";
+import { useTx, type TxState } from "../chain/useTx";
 import { TxStatus } from "../components/TxStatus";
 import { TokenSelect, type TokenOption } from "../components/TokenSelect";
 import { PricingPanel } from "../components/PricingPanel";
@@ -51,12 +44,12 @@ import {
 } from "../components/States";
 import {
   formatBps,
+  formatCents,
   formatCurrency,
+  formatDate,
   nowSec,
   parseCurrency,
 } from "../chain/format";
-
-type StepId = "wrap" | "swap-approve" | "swap" | "pool-approve" | "buy";
 
 function txBusy(state: TxState): boolean {
   return (
@@ -66,49 +59,107 @@ function txBusy(state: TxState): boolean {
   );
 }
 
+/** A dotted-underline term with a plain-language tooltip. */
+function Term({ children, tip }: { children: string; tip: string }) {
+  return (
+    <span
+      title={tip}
+      className="underline decoration-dotted decoration-surface-grey cursor-help"
+    >
+      {children}
+    </span>
+  );
+}
+
 export function Buy() {
   const { id } = useParams();
   const seriesId = id !== undefined ? Number(id) : undefined;
-  const { series: s, isLoading, rpcError } = useSeries(seriesId);
-  const { symbol, decimals } = useCurrencyMeta();
-  const { stats } = usePoolStats();
-  const { address, isConnected, chainId } = useAccount();
-  const { openConnectModal } = useConnectModal();
-  const config = useConfig();
-  const { balance, allowance, refetch: refetchCurrency } = useUserCurrency();
-  const { balance: coverBalance, refetch: refetchCover } =
-    useCoverBalance(seriesId);
+  const { deployment } = useActiveDeployment();
+  const { symbol, decimals } = deployment.currency;
 
-  const [amountInput, setAmountInput] = useState("");
-  const [slippagePct, setSlippagePct] = useState("1");
-  const [payToken, setPayToken] = useState<PaymentTokenId>("wxdai");
+  const { series: s, paused, isLoading, rpcError } = useSeriesRow(seriesId);
+  const { address, isConnected, chainId: walletChainId } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const { switchChain, isPending: switchPending } = useSwitchChain();
+  const {
+    balance,
+    allowance,
+    refetch: refetchCurrency,
+  } = useWalletCurrency();
+  const { balance: coverBalance, refetch: refetchCover } =
+    useCoverUnits(seriesId);
+
+  // ---- wizard prefill (route state or ?amount=/&pay= from /choose) --------
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const prefillAmount =
+    searchParams.get("amount") ??
+    (location.state as { amount?: string } | null)?.amount ??
+    "";
+  const prefillPay =
+    searchParams.get("pay") ??
+    (location.state as { pay?: string } | null)?.pay ??
+    undefined;
+  const fromWizard = prefillAmount !== "";
+
+  const tokens = usePaymentTokens();
+  const directToken = useMemo(
+    () => tokens.find((t) => t.route.kind === "direct") ?? tokens[0],
+    [tokens],
+  );
+
+  const [amountInput, setAmountInput] = useState(prefillAmount);
+  const [payTokenId, setPayTokenId] = useState<string>(
+    prefillPay && tokens.some((t) => t.id === prefillPay)
+      ? prefillPay
+      : directToken.id,
+  );
   const [swapSlippageInput, setSwapSlippageInput] = useState("");
-  const [batchId, setBatchId] = useState<string | undefined>();
-  const [batchError, setBatchError] = useState<DecodedTxError | undefined>();
-  const [forceSequential, setForceSequential] = useState(false);
 
   const approveTx = useTx();
   const buyTx = useTx();
+  const wrapTx = useTx();
   const swapApproveTx = useTx();
-  const swapTx = useTx();
-  const wrapTx = useWrapTx();
+  const swapBuyTx = useTx();
 
-  const token = PAYMENT_TOKENS[payToken];
-  const isSwapRoute =
-    token.route.kind === "single" || token.route.kind === "multi";
+  function resetFlow() {
+    approveTx.reset();
+    buyTx.reset();
+    wrapTx.reset();
+    swapApproveTx.reset();
+    swapBuyTx.reset();
+  }
+
+  // Chain switch: the token menu is per-chain, so reselect the pool currency
+  // and clear any in-progress flow.
+  const activeChainId = deployment.chainId;
+  useEffect(() => {
+    setPayTokenId((current) =>
+      tokens.some((t) => t.id === current) ? current : directToken.id,
+    );
+    setSwapSlippageInput("");
+    resetFlow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChainId]);
+
+  const token: PaymentToken =
+    tokens.find((t) => t.id === payTokenId) ?? directToken;
+  const route = token.route;
+  const isDirect = route.kind === "direct";
+  const isWrap = route.kind === "wrap";
+  const isRouter = route.kind === "router";
+  const isNativeRouter = isRouter && route.native === true;
 
   const maxClaim = parseCurrency(amountInput, decimals);
-  const premium = useQuote(seriesId, maxClaim, s?.premiumRateBps);
+  const premium =
+    s !== undefined && maxClaim !== null && maxClaim > 0n
+      ? premiumFor(maxClaim, s.premiumRateBps)
+      : undefined;
+  // The premium rate is immutable on-chain, so the price cannot move between
+  // quote and purchase: maxPremium is the exact premium (no slippage jargon).
+  const maxPremium = premium;
 
-  const maxPremium = useMemo(() => {
-    if (premium === undefined) return undefined;
-    const pct = Number(slippagePct);
-    if (!Number.isFinite(pct) || pct < 0) return undefined;
-    return premium + (premium * BigInt(Math.round(pct * 100))) / 10_000n;
-  }, [premium, slippagePct]);
-
-  // Swap slippage: fixed per-token defaults, editable (bps) in the advanced
-  // disclosure. Empty input = default.
+  // Swap slippage override (bps) from the advanced disclosure; empty = default.
   const swapSlippageTrimmed = swapSlippageInput.trim();
   const swapSlippageParsed =
     swapSlippageTrimmed === "" ? undefined : Number(swapSlippageTrimmed);
@@ -119,130 +170,66 @@ export function Buy() {
       swapSlippageParsed > 1000);
 
   const swapQuote = useSwapQuote(
-    payToken,
+    isRouter ? token : undefined,
     premium,
     swapSlippageInvalid ? undefined : swapSlippageParsed,
   );
-  const balances = usePaymentBalances(address);
+  const balances = usePaymentBalances(tokens, address);
   const { allowance: routerAllowance, refetch: refetchRouterAllowance } =
-    useRouterAllowance(payToken, address);
-
-  const capabilitiesQuery = useCapabilities({
-    account: address,
-    query: { enabled: isConnected && chainId === deployment.chainId },
-  });
-  const batchSupported = supportsAtomicBatch(
-    capabilitiesQuery.data,
-    deployment.chainId,
-  );
-  const { sendCallsAsync, isPending: sendCallsPending } = useSendCalls();
-  const { data: callsStatus } = useWaitForCallsStatus({
-    id: batchId,
-    query: { enabled: !!batchId },
-  });
-  const batchStatus = batchId ? (callsStatus?.status ?? "pending") : undefined;
-
-  // The batch TOAST is settled by a module-level waiter in onBatchBuy (like
-  // useTx it outlives this component); this effect only refreshes the page's
-  // own reads when the in-component wait sees success.
-  useEffect(() => {
-    if (batchStatus === "success") {
-      refetchCurrency();
-      refetchCover();
-      balances.refetch();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchStatus]);
+    useRouterAllowance(token, address);
 
   const now = nowSec();
-  const wxdaiBalance = balances.wxdai ?? balance;
-  const selectedTokenBalance =
-    payToken === "xdai"
-      ? balances.native
-      : payToken === "usdce"
-        ? balances.usdce
-        : payToken === "gno"
-          ? balances.gno
-          : wxdaiBalance;
-
+  const selectedBalance = balances.byId[token.id];
   const flowDone =
-    buyTx.state.status === "confirmed" || batchStatus === "success";
+    buyTx.state.status === "confirmed" ||
+    swapBuyTx.state.status === "confirmed";
 
-  // ---- funding progress -----------------------------------------------------
-  // Once the premium sits in the wallet as WXDAI — because the wrap/swap step
-  // confirmed, or because the user held enough WXDAI all along — the input
-  // token stops mattering: the spent input balance and the (re-quoted) swap
-  // route must no longer gate the remaining pool-approve/buy steps.
-  const fundingTxRan =
-    wrapTx.state.status === "confirmed" || swapTx.state.status === "confirmed";
-  const premiumCovered =
-    premium !== undefined &&
-    wxdaiBalance !== undefined &&
-    wxdaiBalance >= premium;
-  const fundingDone = fundingTxRan || premiumCovered || flowDone;
+  // Wrap route: once the premium sits in the wallet as the pool currency —
+  // because the wrap confirmed, or because they held enough all along — the
+  // remaining steps are exactly the direct flow.
+  const currencyCovered =
+    premium !== undefined && balance !== undefined && balance >= premium;
+  const wrapDone =
+    wrapTx.state.status === "confirmed" || currencyCovered || flowDone;
 
-  // ---- client-side validation (SPEC: > balance, > capacity, > maxPremium) --
+  // ---- validation (plain sentences only) ----------------------------------
   const validation = useMemo<string | null>(() => {
     if (!s) return null;
     if (amountInput.trim() === "") return null;
-    if (maxClaim === null) return "Enter a valid decimal amount.";
-    if (maxClaim <= 0n) return "Amount must be greater than zero.";
-    const remainingCapacity = s.capacity - s.sold;
-    if (maxClaim > remainingCapacity) {
-      return `Exceeds remaining capacity of ${formatCurrency(remainingCapacity, { symbol, decimals })}.`;
+    if (maxClaim === null) {
+      return "That doesn't look like a number — enter an amount like 100.";
     }
-    if (stats.freeCapital !== undefined && premium !== undefined) {
-      // issuance must keep Σ reserved ≤ balance after collecting the premium
-      const headroom = stats.freeCapital + premium;
-      if (maxClaim > headroom) {
-        return `Exceeds pool solvency headroom of ${formatCurrency(headroom, { symbol, decimals })} — the sponsor must fund more capital first.`;
-      }
+    if (maxClaim <= 0n) return "Enter an amount greater than zero.";
+    if (premiumRoundsToZero(maxClaim, s.premiumRateBps)) {
+      return "That amount is too small to price — try a bigger one.";
     }
-    if (payToken === "wxdai") {
-      if (
-        premium !== undefined &&
-        balance !== undefined &&
-        premium > balance
-      ) {
-        return `Premium ${formatCurrency(premium, { symbol, decimals })} exceeds your balance of ${formatCurrency(balance, { symbol, decimals })}.`;
+    const capacityLeft = s.escrow - s.sold;
+    if (maxClaim > capacityLeft) {
+      return `Only ${formatCurrency(capacityLeft, { symbol, decimals })} of protection is still available in this series.`;
+    }
+    if (premium === undefined) return null;
+    if (isDirect || (isWrap && wrapDone)) {
+      if (balance !== undefined && premium > balance) {
+        return `Your one-time price is ${formatCurrency(premium, { symbol, decimals })} but your ${symbol} balance is ${formatCurrency(balance, { symbol, decimals })}.`;
       }
-    } else if (fundingDone) {
-      // The premium was already converted into WXDAI (or was held all along):
-      // only WXDAI-side coverage gates the remaining steps. The single edge
-      // worth flagging is the funded WXDAI leaving the wallet again.
-      if (
-        !flowDone &&
-        premium !== undefined &&
-        wxdaiBalance !== undefined &&
-        premium > wxdaiBalance
-      ) {
-        return `Premium ${formatCurrency(premium, { symbol, decimals })} exceeds your ${symbol} balance of ${formatCurrency(wxdaiBalance, { symbol, decimals })} — the funded ${symbol} is no longer in this wallet.`;
+    } else if (isWrap) {
+      if (selectedBalance !== undefined && premium > selectedBalance) {
+        return `Your one-time price is ${formatCurrency(premium, { symbol: token.symbol, decimals: token.decimals })} but you hold ${formatCurrency(selectedBalance, { symbol: token.symbol, decimals: token.decimals })} — and you'll still need a little extra for gas.`;
       }
-    } else if (payToken === "xdai") {
-      if (
-        premium !== undefined &&
-        balances.native !== undefined &&
-        premium > balances.native
-      ) {
-        return `Premium ${formatCurrency(premium, { symbol: "xDAI", decimals })} exceeds your xDAI balance of ${formatCurrency(balances.native, { symbol: "xDAI", decimals })}.`;
-      }
-    } else {
+    } else if (isRouter) {
       if (swapSlippageInvalid) {
         return "Swap slippage must be between 0 and 1000 bps.";
       }
       if (swapQuote.quoteFailed) {
-        return `No executable Uniswap route for ${token.symbol} right now — try another payment token.`;
+        return `No live market route for ${token.symbol} right now — try another way to pay.`;
       }
       if (
         swapQuote.amountInMaximum !== undefined &&
-        selectedTokenBalance !== undefined &&
-        swapQuote.amountInMaximum > selectedTokenBalance
+        selectedBalance !== undefined &&
+        swapQuote.amountInMaximum > selectedBalance
       ) {
-        return `Paying with ${token.symbol} needs up to ${formatCurrency(swapQuote.amountInMaximum, { symbol: token.symbol, decimals: token.decimals })}; you hold ${formatCurrency(selectedTokenBalance, { symbol: token.symbol, decimals: token.decimals })}.`;
+        return `Paying with ${token.symbol} needs up to ${formatCurrency(swapQuote.amountInMaximum, { symbol: token.symbol, decimals: token.decimals })}; you hold ${formatCurrency(selectedBalance, { symbol: token.symbol, decimals: token.decimals })}${isNativeRouter ? " (keep a little aside for gas)" : ""}.`;
       }
-    }
-    if (maxPremium === undefined) {
-      return "Enter a valid slippage percentage.";
     }
     return null;
   }, [
@@ -250,28 +237,26 @@ export function Buy() {
     amountInput,
     maxClaim,
     premium,
-    maxPremium,
     balance,
-    stats.freeCapital,
+    selectedBalance,
     symbol,
     decimals,
-    payToken,
     token.symbol,
     token.decimals,
-    balances.native,
-    selectedTokenBalance,
+    isDirect,
+    isWrap,
+    isRouter,
+    isNativeRouter,
+    wrapDone,
     swapQuote.quoteFailed,
     swapQuote.amountInMaximum,
     swapSlippageInvalid,
-    fundingDone,
-    flowDone,
-    wxdaiBalance,
   ]);
 
-  if (!isDeployed) {
+  if (!isLiveDeployment(deployment)) {
     return (
       <EmptyState title="Not deployed yet">
-        Buying opens once contracts are live.
+        Buying opens once contracts are live on {deployment.name}.
       </EmptyState>
     );
   }
@@ -292,32 +277,31 @@ export function Buy() {
     return <EmptyState title={`Series #${seriesId} not found`} />;
   }
 
-  // Mirrors buyProtection's own guards: time window AND not settled AND not paused
-  // (buying a settled series is buying a known outcome — the chain reverts either way).
-  const saleOpen = now <= s.saleEnd && !s.settled && stats.salesPaused !== true;
+  // Mirrors buyProtectionFor's own guards: window, not settled, not
+  // cancelled, not paused (the chain would revert either way).
+  const saleOpen = now <= s.saleEnd && !s.settled && !s.cancelled && !paused;
+  const capacityLeft = s.escrow - s.sold;
+
   const needsApproval =
     maxPremium !== undefined &&
     allowance !== undefined &&
     allowance < maxPremium;
-  const needsSwapApproval =
-    isSwapRoute &&
+  const needsRouterApproval =
+    isRouter &&
+    !isNativeRouter &&
     swapQuote.amountInMaximum !== undefined &&
     (routerAllowance === undefined ||
       routerAllowance < swapQuote.amountInMaximum);
-  const wrongNetwork = isConnected && chainId !== deployment.chainId;
+  const wrongNetwork = isConnected && walletChainId !== deployment.chainId;
   const busy =
     txBusy(approveTx.state) ||
     txBusy(buyTx.state) ||
-    txBusy(swapApproveTx.state) ||
-    txBusy(swapTx.state) ||
     txBusy(wrapTx.state) ||
-    sendCallsPending ||
-    batchStatus === "pending";
+    txBusy(swapApproveTx.state) ||
+    txBusy(swapBuyTx.state);
 
-  // A live route quote is only required while the funding step is still
-  // ahead; once the WXDAI premium is in the wallet the buy stands alone.
-  const swapReady =
-    !isSwapRoute || fundingDone || swapQuote.amountInMaximum !== undefined;
+  const routeReady =
+    !isRouter || swapQuote.amountInMaximum !== undefined;
   const canSubmit =
     saleOpen &&
     isConnected &&
@@ -325,169 +309,55 @@ export function Buy() {
     maxClaim !== null &&
     maxClaim > 0n &&
     maxPremium !== undefined &&
-    swapReady &&
+    routeReady &&
     validation === null &&
     !busy;
 
-  // ---- multi-step flow model (non-WXDAI tokens) ---------------------------
-  const wrapDone = fundingDone;
-  // fundingDone also pins the approve step: post-swap the router allowance
-  // may drop below a FRESH quote, which must not bounce the flow backwards.
-  const swapApproveDone =
-    swapApproveTx.state.status === "confirmed" ||
-    (isSwapRoute && (fundingDone || !needsSwapApproval));
-  const swapDone = fundingDone;
-  const poolApproveDone = approveTx.state.status === "confirmed" || !needsApproval;
-
-  const useBatchUi =
-    payToken !== "wxdai" && batchSupported && !forceSequential;
-
-  // In the sequential stepper an auto-satisfied funding step (no wrap/swap
-  // ever ran — the wallet simply held enough WXDAI) is shown as explicitly
-  // skipped, not as a swap that supposedly happened. The batch list keeps the
-  // real labels: the atomic batch genuinely executes the wrap/swap.
-  const stepperSkipsFunding = fundingDone && !fundingTxRan && !useBatchUi;
-
-  const flowSteps: { id: StepId; label: string; done: boolean }[] = [];
-  if (payToken === "xdai") {
-    flowSteps.push({
-      id: "wrap",
-      label: stepperSkipsFunding
-        ? `You already hold enough ${symbol} — no wrap needed`
-        : `Wrap ${premium !== undefined ? formatCurrency(premium, { symbol: "xDAI", decimals }) : "the premium"} into ${symbol}`,
-      done: wrapDone,
+  // ---- token menu ----------------------------------------------------------
+  const tokenOptions: TokenOption[] = tokens
+    .filter(
+      (t) =>
+        t.route.kind !== "unroutable" ||
+        (balances.byId[t.id] !== undefined && balances.byId[t.id]! > 0n),
+    )
+    .map((t) => {
+      const bal = balances.byId[t.id];
+      const zero = bal !== undefined && bal === 0n;
+      return {
+        id: t.id,
+        symbol: t.symbol,
+        name: t.name,
+        balanceLabel:
+          bal === undefined
+            ? "—"
+            : formatCurrency(bal, {
+                decimals: t.decimals,
+                symbol: t.symbol,
+                precision: 4,
+              }),
+        routeLabel: t.routeLabel || undefined,
+        disabledReason:
+          t.route.kind === "unroutable"
+            ? t.route.reason
+            : t.route.kind !== "direct" && zero
+              ? `No ${t.symbol} balance`
+              : undefined,
+      };
     });
-  } else if (isSwapRoute) {
-    if (stepperSkipsFunding) {
-      flowSteps.push({
-        id: "swap",
-        label: `You already hold the premium in ${symbol} — no swap needed`,
-        done: true,
-      });
-    } else {
-      flowSteps.push({
-        id: "swap-approve",
-        label: `Approve ${token.symbol} for the Uniswap router`,
-        done: swapApproveDone,
-      });
-      flowSteps.push({
-        id: "swap",
-        label: `Swap ${token.symbol} → ${symbol} (exact output)`,
-        done: swapDone,
-      });
-    }
-  }
-  if (payToken !== "wxdai") {
-    flowSteps.push({
-      id: "pool-approve",
-      label: `Approve ${symbol} premium for the pool`,
-      done: poolApproveDone,
-    });
-    flowSteps.push({ id: "buy", label: "Buy protection", done: flowDone });
-  }
-  const currentStepId = flowSteps.find((st) => !st.done)?.id;
 
-  // ---- token menu ---------------------------------------------------------
-  const balanceLabel = (v: bigint | undefined, dec: number, sym: string) =>
-    v === undefined
-      ? "—"
-      : formatCurrency(v, { decimals: dec, symbol: sym, precision: 4 });
-  const zeroReason = (v: bigint | undefined, sym: string) =>
-    v !== undefined && v === 0n ? `No ${sym} balance` : undefined;
-
-  const tokenOptions: TokenOption[] = [
-    {
-      id: "wxdai",
-      symbol: PAYMENT_TOKENS.wxdai.symbol,
-      name: PAYMENT_TOKENS.wxdai.name,
-      balanceLabel: balanceLabel(wxdaiBalance, 18, "WXDAI"),
-      routeLabel: PAYMENT_TOKENS.wxdai.routeLabel,
-    },
-    {
-      id: "xdai",
-      symbol: PAYMENT_TOKENS.xdai.symbol,
-      name: PAYMENT_TOKENS.xdai.name,
-      balanceLabel: balanceLabel(balances.native, 18, "xDAI"),
-      routeLabel: PAYMENT_TOKENS.xdai.routeLabel,
-      disabledReason: zeroReason(balances.native, "xDAI"),
-    },
-  ];
-  if (swapsAvailable) {
-    tokenOptions.push(
-      {
-        id: "usdce",
-        symbol: PAYMENT_TOKENS.usdce.symbol,
-        name: PAYMENT_TOKENS.usdce.name,
-        balanceLabel: balanceLabel(balances.usdce, 6, "USDC.e"),
-        routeLabel: PAYMENT_TOKENS.usdce.routeLabel,
-        disabledReason: zeroReason(balances.usdce, "USDC.e"),
-      },
-      {
-        id: "gno",
-        symbol: PAYMENT_TOKENS.gno.symbol,
-        name: PAYMENT_TOKENS.gno.name,
-        balanceLabel: balanceLabel(balances.gno, 18, "GNO"),
-        routeLabel: PAYMENT_TOKENS.gno.routeLabel,
-        disabledReason: zeroReason(balances.gno, "GNO"),
-      },
-    );
-    if (balances.oldUsdc !== undefined && balances.oldUsdc > 0n) {
-      tokenOptions.push({
-        id: "old-usdc",
-        symbol: "USDC (old)",
-        name: "Legacy bridged USDC",
-        balanceLabel: balanceLabel(balances.oldUsdc, 6, "USDC"),
-        disabledReason: "No Uniswap route — migrate to USDC.e",
-      });
-    }
+  function selectToken(tid: string) {
+    const next = tokens.find((t) => t.id === tid);
+    if (!next || next.route.kind === "unroutable") return;
+    setPayTokenId(tid);
+    setSwapSlippageInput("");
+    resetFlow();
   }
 
-  const effectiveRate =
-    swapQuote.amountIn !== undefined && premium !== undefined && premium > 0n
-      ? Number(formatUnits(swapQuote.amountIn, token.decimals)) /
-        Number(formatUnits(premium, decimals))
-      : undefined;
-
-  const batchReceiptHash =
-    callsStatus?.receipts && callsStatus.receipts.length > 0
-      ? callsStatus.receipts[callsStatus.receipts.length - 1].transactionHash
-      : undefined;
-
-  function resetFlow() {
-    approveTx.reset();
-    buyTx.reset();
-    swapApproveTx.reset();
-    swapTx.reset();
-    wrapTx.reset();
-    setBatchId(undefined);
-    setBatchError(undefined);
-  }
-
-  function selectToken(id: string) {
-    if (id === "wxdai" || id === "xdai" || id === "usdce" || id === "gno") {
-      setPayToken(id);
-      setSwapSlippageInput("");
-      setForceSequential(false);
-      resetFlow();
-    }
-  }
-
-  function switchToSequential() {
-    setForceSequential(true);
-    setBatchId(undefined);
-    setBatchError(undefined);
-  }
-
+  // ---- actions --------------------------------------------------------------
   async function onApprove() {
     if (maxPremium === undefined) return;
     const result = await approveTx.send(
-      {
-        abi: erc20Abi,
-        address: deployment.currency,
-        functionName: "approve",
-        args: [deployment.pool, maxPremium],
-        account: address,
-      },
+      approveCurrencyRequest(deployment, maxPremium, address),
       { label: `Approve ${symbol}` },
     );
     if (result.status === "confirmed") refetchCurrency();
@@ -496,13 +366,13 @@ export function Buy() {
   async function onBuy() {
     if (maxClaim === null || maxPremium === undefined) return;
     const result = await buyTx.send(
-      {
-        abi: poolAbi,
-        address: deployment.pool,
-        functionName: "buyProtection",
-        args: [BigInt(seriesId!), maxClaim, maxPremium],
-        account: address,
-      },
+      buyProtectionRequest(
+        deployment,
+        BigInt(seriesId!),
+        maxClaim,
+        maxPremium,
+        address,
+      ),
       { label: "Buy protection" },
     );
     if (result.status === "confirmed") {
@@ -514,7 +384,10 @@ export function Buy() {
 
   async function onWrap() {
     if (premium === undefined) return;
-    const result = await wrapTx.wrap(premium, address);
+    const result = await wrapTx.send(
+      wrapNativeRequest(deployment, premium, address),
+      { label: `Wrap ${token.symbol}` },
+    );
     if (result.status === "confirmed") {
       refetchCurrency();
       balances.refetch();
@@ -522,165 +395,113 @@ export function Buy() {
   }
 
   async function onSwapApprove() {
-    if (swapQuote.amountInMaximum === undefined || !token.address) return;
+    if (swapQuote.amountInMaximum === undefined) return;
     const result = await swapApproveTx.send(
-      {
-        abi: erc20Abi,
-        address: token.address,
-        functionName: "approve",
-        args: [SWAP_ROUTER_02, swapQuote.amountInMaximum],
-        account: address,
-      },
-      { label: `Approve ${token.symbol} for swap` },
+      approveRouterRequest(deployment, token, swapQuote.amountInMaximum, address),
+      { label: `Approve ${token.symbol}` },
     );
     if (result.status === "confirmed") refetchRouterAllowance();
   }
 
-  async function onSwap() {
+  async function onSwapBuy() {
     if (
-      premium === undefined ||
-      swapQuote.amountInMaximum === undefined ||
-      !address
+      route.kind !== "router" ||
+      maxClaim === null ||
+      swapQuote.amountInMaximum === undefined
     )
       return;
-    const result = await swapTx.send(
-      buildSwapTxRequest(payToken, premium, swapQuote.amountInMaximum, address),
+    const result = await swapBuyTx.send(
+      swapAndBuyRequest(
+        deployment,
+        route,
+        swapQuote.amountInMaximum,
+        BigInt(seriesId!),
+        maxClaim,
+        address,
+        swapQuote.path,
+      ),
       {
-        label: `Swap ${token.symbol} → ${symbol}`,
-        // Same friendly router-revert copy inline AND in the global toast.
+        label: `Buy protection with ${token.symbol}`,
+        // Friendly swap-revert copy inline AND in the global toast.
         transformError: friendlySwapError,
       },
     );
     if (result.status === "confirmed") {
       refetchCurrency();
+      refetchCover();
       balances.refetch();
     }
   }
 
-  async function onBatchBuy() {
-    if (
-      premium === undefined ||
-      maxPremium === undefined ||
-      maxClaim === null ||
-      !address
-    )
-      return;
-    setBatchError(undefined);
-    try {
-      const calls = buildBuyBatch({
-        tokenId: payToken,
-        premiumWei: premium,
-        maxPremium,
-        amountInMaximum: swapQuote.amountInMaximum,
-        recipient: address,
-        seriesId: BigInt(seriesId!),
-        maxClaim,
-        needsPoolApproval: needsApproval || allowance === undefined,
-        needsSwapApproval,
-      });
-      const { id: callsId } = await sendCallsAsync({
-        calls: calls.map((c) => ({ to: c.to, data: c.data, value: c.value })),
-        forceAtomic: true,
-      });
-      setBatchId(callsId);
-      const toastId = pushTxToast({
-        label: `Buy protection with ${token.symbol} (batch)`,
-        status: "pending",
-      });
-      // Settle the toast from a module-level waiter (wagmi ACTION, not the
-      // mounted hook): like useTx's wait promise it survives navigation and
-      // resetFlow, so the pending toast can't be orphaned by an unmount.
-      void waitForCallsStatus(config, { id: callsId, timeout: 120_000 })
-        .then((status) => {
-          const receipts = status.receipts;
-          const minedHash =
-            receipts && receipts.length > 0
-              ? receipts[receipts.length - 1].transactionHash
-              : undefined;
-          if (status.status === "success") {
-            updateTxToast(toastId, { status: "confirmed", hash: minedHash });
-          } else if (status.status === "failure") {
-            updateTxToast(toastId, {
-              status: "failed",
-              error: "The batch failed — no step was executed.",
-            });
-          }
-        })
-        .catch(() => {
-          updateTxToast(toastId, {
-            error:
-              "Lost contact while waiting for the batch — it may still confirm. Check your wallet's activity.",
-          });
-        });
-    } catch (error) {
-      setBatchError(friendlySwapError(decodeTxError(error)));
-    }
-  }
-
-  const stepAction: Record<
-    StepId,
-    { onClick: () => void; buttonLabel: string; state: TxState }
-  > = {
-    wrap: { onClick: onWrap, buttonLabel: "Wrap xDAI", state: wrapTx.state },
-    "swap-approve": {
-      onClick: onSwapApprove,
-      buttonLabel: `Approve ${token.symbol}`,
-      state: swapApproveTx.state,
-    },
-    swap: {
-      onClick: onSwap,
-      buttonLabel: "Swap via Uniswap v3",
-      state: swapTx.state,
-    },
-    "pool-approve": {
-      onClick: onApprove,
-      buttonLabel: `Approve ${symbol}`,
-      state: approveTx.state,
-    },
-    buy: { onClick: onBuy, buttonLabel: "Buy protection", state: buyTx.state },
-  };
+  const fmtC = (wei: bigint | undefined) =>
+    formatCurrency(wei, { symbol, decimals });
+  const fmtT = (wei: bigint | undefined) =>
+    formatCurrency(wei, { symbol: token.symbol, decimals: token.decimals });
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
       <header>
         <h1 className="font-parkDisplay font-bold text-3xl text-text-standard">
-          Buy protection · series #{seriesId}
+          Get rent protection
         </h1>
         <p className="font-parkBody text-surface-grey-2 mt-1">
-          Pay a {formatBps(s.premiumRateBps)} premium, receive cover tokens
-          redeemable for maxClaim × settlement ratio.
+          You pay once, now. If the reported rent number rises past this
+          series' trigger, you get paid — up to the amount you choose. If it
+          doesn't, you owe nothing more.
+        </p>
+        <p className="font-parkBody text-xs text-surface-grey mt-1">
+          Series #{seriesId} · price {formatBps(s.premiumRateBps)} of the
+          amount you protect · pays in full at{" "}
+          {formatCents(s.strikeHighCents)}/SF
         </p>
       </header>
 
       {!saleOpen ? (
         <EmptyState
           title={
-            s.settled
-              ? "Series settled"
-              : stats.salesPaused
-                ? "Sales paused"
-                : "Sale closed"
+            s.cancelled
+              ? "Series cancelled"
+              : s.settled
+                ? "Series settled"
+                : paused
+                  ? "Sales paused"
+                  : "Sale closed"
           }
         >
-          {s.settled
-            ? "This series has settled — the outcome is known, so protection can no longer be bought. You can still "
-            : stats.salesPaused
-              ? "The sponsor has paused new sales. Existing cover is unaffected — you can still "
-              : "The sale window for this series ended. You can still "}{" "}
-          <Link className="underline" to={`/settle/${seriesId}`}>
-            settle
-          </Link>{" "}
-          or{" "}
-          <Link className="underline" to={`/redeem/${seriesId}`}>
-            redeem
-          </Link>
-          .
+          {s.cancelled
+            ? "The creator cancelled this series before anything was sold — nothing can be bought here anymore."
+            : s.settled
+              ? "This series has settled — the outcome is known, so protection can no longer be bought. You can still "
+              : paused
+                ? "The series creator has paused new purchases. Existing protection is unaffected — you can still "
+                : "The sale window for this series ended. You can still "}
+          {!s.cancelled ? (
+            <>
+              <Link className="underline" to={`/settle/${seriesId}`}>
+                settle
+              </Link>{" "}
+              or{" "}
+              <Link className="underline" to={`/redeem/${seriesId}`}>
+                redeem
+              </Link>
+              .
+            </>
+          ) : null}
         </EmptyState>
       ) : (
         <Card>
+          {fromWizard ? (
+            <p
+              className="mb-3 rounded-lg bg-paper-1 px-3 py-2 font-parkBody text-xs text-surface-grey-2"
+              data-testid="wizard-prefill-note"
+            >
+              We filled this in from your answers — adjust anything freely.
+            </p>
+          ) : null}
+
           <label className="block">
             <span className="font-parkBody text-sm text-surface-grey-2">
-              Max claim ({symbol})
+              How much protection do you want? ({symbol})
             </span>
             <input
               type="text"
@@ -690,86 +511,59 @@ export function Buy() {
                 setAmountInput(e.target.value);
                 resetFlow();
               }}
-              placeholder="0.001"
+              placeholder="100"
               data-testid="buy-amount"
               className="mt-1 w-full rounded-lg border-2 border-paper-2 focus:border-core-green outline-none px-3 py-2 font-parkBody bg-paper-0"
             />
             <span className="mt-1 block font-parkBody text-xs text-surface-grey">
-              1 cover unit per wei of claim — you enter whole {symbol}.
+              This is the most you can be paid (your{" "}
+              <Term tip="The largest payout this purchase can ever produce.">
+                maximum payout
+              </Term>
+              ). Your one-time price is {formatBps(s.premiumRateBps)} of it.
             </span>
           </label>
-          <div className="mt-3 flex items-center gap-2">
-            <span className="font-parkBody text-sm text-surface-grey-2">
-              Premium slippage allowance
-            </span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={slippagePct}
-              onChange={(e) => setSlippagePct(e.target.value)}
-              className="w-16 rounded-lg border-2 border-paper-2 focus:border-core-green outline-none px-2 py-1 font-parkBody text-sm bg-paper-0"
-              aria-label="Slippage percent"
-            />
-            <span className="font-parkBody text-sm text-surface-grey-2">%</span>
-          </div>
 
           <div className="mt-4 border-t border-paper-1 pt-3">
+            <StatRow label={`Your ${symbol} balance`} value={fmtC(balance)} />
+            <StatRow label="Still available to buy" value={fmtC(capacityLeft)} />
             <StatRow
-              label="Your balance"
-              value={formatCurrency(balance, { symbol, decimals })}
-            />
-            <StatRow
-              label="Remaining capacity"
-              value={formatCurrency(s.capacity - s.sold, { symbol, decimals })}
-            />
-            <StatRow
-              label="Quoted premium"
-              value={
-                premium !== undefined
-                  ? formatCurrency(premium, { symbol, decimals })
-                  : "—"
-              }
-            />
-            <StatRow
-              label="Max premium (with slippage)"
-              value={
-                maxPremium !== undefined
-                  ? formatCurrency(maxPremium, { symbol, decimals })
-                  : "—"
-              }
+              label="Your price (paid once)"
+              value={premium !== undefined ? fmtC(premium) : "—"}
             />
             {coverBalance !== undefined && coverBalance > 0n ? (
               <StatRow
-                label="Cover you already hold"
-                value={formatCurrency(coverBalance, { symbol, decimals })}
+                label="Protection you already hold"
+                value={fmtC(coverBalance)}
               />
             ) : null}
           </div>
 
-          <PricingPanel
-            premiumRateBps={s.premiumRateBps}
-            maxClaimWei={maxClaim ?? 0n}
-            decimals={decimals}
-            symbol={symbol}
-            strikeLowCents={s.strikeLowCents}
-            strikeHighCents={s.strikeHighCents}
-          />
+          <div className="mt-4">
+            <PricingPanel
+              premiumRateBps={s.premiumRateBps}
+              maxClaimWei={maxClaim ?? 0n}
+              decimals={decimals}
+              symbol={symbol}
+              strikeLowCents={s.strikeLowCents}
+              strikeHighCents={s.strikeHighCents}
+            />
+          </div>
 
           <div className="mt-4 border-t border-paper-1 pt-3">
             <TokenSelect
               options={tokenOptions}
-              value={payToken}
+              value={token.id}
               onChange={selectToken}
             />
 
-            {payToken === "xdai" ? (
+            {token.note && !isRouter ? (
               <p className="mt-2 font-parkBody text-xs text-surface-grey-2">
-                {symbol} is wrapped xDAI — wrapping is 1:1 with no swap fee.
-                Keep a little xDAI unwrapped for gas.
+                {token.note}
               </p>
             ) : null}
 
-            {isSwapRoute ? (
+            {isRouter ? (
               <div
                 className="mt-3 rounded-lg border-2 border-paper-2 bg-paper-0 px-3 py-2"
                 data-testid="swap-quote"
@@ -799,34 +593,38 @@ export function Buy() {
                       label="You pay ≈"
                       value={
                         swapQuote.amountIn !== undefined
-                          ? formatCurrency(swapQuote.amountIn, {
-                              symbol: token.symbol,
-                              decimals: token.decimals,
-                            })
+                          ? fmtT(swapQuote.amountIn)
                           : swapQuote.isLoading
-                            ? "quoting…"
+                            ? "getting a live price…"
                             : "—"
                       }
                     />
                     <StatRow
-                      label={`Max input (${swapQuote.slippageBps} bps slippage)`}
+                      label="Never more than"
                       value={
                         swapQuote.amountInMaximum !== undefined
-                          ? formatCurrency(swapQuote.amountInMaximum, {
-                              symbol: token.symbol,
-                              decimals: token.decimals,
-                            })
+                          ? fmtT(swapQuote.amountInMaximum)
                           : "—"
                       }
                     />
-                    <StatRow
-                      label="Rate"
-                      value={
-                        effectiveRate !== undefined
-                          ? `1 ${symbol} ≈ ${effectiveRate.toFixed(4)} ${token.symbol}`
-                          : "—"
-                      }
-                    />
+                    <p className="font-parkBody text-xs text-surface-grey-2 mt-1">
+                      One transaction converts your {token.symbol} into exactly{" "}
+                      {premium !== undefined ? fmtC(premium) : "the price"} and
+                      buys your protection; anything unused comes straight
+                      back. The "never more than" cap includes a{" "}
+                      {swapQuote.slippageBps} bps price-move allowance.
+                    </p>
+                    {swapQuote.usedFallback ? (
+                      <p className="font-parkBody text-xs text-surface-grey-2 mt-1">
+                        Using the backup 0.3% pool — the primary pool had no
+                        price just now.
+                      </p>
+                    ) : null}
+                    {token.note ? (
+                      <p className="font-parkBody text-xs text-surface-grey-2 mt-1">
+                        {token.note}
+                      </p>
+                    ) : null}
                   </>
                 )}
                 <details className="mt-1">
@@ -844,7 +642,9 @@ export function Buy() {
                       aria-label="Swap slippage in basis points"
                     />
                     <span className="font-parkBody text-xs text-surface-grey-2">
-                      bps (default {token.defaultSlippageBps})
+                      bps (default {token.defaultSlippageBps}) — how much the
+                      market price may move before the purchase refuses to
+                      overpay.
                     </span>
                   </label>
                 </details>
@@ -862,6 +662,58 @@ export function Buy() {
             </p>
           ) : null}
 
+          {premium !== undefined && maxClaim !== null && validation === null ? (
+            <div
+              className="mt-4 rounded-xl border-2 border-core-green/40 bg-paper-0 px-4 py-3"
+              data-testid="protection-summary"
+            >
+              <p className="font-parkBody text-sm font-bold text-text-standard">
+                How you're protected
+              </p>
+              <ul className="mt-1 space-y-1 font-parkBody text-sm text-surface-grey-2 list-disc list-inside">
+                <li>
+                  You pay {fmtC(premium)} once
+                  {isRouter && swapQuote.amountIn !== undefined
+                    ? ` (≈ ${fmtT(swapQuote.amountIn)})`
+                    : isWrap
+                      ? ` (wrapped 1:1 from your ${token.symbol})`
+                      : ""}
+                  .
+                </li>
+                <li>
+                  If the reported rent goes above{" "}
+                  {formatCents(s.strikeLowCents)}/SF, you get paid — up to{" "}
+                  {fmtC(maxClaim)}, claimable after{" "}
+                  {formatDate(s.obsStart)}.
+                </li>
+                <li>
+                  If it stays below {formatCents(s.strikeLowCents)}/SF, you get
+                  nothing more and owe nothing.
+                </li>
+                <li>
+                  Your payout is held in a contract nobody can pause or take
+                  away.
+                </li>
+              </ul>
+            </div>
+          ) : null}
+
+          <p
+            className="mt-3 font-parkBody text-xs text-surface-grey"
+            data-testid="index-disclosure"
+          >
+            This index tracks Manhattan office rent (commercial, not
+            residential). Full details on the{" "}
+            <Link className="underline" to={`/series/${seriesId}`}>
+              series page
+            </Link>{" "}
+            and in the{" "}
+            <Link className="underline" to="/docs">
+              docs
+            </Link>
+            .
+          </p>
+
           {!isConnected ? (
             <div className="mt-5 flex flex-col gap-3">
               <Button
@@ -872,186 +724,146 @@ export function Buy() {
                 Connect wallet to buy
               </Button>
             </div>
-          ) : (
-          <div className="mt-5 flex flex-col gap-3">
-            {payToken === "wxdai" ? (
-              <>
-                {needsApproval ? (
-                  <>
-                    <StatRow
-                      label="Current allowance"
-                      value={`${formatCurrency(allowance, { symbol, decimals })} — approving ${formatCurrency(maxPremium, { symbol, decimals })}`}
-                    />
-                    <Button
-                      app="fund"
-                      variant="secondary"
-                      disabled={!canSubmit}
-                      onClick={onApprove}
-                      data-testid="approve-button"
-                    >
-                      1 · Approve {symbol}
-                    </Button>
-                    <TxStatus state={approveTx.state} label="Approve" />
-                  </>
-                ) : null}
-                <Button
-                  app="fund"
-                  disabled={!canSubmit || needsApproval}
-                  onClick={onBuy}
-                  data-testid="buy-button"
-                >
-                  {needsApproval ? "2 · " : ""}Buy protection
-                </Button>
-                <TxStatus state={buyTx.state} label="Buy" />
-              </>
-            ) : useBatchUi ? (
-              <>
-                <ol className="space-y-1" data-testid="batch-steps">
-                  {flowSteps.map((st, i) => (
-                    <li
-                      key={st.id}
-                      className="font-parkBody text-sm text-surface-grey-2 flex items-center gap-2"
-                    >
-                      <span
-                        className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${
-                          batchStatus === "success"
-                            ? "bg-system-green text-white"
-                            : "bg-paper-1 text-text-standard"
-                        }`}
-                      >
-                        {batchStatus === "success" ? "✓" : i + 1}
-                      </span>
-                      {st.label}
-                    </li>
-                  ))}
-                </ol>
-                <Button
-                  app="fund"
-                  disabled={!canSubmit}
-                  onClick={onBatchBuy}
-                  data-testid="batch-buy-button"
-                >
-                  Buy with {token.symbol} — one confirmation
-                </Button>
-                {batchStatus === "pending" ? (
-                  <p
-                    className="font-parkBody text-sm text-primary-sky"
-                    data-testid="batch-pending"
-                  >
-                    Batch submitted — waiting for confirmation…
-                  </p>
-                ) : null}
-                {batchStatus === "success" && batchReceiptHash ? (
-                  <p className="font-parkBody text-sm text-system-green">
-                    Batch confirmed —{" "}
-                    <a
-                      href={txUrl(batchReceiptHash)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline decoration-dotted"
-                    >
-                      view transaction
-                    </a>
-                  </p>
-                ) : null}
-                {batchStatus === "failure" ? (
-                  <p
-                    className="font-parkBody text-sm text-system-red"
-                    role="alert"
-                  >
-                    The batch failed — it is atomic, so no step was executed.
-                    Try again, or{" "}
-                    <button
-                      type="button"
-                      className="underline"
-                      onClick={switchToSequential}
-                    >
-                      run the steps one by one
-                    </button>
-                    .
-                  </p>
-                ) : null}
-                {batchError ? (
-                  <TxStatus
-                    state={{ status: "reverted", error: batchError }}
-                    label="Batch"
-                  />
-                ) : null}
-                <button
-                  type="button"
-                  className="self-start font-parkBody text-xs text-surface-grey-2 underline"
-                  onClick={switchToSequential}
-                >
-                  Prefer separate transactions? Use the step-by-step flow.
-                </button>
-              </>
-            ) : (
-              <ol className="space-y-3" data-testid="buy-stepper">
-                {flowSteps.map((st, i) => {
-                  const action = stepAction[st.id];
-                  const isCurrent = st.id === currentStepId && !flowDone;
-                  return (
-                    <li key={st.id} className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2 font-parkBody text-sm">
-                        <span
-                          className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                            st.done
-                              ? "bg-system-green text-white"
-                              : isCurrent
-                                ? "bg-core-green text-white"
-                                : "bg-paper-1 text-surface-grey-2"
-                          }`}
-                        >
-                          {st.done ? "✓" : i + 1}
-                        </span>
-                        <span
-                          className={
-                            st.done
-                              ? "text-surface-grey-2 line-through"
-                              : "text-text-standard"
-                          }
-                        >
-                          {st.label}
-                        </span>
-                      </div>
-                      {isCurrent && st.id === "pool-approve" ? (
-                        <StatRow
-                          label="Current allowance"
-                          value={`${formatCurrency(allowance, { symbol, decimals })}${maxPremium !== undefined ? ` — approving ${formatCurrency(maxPremium, { symbol, decimals })}` : ""}`}
-                        />
-                      ) : null}
-                      {isCurrent ? (
-                        <Button
-                          app="fund"
-                          variant={st.id === "buy" ? undefined : "secondary"}
-                          disabled={!canSubmit}
-                          onClick={action.onClick}
-                          data-testid={`step-${st.id}-button`}
-                        >
-                          {action.buttonLabel}
-                        </Button>
-                      ) : null}
-                      <TxStatus state={action.state} />
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-
-            {flowDone ? (
-              <p className="font-parkBody text-sm text-system-green">
-                Cover minted. See{" "}
-                <Link className="underline font-bold" to={`/series/${seriesId}`}>
-                  series #{seriesId}
-                </Link>{" "}
-                or head to{" "}
-                <Link className="underline font-bold" to={`/redeem/${seriesId}`}>
-                  redeem
-                </Link>{" "}
-                after settlement.
+          ) : wrongNetwork ? (
+            <div className="mt-5 flex flex-col gap-3">
+              <p className="font-parkBody text-sm text-surface-grey-2">
+                Your wallet is on a different network than {deployment.name}.
               </p>
-            ) : null}
-          </div>
+              <Button
+                app="fund"
+                variant="secondary"
+                disabled={switchPending}
+                onClick={() => switchChain({ chainId: deployment.chainId })}
+                data-testid="buy-switch-chain"
+              >
+                Switch wallet to {deployment.name}
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-5 flex flex-col gap-3">
+              {isWrap && !wrapDone ? (
+                <>
+                  <p className="font-parkBody text-xs text-surface-grey-2">
+                    Step 1 of {needsApproval ? 3 : 2}: wrap exactly your price
+                    into {symbol} — same money, 1:1, no fee.
+                  </p>
+                  <Button
+                    app="fund"
+                    variant="secondary"
+                    disabled={!canSubmit}
+                    onClick={onWrap}
+                    data-testid="wrap-button"
+                  >
+                    Wrap {premium !== undefined ? fmtT(premium) : token.symbol}
+                  </Button>
+                  <TxStatus state={wrapTx.state} label="Wrap" />
+                </>
+              ) : null}
+
+              {(isDirect || (isWrap && wrapDone)) && !flowDone ? (
+                <>
+                  {needsApproval ? (
+                    <>
+                      <p className="font-parkBody text-xs text-surface-grey-2">
+                        First confirmation: allow the protection contract to
+                        take your one-time price — nothing moves yet.
+                      </p>
+                      <StatRow
+                        label="Currently allowed"
+                        value={`${fmtC(allowance)} — allowing ${fmtC(maxPremium)}`}
+                      />
+                      <Button
+                        app="fund"
+                        variant="secondary"
+                        disabled={!canSubmit}
+                        onClick={onApprove}
+                        data-testid="approve-button"
+                      >
+                        Approve {symbol}
+                      </Button>
+                      <TxStatus state={approveTx.state} label="Approve" />
+                    </>
+                  ) : null}
+                  <p className="font-parkBody text-xs text-surface-grey-2">
+                    {needsApproval ? "Then the" : "One"} confirmation buys your
+                    protection: it takes{" "}
+                    {premium !== undefined ? fmtC(premium) : "your price"} and
+                    locks in your payout rights.
+                  </p>
+                  <Button
+                    app="fund"
+                    disabled={!canSubmit || needsApproval}
+                    onClick={onBuy}
+                    data-testid="buy-button"
+                  >
+                    Buy protection
+                  </Button>
+                  <TxStatus state={buyTx.state} label="Buy" />
+                </>
+              ) : null}
+
+              {isRouter && !flowDone ? (
+                <>
+                  {needsRouterApproval ? (
+                    <>
+                      <p className="font-parkBody text-xs text-surface-grey-2">
+                        First confirmation: allow the swap contract to use your{" "}
+                        {token.symbol} — nothing moves yet.
+                      </p>
+                      <Button
+                        app="fund"
+                        variant="secondary"
+                        disabled={!canSubmit}
+                        onClick={onSwapApprove}
+                        data-testid="swap-approve-button"
+                      >
+                        Approve {token.symbol}
+                      </Button>
+                      <TxStatus state={swapApproveTx.state} label="Approve" />
+                    </>
+                  ) : null}
+                  <p className="font-parkBody text-xs text-surface-grey-2">
+                    {needsRouterApproval
+                      ? "Then one confirmation does the rest:"
+                      : "One confirmation does everything:"}{" "}
+                    it converts your {token.symbol}, buys your protection and
+                    returns anything unused
+                    {isNativeRouter ? ` (as W${token.symbol})` : ""} — all in a
+                    single transaction that either fully succeeds or fully
+                    cancels.
+                  </p>
+                  <Button
+                    app="fund"
+                    disabled={!canSubmit || needsRouterApproval}
+                    onClick={onSwapBuy}
+                    data-testid="swap-buy-button"
+                  >
+                    Buy protection with {token.symbol}
+                  </Button>
+                  <TxStatus state={swapBuyTx.state} label="Buy" />
+                </>
+              ) : null}
+
+              {flowDone ? (
+                <p className="font-parkBody text-sm text-system-green">
+                  Cover minted. You're protected — see{" "}
+                  <Link
+                    className="underline font-bold"
+                    to={`/series/${seriesId}`}
+                  >
+                    series #{seriesId}
+                  </Link>{" "}
+                  or head to{" "}
+                  <Link
+                    className="underline font-bold"
+                    to={`/redeem/${seriesId}`}
+                  >
+                    redeem
+                  </Link>{" "}
+                  once the rent number is in.
+                </p>
+              ) : null}
+            </div>
           )}
         </Card>
       )}

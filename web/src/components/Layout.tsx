@@ -1,17 +1,41 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { useAccount, useSwitchChain } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Footer, Logo } from "@decentralpark/ui";
 import { ListIcon, XIcon } from "@phosphor-icons/react";
+import { DEPLOYMENTS, useActiveDeployment } from "../chain/registry";
 import { NotDeployedBanner, WrongNetworkBanner } from "./Banners";
 import { Toasts } from "./Toasts";
 
 const NAV_ITEMS = [
   { to: "/series", label: "Series" },
+  { to: "/underwrite", label: "Underwrite" },
   { to: "/settle", label: "Settle" },
-  { to: "/sponsor", label: "Sponsor" },
   { to: "/docs", label: "Docs" },
 ];
+
+/** Route → document title (RentSafe rebrand). */
+const TITLES: [prefix: string, title: string][] = [
+  ["/series", "Series"],
+  ["/buy", "Buy protection"],
+  ["/settle", "Settle"],
+  ["/redeem", "Claim payout"],
+  ["/underwrite", "Underwrite"],
+  ["/sponsor", "Underwrite"],
+  ["/choose", "Help me choose"],
+  ["/docs", "Docs"],
+];
+
+function usePageTitle() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const match = TITLES.find(([prefix]) => pathname.startsWith(prefix));
+    document.title = match
+      ? `RentSafe — ${match[1]}`
+      : "RentSafe — protection for when rent goes up";
+  }, [pathname]);
+}
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   return (
@@ -33,6 +57,84 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
         </NavLink>
       ))}
     </>
+  );
+}
+
+/** Tiny chain roundel so the switcher reads at a glance — pure visual
+ * identity keyed by chainId (the accessible name is the select's own,
+ * data-driven deployment name). */
+function ChainLogo({ chainId }: { chainId: number }) {
+  const style =
+    chainId === 100
+      ? { bg: "#04795b", letter: "G" }
+      : chainId === 42161
+        ? { bg: "#2d374b", letter: "A" }
+        : { bg: "#6b7280", letter: "L" };
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 18 18"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <circle cx="9" cy="9" r="9" fill={style.bg} />
+      <text
+        x="9"
+        y="12.5"
+        textAnchor="middle"
+        fontSize="10"
+        fontWeight="bold"
+        fill="white"
+        fontFamily="sans-serif"
+      >
+        {style.letter}
+      </text>
+    </svg>
+  );
+}
+
+/**
+ * Header chain switcher: drives BOTH the app's active deployment context and,
+ * when a wallet is connected, a wallet switchChain to match. A native select
+ * keeps it fully keyboard- and screen-reader-accessible.
+ */
+function ChainSwitcher() {
+  const { chainId, setChainId } = useActiveDeployment();
+  const { isConnected, chainId: walletChainId } = useAccount();
+  const { switchChain } = useSwitchChain();
+
+  const options = Object.values(DEPLOYMENTS).sort(
+    (a, b) => a.chainId - b.chainId,
+  );
+
+  function onChange(next: number) {
+    setChainId(next);
+    if (isConnected && walletChainId !== next) {
+      // Best-effort: if the wallet refuses, the wrong-network banner takes
+      // over with the same switch offer + failure copy.
+      switchChain({ chainId: next });
+    }
+  }
+
+  return (
+    <label className="flex items-center gap-1.5 border-2 border-paper-2 rounded-full pl-2 pr-1 py-0.5 bg-paper-0">
+      <span className="sr-only">Network</span>
+      <ChainLogo chainId={chainId} />
+      <select
+        value={chainId}
+        onChange={(e) => onChange(Number(e.target.value))}
+        aria-label="Network"
+        data-testid="chain-switcher"
+        className="font-parkBody text-sm bg-transparent outline-none py-1 pr-1 cursor-pointer"
+      >
+        {options.map((d) => (
+          <option key={d.chainId} value={d.chainId}>
+            {d.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -89,13 +191,14 @@ function AppNavbar() {
           <Logo text="Decentral Park" size={24} color="green" />
         </span>
         <span className="font-parkDisplay font-bold text-sm md:text-base text-primary-green border border-primary-green rounded-full px-3 py-0.5 whitespace-nowrap">
-          NY Rent Cover
+          RentSafe
         </span>
       </Link>
 
       {/* desktop nav */}
       <nav className="hidden md:flex items-center gap-5">
         <NavLinks />
+        <ChainSwitcher />
         <ConnectButton
           showBalance={false}
           chainStatus="icon"
@@ -125,7 +228,7 @@ function AppNavbar() {
           className="bg-paper-main fixed inset-0 z-50 p-6 md:hidden overflow-y-auto"
         >
           <div className="flex items-center justify-between mb-8">
-            <Logo text="NY Rent Cover" size={24} color="green" />
+            <Logo text="RentSafe" size={24} color="green" />
             <button
               onClick={() => setOpen(false)}
               className="text-primary-green h-11 w-11 -mr-1.5 flex items-center justify-center"
@@ -136,7 +239,10 @@ function AppNavbar() {
           </div>
           <nav className="flex flex-col gap-4">
             <NavLinks onNavigate={() => setOpen(false)} />
-            <div className="mt-4">
+            <div className="mt-2">
+              <ChainSwitcher />
+            </div>
+            <div className="mt-2">
               <ConnectButton showBalance={false} chainStatus="icon" />
             </div>
           </nav>
@@ -147,6 +253,7 @@ function AppNavbar() {
 }
 
 export function Layout() {
+  usePageTitle();
   return (
     <div className="min-h-screen flex flex-col">
       <NotDeployedBanner />
@@ -159,10 +266,13 @@ export function Layout() {
       </main>
       <Toasts />
       <div className="mt-10">
+        <p className="font-parkBody text-xs text-surface-grey-2 text-center max-w-6xl w-full mx-auto px-4 sm:px-6 pb-1">
+          RentSafe is a Decentral Park experiment. Unaudited software — fully
+          collateralized but experimental; use tiny amounts.
+        </p>
         <p className="font-parkBody text-xs text-surface-grey-2 text-center max-w-6xl w-full mx-auto px-4 sm:px-6 pb-4">
-          Unaudited software. Fully collateralized but experimental — use tiny
-          amounts. The index is commercial office rent (CompStak via CRE
-          Daily), not residential.
+          The rent index that settles every series tracks Manhattan office
+          rent (commercial, not residential).
         </p>
         <Footer />
       </div>

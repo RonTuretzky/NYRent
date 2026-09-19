@@ -11,7 +11,7 @@ import {
 
 /**
  * Step 5 — REDEEM. Green claim dots (61%) stream pool → buyer while pine
- * release dots (39%) stream pool → sponsor; the mini bars under each
+ * release dots (39%) stream pool → underwriter; the mini bars under each
  * recipient fill to their share and reset with the cycle.
  */
 
@@ -31,7 +31,7 @@ export function RedeemViz({ reducedMotion }: { reducedMotion: boolean }) {
         viewBox="0 0 420 240"
         className="w-full h-auto"
         role="img"
-        aria-label="After settlement, 61% of reserves stream to cover holders as claims and 39% release back to the sponsor."
+        aria-label="After settlement, 61% of reserves stream to cover holders as claims and 39% release back to the underwriter."
       >
         <Track d={CLAIM_PATH} />
         <Track d={RELEASE_PATH} />
@@ -62,7 +62,7 @@ export function RedeemViz({ reducedMotion }: { reducedMotion: boolean }) {
           w={126}
           h={76}
           color={C.pine}
-          title="Sponsor"
+          title="Underwriter"
           sub="free capital"
           icon={<BankIcon size={22} color={C.pine} weight="bold" />}
         />

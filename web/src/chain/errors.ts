@@ -32,21 +32,29 @@ const contractErrorsAbi = parseAbi([
   "error MalformedTag()",
   "error BadTimestampTag()",
   "error ValueOverflow()",
-  // CoverPool
-  "error NotSponsor()",
+  // CoverPool (permissionless — no roles, per-series accounting)
+  "error NotCreator()",
+  "error ZeroAddress()",
   "error InvalidSeries()",
   "error InvalidParams(string what)",
   "error SaleClosed()",
   "error SalesArePaused()",
+  "error SeriesClosed()",
   "error ZeroAmount()",
   "error CapacityExceeded()",
   "error PremiumTooHigh(uint256 premium, uint256 maxPremium)",
-  "error Insolvent()",
+  "error PremiumRoundsToZero()",
   "error AlreadySettled()",
   "error NotSettled()",
   "error ObservationOutOfWindow(uint64 t)",
   "error RedeemWindowClosed()",
-  "error InsufficientFreeCapital(uint256 requested, uint256 free)",
+  "error RedeemWindowOpen()",
+  "error AlreadySold()",
+  "error ResidualAlreadyWithdrawn()",
+  // SwapAndBuyRouter
+  "error InvalidPath(string what)",
+  "error NativeInputNotWeth()",
+  "error NativeValueMismatch(uint256 value, uint256 amountInMaximum)",
   // CoverToken
   "error OnlyPool()",
   "error TransfersDisabled()",
@@ -83,35 +91,50 @@ const ERROR_COPY: Record<string, string> = {
   BadTimestampTag: "The DKIM t= timestamp tag doesn't parse.",
   ValueOverflow: "The extracted rent value overflows the allowed range.",
   BadLength: "An input has the wrong length (signature or modulus).",
-  // Pool
+  // Pool (permissionless)
   SaleClosed: "Buying is closed for this series — the sale window ended or the series has already settled.",
-  SalesArePaused: "Sales are currently paused by the sponsor.",
+  SalesArePaused:
+    "Sales are currently paused by the series creator. Existing cover is unaffected.",
   InvalidSeries: "No series exists at this id.",
   InvalidParams: "Series parameters are invalid.",
   ZeroAmount: "Amount must be greater than zero.",
+  ZeroAddress: "The recipient address can't be the zero address.",
   CapacityExceeded:
     "That size would exceed the series' remaining capacity.",
-  Insolvent:
-    "The pool doesn't hold enough free capital to fully back that claim — the buy would break solvency.",
-  InsufficientFreeCapital:
-    "Amount exceeds the pool's free (unreserved) capital.",
   OnlyPool: "Only the pool contract may mint or burn cover tokens.",
   PremiumTooHigh:
-    "The premium moved above your maximum — increase your slippage allowance or lower the size.",
+    "The price moved above your maximum — refresh the quote or lower the size.",
+  PremiumRoundsToZero:
+    "That amount is so small its price rounds to zero — nothing would be charged, so the contract rejects it. Enter a slightly larger amount.",
   NotSettled: "This series has not been settled yet.",
   AlreadySettled: "This series is already settled (settlement is one-shot).",
   ObservationOutOfWindow:
     "That observation's timestamp falls outside this series' observation window.",
   RedeemWindowClosed:
-    "The redemption window has closed; remaining reserves have been released to the pool.",
-  NotSponsor: "Only the sponsor wallet can perform this action.",
+    "The claim window has closed; what's left in the series returns to its creator.",
+  RedeemWindowOpen:
+    "The claim window is still open — the creator can only collect the residual after it ends.",
+  NotCreator: "Only this series' creator can perform this action.",
+  SeriesClosed:
+    "This series was cancelled by its creator before anything was sold — it's permanently closed.",
+  AlreadySold:
+    "Cover has already been sold on this series, so it can no longer be cancelled — the escrow releases after the claim window instead.",
+  ResidualAlreadyWithdrawn:
+    "The creator's capital already left this series once (cancel or residual withdrawal) — it can't leave twice.",
+  // SwapAndBuyRouter
+  InvalidPath:
+    "The swap route is malformed — it must run from the pool currency back to the token you're paying with. Refresh and try again.",
+  NativeInputNotWeth:
+    "Paying with the native coin requires routing through the wrapped native token.",
+  NativeValueMismatch:
+    "The native coin amount sent doesn't match the swap's input cap. Refresh the quote and try again.",
   TransfersDisabled:
-    "Cover tokens are non-transferable in this demo (mint and redeem only).",
+    "Cover tokens are non-transferable (mint and redeem only).",
   // OpenZeppelin 5.x (inherited by the deployed contracts)
   ERC1155InsufficientBalance:
     "You no longer hold that much cover — your balance changed since this page loaded (e.g. a redeem in another tab). Refresh and try a smaller amount.",
   SafeERC20FailedOperation:
-    "The WXDAI transfer failed — your balance or allowance changed since this page loaded. Check both, approve again if needed, and retry.",
+    "The currency transfer failed — your balance or allowance changed since this page loaded. Check both, approve again if needed, and retry.",
   ReentrancyGuardReentrantCall:
     "The call re-entered the pool mid-transaction and was blocked by the reentrancy guard.",
 };
@@ -206,7 +229,7 @@ export function isNetworkError(error: unknown): boolean {
 }
 
 const NETWORK_COPY =
-  "Can't reach the Gnosis RPC endpoint. Check your internet connection — or the RPC may be briefly down — and try again.";
+  "Can't reach the chain's RPC endpoint. Check your internet connection — or the RPC may be briefly down — and try again.";
 
 /** Decode any error thrown by viem/wagmi writes or simulations into human copy. */
 export function decodeTxError(error: unknown): DecodedTxError {
@@ -265,14 +288,14 @@ export function decodeTxError(error: unknown): DecodedTxError {
           detail: revert.shortMessage,
         };
       }
-      // Bare revert with no data at all: WETH9-style tokens (WXDAI) revert
-      // like this when a transfer exceeds balance or allowance — usually an
-      // allowance that was spent or revoked since the page loaded.
+      // Bare revert with no data at all: WETH9-style tokens (e.g. WXDAI)
+      // revert like this when a transfer exceeds balance or allowance —
+      // usually an allowance that was spent or revoked since the page loaded.
       return {
         name: "Reverted",
         kind: "revert",
         message:
-          "The transaction reverted without a reason — most often a WXDAI transfer failing because the allowance or balance changed. Approve again, then retry.",
+          "The transaction reverted without a reason — most often a currency transfer failing because the allowance or balance changed. Approve again, then retry.",
         detail: revert.shortMessage,
       };
     }

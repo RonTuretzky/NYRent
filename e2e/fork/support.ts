@@ -17,11 +17,12 @@ export const UPSTREAM_RPC_URL =
   process.env.GNOSIS_FORK_URL ?? "https://rpc.gnosischain.com";
 
 // ── Real Gnosis addresses (each cast-verified against rpc.gnosischain.com) ───
-export const POOL = "0x7B22Ed9499aBF9d081A6bA4a632Ab81DE588f0f3" as const;
-export const COVER_TOKEN = "0x48Db7336C15DC4439aE3F023e24FAA26b400CC87" as const;
+// The PERMISSIONLESS deployment of 2026-09-19 (web/src/chain/deployments.json).
+export const POOL = "0x68A3b66cb9d66c359B83d6CaAEeAABbA0cA29Aa3" as const;
+export const COVER_TOKEN = "0x821d100Aa36Beec16D830C7E2B8D5249AF62C857" as const;
+export const ROUTER = "0x36861cbD424CDAaf9EF981Dd8C6a89F77CEB5f8b" as const;
 export const WXDAI = "0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d" as const;
 export const USDCE = "0x2a22f9c3b484c3629090FeED35F17Ff8F88f76F0" as const;
-export const SPONSOR = "0x6636A1CCBdf54485067304C1a590DE016DeaD9F0" as const;
 /** WXDAI/USDC.e 0.01% Uniswap v3 pool — the swap's route (~$103k depth). */
 export const UNI_WXDAI_USDCE_POOL =
   "0xf5E40cC12f69121B0329c256A99F4ab3ebDfAA2E" as const;
@@ -31,21 +32,21 @@ export const USDCE_WHALE =
   "0x777d8FDCe12499Ae2D66520865811eEE8c7dE679" as const;
 
 /**
- * Test buyer: a FRESH address with no history/code on Gnosis, driven via
- * anvil's --auto-impersonate + anvil_setBalance. Anvil's well-known dev
+ * Test buyer and series creator: FRESH addresses with no history/code on
+ * Gnosis (re-verified by the setup), driven via anvil's --auto-impersonate +
+ * anvil_setBalance. Anyone can create a series on the permissionless pool by
+ * escrowing the capacity — no sponsor exists anymore. Anvil's well-known dev
  * accounts are unusable on a Gnosis fork: their public keys let bots install
  * EIP-7702 sweeper delegations at those addresses on the real chain (dev #0
  * carries `0xef0100…` code), so the ERC-1155 mint's onERC1155Received
  * acceptance check hits the sweeper contract and buyProtection reverts.
  */
 export const BUYER = "0xe2ee1d3b84b7d4a1cbd5e48d1c43683e5c0f0231" as const;
+export const CREATOR = "0xe2ee1d3b84b7d4a1cbd5e48d1c43683e5c0f0232" as const;
 
 export const poolAbi = parseAbi([
   "function seriesCount() view returns (uint256)",
-  "function freeCapital() view returns (uint256)",
-  "function sponsor() view returns (address)",
   "function createSeries(uint32 strikeLowCents, uint32 strikeHighCents, uint16 premiumRateBps, uint64 saleEnd, uint64 obsStart, uint64 obsEnd, uint64 redeemEnd, uint128 capacity) returns (uint256)",
-  "function fundPool(uint256 amt)",
 ]);
 export const erc20Abi = parseAbi([
   "function balanceOf(address) view returns (uint256)",

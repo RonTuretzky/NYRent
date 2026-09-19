@@ -6,6 +6,7 @@
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
     "e2e:fork": "playwright test -c fork/playwright.config.ts",
+    "e2e:fork:arb": "playwright test -c fork-arb/playwright.config.ts",
     "gifs:record": "playwright test -c record/record.config.ts",
     "gifs:record:fork": "playwright test -c record/record-fork.config.ts",
     "gifs:assemble": "node record/assemble.mjs",

@@ -1,6 +1,6 @@
 /**
  * Shared helpers for the operator scripts (verify-eml, emlToCalldata, settle, e2e-mainnet).
- * Node >= 22 (built-in TypeScript type stripping is used to import web/src/lib/*.ts).
+ * Node >= 22 (built-in TypeScript type stripping is used to import web/src TS modules).
  */
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -10,7 +10,7 @@ import { createPublicClient, createWalletClient, http, formatEther, decodeErrorR
 import { privateKeyToAccount } from "viem/accounts";
 import { gnosis } from "viem/chains";
 
-import { oracleAbi, poolAbi, coverTokenAbi, erc20Abi, allErrorsAbi } from "../web/src/lib/abi.ts";
+import { oracleAbi, poolAbi, coverTokenAbi, erc20Abi, allErrorsAbi } from "../web/src/chain/abi.ts";
 
 export * as emailkit from "../web/src/lib/emailkit.ts";
 

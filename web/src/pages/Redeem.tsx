@@ -3,14 +3,13 @@ import { Link, useParams } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
 import { Button } from "@decentralpark/ui";
-import { deployment, isDeployed } from "../chain/deployment";
+import { isLiveDeployment, useActiveDeployment } from "../chain/registry";
 import { poolAbi } from "../chain/contracts";
 import {
-  useCoverBalance,
-  useCurrencyMeta,
-  useSeries,
-  useUserCurrency,
-} from "../chain/hooks";
+  useCoverUnits,
+  useSeriesRow,
+  useWalletCurrency,
+} from "../chain/poolHooks";
 import { useTx } from "../chain/useTx";
 import { TxStatus } from "../components/TxStatus";
 import {
@@ -33,12 +32,13 @@ import {
 export function Redeem() {
   const { id } = useParams();
   const seriesId = id !== undefined ? Number(id) : undefined;
-  const { series: s, isLoading, rpcError } = useSeries(seriesId);
-  const { symbol, decimals } = useCurrencyMeta();
+  const { deployment } = useActiveDeployment();
+  const { series: s, isLoading, rpcError } = useSeriesRow(seriesId);
+  const { symbol, decimals } = deployment.currency;
   const { address, isConnected, chainId } = useAccount();
   const { balance: coverBalance, refetch: refetchCover } =
-    useCoverBalance(seriesId);
-  const { refetch: refetchCurrency } = useUserCurrency();
+    useCoverUnits(seriesId);
+  const { refetch: refetchCurrency } = useWalletCurrency();
 
   const [amountInput, setAmountInput] = useState("");
   const redeemTx = useTx();
@@ -55,15 +55,15 @@ export function Redeem() {
     if (amount === null) return "Enter a valid decimal amount.";
     if (amount <= 0n) return "Amount must be greater than zero.";
     if (coverBalance !== undefined && amount > coverBalance) {
-      return `You only hold ${formatCurrency(coverBalance, { symbol, decimals })} of cover in this series.`;
+      return `You only hold ${formatCurrency(coverBalance, { symbol, decimals })} of protection in this series.`;
     }
     return null;
   }, [s, amountInput, amount, coverBalance, symbol, decimals]);
 
-  if (!isDeployed) {
+  if (!isLiveDeployment(deployment)) {
     return (
       <EmptyState title="Not deployed yet">
-        Redemption opens once contracts are live.
+        Payouts open once contracts are live on {deployment.name}.
       </EmptyState>
     );
   }
@@ -103,11 +103,12 @@ export function Redeem() {
       {
         abi: poolAbi,
         address: deployment.pool,
+        chainId: deployment.chainId,
         functionName: "redeem",
         args: [BigInt(seriesId!), amount],
         account: address,
       },
-      { label: "Redeem cover" },
+      { label: "Claim payout" },
     );
     if (result.status === "confirmed") {
       refetchCover();
@@ -119,47 +120,53 @@ export function Redeem() {
     <div className="max-w-xl mx-auto space-y-6">
       <header>
         <h1 className="font-parkDisplay font-bold text-3xl text-text-standard">
-          Redeem · series #{seriesId}
+          Claim payout · series #{seriesId}
         </h1>
         <p className="font-parkBody text-surface-grey-2 mt-1">
-          Burn cover tokens, receive maxClaim × payout ratio. Redemption can
-          never be paused.
+          This series has a settled result. Turn in your protection and the
+          contract pays you your share directly — claiming can never be
+          paused, and nobody can take the money out from under you.
         </p>
       </header>
 
       {rpcError ? <RpcStaleBanner /> : null}
 
-      {!s.settled ? (
+      {s.cancelled ? (
+        <EmptyState title="This series was cancelled">
+          It was cancelled by its creator before anything sold — there is
+          nothing to claim.
+        </EmptyState>
+      ) : !s.settled ? (
         <EmptyState title="Not settled yet">
-          This series hasn't settled.{" "}
+          This series doesn't have a result yet.{" "}
           <Link className="underline" to={`/settle/${seriesId}`}>
-            Settle it with the CRE Daily email
+            Settle it with the signed rent newsletter
           </Link>{" "}
           first.
         </EmptyState>
       ) : now > s.redeemEnd ? (
-        <EmptyState title="Redemption window closed">
-          The claim window ended {formatTimestamp(s.redeemEnd)}. Remaining
-          reserves have been released to the pool's free capital.
+        <EmptyState title="The claim window has closed">
+          Claims were open until {formatTimestamp(s.redeemEnd)}. Anything left
+          unclaimed returns to the series creator who escrowed the money.
         </EmptyState>
       ) : (
         <Card>
           <StatRow
-            label="Payout ratio"
+            label="Payout ratio (what each unit pays)"
             value={formatRatioWad(s.payoutRatioWad)}
           />
           <StatRow
-            label="Your cover balance"
+            label="Your protection in this series"
             value={formatCurrency(coverBalance, { symbol, decimals })}
           />
           <StatRow
-            label="Redeem until"
+            label="Claim before"
             value={formatTimestamp(s.redeemEnd)}
           />
 
           <label className="block mt-4">
             <span className="font-parkBody text-sm text-surface-grey-2">
-              Amount of cover to redeem
+              How much protection to turn in
             </span>
             <div className="flex gap-2 mt-1">
               <input
@@ -195,7 +202,8 @@ export function Redeem() {
               You will receive{" "}
               <span className="font-bold text-core-green">
                 {formatCurrency(payout, { symbol, decimals })}
-              </span>
+              </span>{" "}
+              straight to your wallet.
             </p>
           ) : null}
 
@@ -211,7 +219,8 @@ export function Redeem() {
 
           {!isConnected ? (
             <p className="mt-3 font-parkBody text-sm text-surface-grey-2">
-              Connect the wallet holding your cover tokens.
+              Connect the wallet that bought the protection — payouts go only
+              to the holder.
             </p>
           ) : null}
 
@@ -231,9 +240,9 @@ export function Redeem() {
               onClick={onRedeem}
               data-testid="redeem-button"
             >
-              Redeem
+              Claim payout
             </Button>
-            <TxStatus state={redeemTx.state} label="Redeem" />
+            <TxStatus state={redeemTx.state} label="Claim" />
           </div>
         </Card>
       )}

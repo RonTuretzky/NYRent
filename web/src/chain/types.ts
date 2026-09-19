@@ -1,15 +1,35 @@
-/** Mirrors CoverPool.Series (SPEC §2.4, frozen). */
+import type { Address } from "viem";
+
+/** Mirrors CoverPool.Series (permissionless pool, src/CoverPool.sol). Both
+ * live chains run the same contract version, so one shape serves every
+ * deployment. Amounts are in pool-currency wei (18-dec WXDAI on Gnosis,
+ * 6-dec USDC on Arbitrum) — format with the active deployment's decimals. */
 export interface Series {
+  /** Escrowed the capacity; sole holder of the series levers. */
+  creator: Address;
   strikeLowCents: number;
   strikeHighCents: number;
   premiumRateBps: number;
+  settled: boolean;
+  /** Creator refund taken while unsold; series permanently closed. */
+  cancelled: boolean;
   saleEnd: bigint;
   obsStart: bigint;
   obsEnd: bigint;
   redeemEnd: bigint;
+  /** Max sellable claim, backed 1:1 (zeroed by cancel). */
+  escrow: bigint;
+  /** Alias of `escrow` — the pre-registry components call it capacity. */
   capacity: bigint;
   sold: bigint;
-  settled: boolean;
+  /** Per-series accounting: premiums pulled into this series' bucket. */
+  premiumsAccrued: bigint;
+  /** Per-series accounting: currency paid to redeemers. */
+  paidOut: bigint;
+  /** Per-series accounting: returned to the creator via withdrawResidual. */
+  withdrawn: bigint;
+  /** One-shot latch across the cancel and residual-withdrawal exits. */
+  residualWithdrawn: boolean;
   payoutRatioWad: bigint;
   observationT: bigint;
   emailId: `0x${string}`;
@@ -32,13 +52,14 @@ export type SeriesPhase =
   | "closed";
 
 export function seriesPhase(s: Series, nowSec: bigint): SeriesPhase {
+  if (s.cancelled) return "closed";
   if (s.settled) {
     return nowSec <= s.redeemEnd ? "redeem" : "closed";
   }
   if (nowSec > s.redeemEnd) return "closed";
   if (nowSec > s.obsEnd) return "awaiting-settlement";
   if (nowSec >= s.obsStart) {
-    // demo series intentionally sells during the observation window
+    // saleEnd ≤ obsStart is a contract invariant; equality only at the boundary
     return nowSec <= s.saleEnd ? "sale" : "observation";
   }
   return nowSec <= s.saleEnd ? "sale" : "observation";
@@ -55,43 +76,64 @@ export function payoutRatioWadFor(s: Series, cents: number): bigint {
   return ((c - low) * WAD) / (high - low);
 }
 
-/** Decode a Series tuple/struct result from a contract read defensively. */
+/** ABI order of CoverPool.Series components (see chain/abi.ts). */
+const SERIES_KEYS = [
+  "creator",
+  "strikeLowCents",
+  "strikeHighCents",
+  "premiumRateBps",
+  "settled",
+  "cancelled",
+  "saleEnd",
+  "obsStart",
+  "obsEnd",
+  "redeemEnd",
+  "escrow",
+  "sold",
+  "premiumsAccrued",
+  "paidOut",
+  "withdrawn",
+  "residualWithdrawn",
+  "payoutRatioWad",
+  "observationT",
+  "emailId",
+] as const;
+
+/** Decode a Series tuple/struct result from a contract read defensively
+ * (viem returns named structs as objects; array order matches the ABI). */
 export function decodeSeries(raw: unknown): Series | undefined {
   if (raw == null) return undefined;
   const values: unknown[] = Array.isArray(raw)
     ? raw
     : typeof raw === "object"
-      ? [
-          (raw as Record<string, unknown>).strikeLowCents,
-          (raw as Record<string, unknown>).strikeHighCents,
-          (raw as Record<string, unknown>).premiumRateBps,
-          (raw as Record<string, unknown>).saleEnd,
-          (raw as Record<string, unknown>).obsStart,
-          (raw as Record<string, unknown>).obsEnd,
-          (raw as Record<string, unknown>).redeemEnd,
-          (raw as Record<string, unknown>).capacity,
-          (raw as Record<string, unknown>).sold,
-          (raw as Record<string, unknown>).settled,
-          (raw as Record<string, unknown>).payoutRatioWad,
-          (raw as Record<string, unknown>).observationT,
-          (raw as Record<string, unknown>).emailId,
-        ]
+      ? SERIES_KEYS.map((k) => (raw as Record<string, unknown>)[k])
       : [];
-  if (values.length < 13 || values[0] === undefined) return undefined;
+  if (values.length < SERIES_KEYS.length || values[0] === undefined) {
+    return undefined;
+  }
+  const big = (v: unknown) => BigInt(v as string | number | bigint);
+  const escrow = big(values[10]);
   return {
-    strikeLowCents: Number(values[0]),
-    strikeHighCents: Number(values[1]),
-    premiumRateBps: Number(values[2]),
-    saleEnd: BigInt(values[3] as string | number | bigint),
-    obsStart: BigInt(values[4] as string | number | bigint),
-    obsEnd: BigInt(values[5] as string | number | bigint),
-    redeemEnd: BigInt(values[6] as string | number | bigint),
-    capacity: BigInt(values[7] as string | number | bigint),
-    sold: BigInt(values[8] as string | number | bigint),
-    settled: Boolean(values[9]),
-    payoutRatioWad: BigInt(values[10] as string | number | bigint),
-    observationT: BigInt(values[11] as string | number | bigint),
-    emailId: values[12] as `0x${string}`,
+    creator: values[0] as Address,
+    strikeLowCents: Number(values[1]),
+    strikeHighCents: Number(values[2]),
+    premiumRateBps: Number(values[3]),
+    settled: Boolean(values[4]),
+    cancelled: Boolean(values[5]),
+    saleEnd: big(values[6]),
+    obsStart: big(values[7]),
+    obsEnd: big(values[8]),
+    redeemEnd: big(values[9]),
+    escrow,
+    capacity: escrow,
+    sold: big(values[11]),
+    premiumsAccrued: big(values[12]),
+    paidOut: big(values[13]),
+    withdrawn: big(values[14]),
+    residualWithdrawn: Boolean(values[15]),
+    payoutRatioWad: big(values[16]),
+    observationT: big(values[17]),
+    emailId: values[18] as `0x${string}`,
   };
 }
 

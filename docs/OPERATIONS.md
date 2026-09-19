@@ -397,3 +397,271 @@ underwriter wallet (agent or human):
 - **Capacity mirror deviation.** Off-chain mirrors of series capacity (dashboards, agent policy
   constants) drift from `series().escrow − sold` the moment anyone buys; always re-read
   on-chain state before acting, exactly like the agent executor already does.
+
+## Market-maker policy (two-sided agent, `agent/policy/`) — APPEND 2026-09-19
+
+The agent's mandate changed with the permissionless pool: it is now a
+**two-sided market maker running a hold-to-settlement book**, not a sponsor
+steward (the sponsor machinery — `fundPool`/`withdrawExcess`/global pause —
+no longer exists on-chain or in the policy). Full story and interface contract:
+`agent/README.md`. Operational facts:
+
+- **One model, both sides.** `agent/policy/valuation.mjs` prices ANY series
+  (arbitrary strikes/windows) as `fairRatioBps` = E[settlement ratio] under a
+  Bachelier normal around the latest authoritative print; σ from print history
+  (fallback $1.50/SF-month), horizon to the observation-window midpoint. The
+  SELL side quotes `fair × 1.25`; the BUY side arbs any open series quoted
+  ≤ `fair − 300 bps` (default edge).
+- **Per-run risk caps** (all in per-target currency units; `decimals` 18 on
+  Gnosis WXDAI, 6 on Arbitrum USDC): sell escrow ≤ 0.5 units, total buy
+  notional ≤ 0.5 units (separate clamp), per-series buys ≤ 25% of remaining
+  capacity, premiums bounded by the wallet balance left after the sell escrow.
+  Own premium clamped [500, 5000] bps. One own series per run, no own obs-window
+  overlap, `saleEnd == obsStart`, `redeemEnd ≥ obsEnd + 7d`.
+- **Stale-data behavior**: stale print (>45d) halves deployable sell capital,
+  blocks new series AND refuses the entire buy leg (a stale fair value is the
+  one an adversary would trade against); blackout (>60d) additionally pauses
+  own open series. The policy never auto-unpauses (`allowUnpause` opt-in).
+- **Inventory lean** (reviewed in every run report under `plan.inventory`):
+  `netExposureUnits = Σ own unsold capacity × fair − Σ held cover × fair`;
+  beyond ±0.1 units the next cycle leans — net short: next premium +100 bps,
+  buy edge relaxed to 200 bps; net long: buy edge tightened to 400 bps, next
+  premium −100 bps. Positions are soulbound: there is no unwind, only leaning.
+- **Own-series hygiene** the policy emits automatically: `withdrawResidual`
+  after `redeemEnd`, `cancelSeries` for own UNSOLD series whose sale ended or
+  whose strikes drifted a full band (800¢) off a fresh print.
+- **Execution boundary (unchanged discipline).** Dry-run by default; reports in
+  `agent/runs/<date>.json` with RPC hosts redacted and no key material ever.
+  Gnosis executes via the direct viem executor. On Arbitrum the execution
+  surface is the **Bankr Wallet API** (Bankr wallet
+  `0x1a72…5561`, funded 2026-09-19: 0.0005 ETH + 2.0 USDC), but **live
+  Bankr-custodied executions are out of scope for automated runs**: everything
+  is fork-proven on an anvil Arbitrum fork, and the first live Bankr action is
+  a separate operator step after review. Bankr's AI advisory returns
+  `subscription_required` on the current key; the advisory path degrades to a
+  single honest line in the report and never blocks or fakes a verdict.
+- **Review checklist for a run report**: (1) `plan.rationale` — every clamp
+  that fired is named; (2) `plan.inventory.lean` matches the book you expect;
+  (3) every `buys[i].edgeBps ≥ inventory.edgeMinBps` and
+  `Σ maxClaimUnits ≤ 0.5 units`; (4) `pauses`/`cancels`/`withdrawResiduals`
+  name only agent-created series ids; (5) refusals (exit 3) name the failed
+  input, never a guess.
+
+## Agent as market maker + Bankr custody — APPEND 2026-09-19
+
+Execution-side companion to the policy section above (`agent/README.md` has the
+full story). The agent is one permissionless underwriter/buyer wallet per
+target; there are no roles to hand over and no privileged runbook — only
+wallets, rails and gates.
+
+### Routing (agent/executors/index.mjs)
+
+| Target | Rail | Notes |
+|---|---|---|
+| gnosis (100) | direct — viem + `DEPLOYER_PRIVATE_KEY` | Bankr has no Gnosis support (docs.bankr.bot/getting-started/supported-chains) |
+| arbitrum (42161) | **bankr** — custodied wallet via the Wallet API | preferred when the triple gate passes; else falls back to direct |
+
+Both rails submit the SAME tx list (single shared builder + state read AS the
+executing wallet), and the Arbitrum fallback happens only on a **pre-submit**
+gate failure — a mid-batch Bankr failure is final (possibly PARTIAL, exit 4)
+and is never re-run on the other rail. No double-execution path exists.
+
+### The triple gate (agent/executors/bankr.mjs)
+
+Custody execution needs ALL of: `BANKR_API_KEY` set, `BANKR_EXECUTE=1`
+(explicit opt-in), and a LIVE `GET /wallet/me` returning exactly
+`BANKR_WALLET` (`0x1a7223bc942b053794e17b537e73d837cf695561` — verified live
+2026-09-19, wallet funded with 0.0005 ETH + 2.0 native USDC on Arbitrum);
+plus an on-chain check that the wallet holds the currency the plan pulls
+(escrow + premiums, in USDC units). Each tx is simulated from-override as the
+Bankr wallet immediately before `POST /wallet/submit` (Bankr signs custodially
+and broadcasts — docs.bankr.bot/wallet-api/submit) and receipts are polled
+locally; the batch aborts on the first failure with landed hashes listed.
+
+### Bankr account rails (bankr.bot → Security — server-side, key-proof)
+
+Keep the $500/day + $500/tx defaults (per-run caps are ~1 USDC total, far
+below). "Enable arbitrary contract calls" must stay ON for raw submits. Set
+the WALLET-level permitted-recipients allowlist to **pool + currency + router
+only** — the pool txs carry `value: 0` (the wallet-level list gates `to` only
+when `value > 0`), so the allowlist never blocks the agent yet stops
+value-bearing sends anywhere else; the API-KEY-level allowed-recipients list
+must stay OFF (it blocks ALL raw submissions). Add the runner's IP to the key
+allowlist and turn on passkey MFA so a leaked API key can neither spend
+elsewhere nor loosen the rails.
+
+### Advisory honesty
+
+One Agent-API prompt per run asks Bankr's agent for a second opinion on the
+two-sided plan. The current key is free-tier: the Agent API answers HTTP 403
+`{"error":"subscription_required"}` (live-captured →
+`agent/fixtures/bankr-agent-prompt-subscription-required.json`). The executor
+catches exactly that shape and prints ONE honest line, never a fake verdict;
+a real verdict is recorded, not enforced (`BANKR_ADVISORY_BLOCKING=1` opt-in).
+Bankr Club or Max-Mode credits restore the real second opinion.
+
+### Live-custody status (honest)
+
+Proven: unit suite (gate, paywall degrade, pipeline, PARTIAL semantics) +
+`npm run test:fork:bankr` — the production `execute()` against a real anvil
+fork of Arbitrum (real contracts, the real wallet's inherited balances; the
+only substitution is `/wallet/submit` broadcasting the identical tx from the
+impersonated wallet) + live read-only `GET /wallet/me` identity verification.
+NOT yet run anywhere: a live funded `POST /wallet/submit`. The first live
+Bankr-custodied action is a deliberate manual operator step after review
+(set `BANKR_EXECUTE=1`, run `node run.mjs --target arbitrum --execute`),
+out of scope for automated runs.
+
+## Multi-target runner + P&L accounting (agent/run.mjs) — APPEND 2026-09-19
+
+The runner is per-target end to end: signals are gathered ONCE (the settlement
+metric is chain-agnostic), then each entry of `agent/targets.mjs` — the frozen
+registry of the 2026-09-19 permissionless deployments (gnosis/WXDAI/18 dec →
+executor `direct`; arbitrum/USDC/6 dec → executor `bankr`) — gets its own
+chain read, market scan, plan, P&L block and exit code. Operational facts:
+
+- **Market-scan robustness**: `seriesCount` + per-series struct + creator +
+  `seriesPaused` + the agent's CoverToken balances are read per target; ONE
+  undecodable series is skipped and recorded (`chainState.scanSkipped`), and
+  the policy excludes it from BOTH sides of the book — a single bad row never
+  blinds the run. A top-level read failure refuses THAT target only.
+- **Per-target isolation + worst-of exit**: a crash, refusal or partial on one
+  target never stops the others; the process exit code is the worst across
+  targets (severity 1 > 4 > 3 > 2 > 0 — the classic 0/2/3/4 meanings are
+  unchanged). `--execute` may name targets (`--execute gnosis`); the rest of
+  the run stays dry.
+- **Identity resolution** (the policy refuses without one): bankr targets
+  prefer `BANKR_WALLET`, direct targets the `DEPLOYER_PRIVATE_KEY`-derived
+  address; `AGENT_ADDRESS`/`AGENT_ADDRESS_<TARGET>` give keyless dry runs an
+  identity (used by CI). On bankr targets with `BANKR_API_KEY` set the runner
+  also does a read-only `GET /wallet/me` and flags a mismatch in the report.
+- **P&L block** (per target, cumulative, currency units): premiums earned
+  (Σ own-series `premiumsAccrued`) and residuals withdrawn (Σ own-series
+  `withdrawn`) come straight from chain state; premiums paid
+  (`ProtectionBought` filtered on the indexed buyer) and redemptions received
+  (`Redeemed` filtered on the indexed holder) come from chunked event scans
+  whose cursor + totals persist in `agent/runs/state-<chainId>.json`
+  (gitignored runtime state; the cursor only ever advances, a failed chunk
+  holds it for retry, and a wallet change resets the totals with a note).
+  First scan looks back `AGENT_PNL_LOOKBACK_BLOCKS` (default 120000) — P&L is
+  cumulative FROM FIRST TRACKED RUN, which for these wallets is deployment
+  week; it is bookkeeping, not an audit.
+- **Execution-time re-enforcement (the drift lesson)**: `direct.mjs` re-reads
+  live state and re-derives every cap from the LIVE token decimals before
+  building txs — over-cap sell escrow or buy notional refuses the whole batch;
+  buy legs are narrowed to live unsold capacity or dropped (paused / settled /
+  sale-closed / own series / premium above the authorized max); creator levers
+  are dropped when live state says they would revert; the batch refuses when
+  wallet balance < escrow + Σ premiums or native gas < 3× estimated fees.
+  Proven against real forks of BOTH mainnets: `npm run test:fork` (Gnosis) and
+  `npm run test:fork:arbitrum` (USDC decimals matrix), covering escrowed
+  create, the buy leg, pause, one-shot residual and the cancel refund.
+- **Policy-driven cycle proof** (`npm run test:fork:cycle`, `npm run
+  test:fork:cycle:arbitrum` — `agent/executors/mm-cycle-fork-proof.mjs`): where
+  the executor fork proofs hand-craft plans, this one lets `decide()` produce
+  every plan against a real anvil fork of the deployed pool, driven by a FRESH
+  key-signing EOA: cycle 1 sells (0.5-unit escrow clamp binds, escrow pulled
+  1:1), a second actor opens an underpriced series and buys our cover, cycle 2's
+  re-run plans the arbitrage buy (edge ≥ 300 bps, 25% per-series cap, never own
+  series, soulbound cover + premium accounting asserted), and after a warp past
+  `redeemEnd` cycle 3 refuses sell+buy on the now-stale print but withdraws the
+  residual, proven to the base unit as escrow + premiumsAccrued − paidOut.
+  Passed on forks of both mainnets 2026-09-19 (WXDAI 18 dec and USDC 6 dec,
+  identical economics). One fork-realism note: anvil's well-known dev accounts
+  are unusable as cover recipients on forks — those public keys carry EIP-7702
+  delegations on both mainnets, so the soulbound ERC-1155 mint reverts
+  `ERC1155InvalidReceiver`; the proof generates ephemeral random EOAs instead.
+
+## Market-maker hardening: redeems, idempotence, self-dealing, P&L, lock — APPEND 2026-09-19
+
+Consolidated fixes from the two-lens (safety + economics) review of the
+two-sided agent, all shipped with unit tests and re-proven on both mainnet
+forks (`agent/` only; contracts untouched):
+
+- **REDEEM leg — profit realization (was: the buy side could never collect).**
+  The Plan gains `redeems: [{seriesId, units}]`: `decide()` emits one for every
+  settled holding with `payoutRatioWad > 0` before its `redeemEnd` (staleness
+  never blocks it — a settled payout has no valuation dependence), the executor
+  builds `redeem(seriesId, units)` (narrowed to live CoverToken holdings,
+  dropped when unsettled / window-closed / ratio 0), ordered with the
+  collections before the money legs. Holdings that expired unredeemed are
+  reported as a realized loss. The cycle fork proofs now drive settlement on
+  the fork (a qualifying observation is injected into the oracle's storage —
+  scaffolding; the POOL's real `settle()` fixes the ratio) and assert the
+  redeem collects EXACTLY units × ratio on both chains, and that a verbatim
+  re-run of the executed plan is a local no-op.
+- **Plan stamp + re-run idempotence.** `decide()` stamps the plan with
+  `{chainId, pool, decidedAtBlock, wallet}`; both rails share `computeTxDiff`,
+  which REFUSES any stamped plan whose chainId / pool / executing wallet
+  mismatch live state (no cross-target replay; a plan sized for one wallet
+  never executes from another). The executors CLI now requires `--target`.
+  Sell-leg guard: `createSeries` is dropped when an operator-book OPEN series
+  with the same strikes + obs window already exists live. Buy-leg guard: the
+  25% per-series cap is CUMULATIVE — `decide()` skips series already held
+  at/above cap and sizes new buys net of holdings, and the executor re-checks
+  live holdings before each buy.
+- **Two-wallet self-dealing exclusion.** `config.operatorWallets` = deployer
+  `0x6636A1CCBdf54485067304C1a590DE016DeaD9F0` + Bankr custody wallet
+  `0x1a7223bc942b053794e17b537e73d837cf695561`. The buy side never buys ANY
+  operator wallet's series on any target (policy + executor, rationale names
+  each exclusion), and the one-own-live-sale / obs-window-overlap guards treat
+  the operator's wallets as one book.
+- **P&L integrity.** `residualsWithdrawn` decomposes into escrow returned
+  (capital) + premium income; `claimsPaid` (Σ paidOut on own series) is the
+  sell book's realized-loss line; `redemptionsForgone` (settled cover held
+  past redeemEnd, valued units × ratio) is the buy book's.
+- **Inventory metric.** Net exposure = Σ own-book SOLD × fair (settled: sold ×
+  ratio − paidOut; extinguished past redeemEnd) − Σ PURCHASED holdings × fair.
+  Unsold capacity is uncommitted, not short (the old unsold-based metric made
+  the short lean price the next series UP — counterproductive). Held cover is
+  valued 0 past redeemEnd or when the obs window died without a qualifying
+  observation, and only cover the agent actually BOUGHT counts — the
+  cumulative `ProtectionBought(buyer=agent)` ledger in
+  `agent/runs/state-<chainId>.json` separates purchases from outsider-minted
+  soulbound gifts, which are reported but can no longer steer the lean.
+- **Run lock.** `--execute` takes `agent/runs/.lock` (pid + timestamp, stale
+  after 30 min); a concurrent execute run is refused with exit 3.
+- **Bankr custody rail: ON HOLD.** Implemented and fork-proven, currently
+  dormant; the DIRECT executor (deployer identity) is the active rail on BOTH
+  chains. Custody runs only behind an explicit `BANKR_EXECUTE=1`, which also
+  flips the Arbitrum plan identity to `BANKR_WALLET` — and a failed custody
+  gate then REFUSES that target loudly (exit 3) instead of silently
+  downgrading to the direct key. In custody mode `DEPLOYER_PRIVATE_KEY` is not
+  required.
+
+Verification 2026-09-19: `npm test` 223/223 green (was 196); `test:fork`,
+`test:fork:arbitrum`, `test:fork:cycle`, `test:fork:cycle:arbitrum` all passed
+against fresh forks of both mainnets, the cycle proofs ending in a realized
+redeem (0.2 units × ratio 0.5 → 0.1 units collected, cover burned) and a
+no-op idempotent re-run.
+
+## Next on-chain ops (ON HOLD — operator go required)
+
+Both permissionless deployments are live with **zero series**; nothing below has been
+executed. The operator-approved sequence, in order:
+
+1. **One demonstration series, created and settled.** The on-chain rules
+   (`saleEnd ≤ obsStart`, future-ordered timestamps) mean the archived 2026-09-17 email can
+   never qualify for a newly created series — settlement requires the **next authentic
+   CRE Daily issue**. Create a short-window series so that cycle completes quickly:
+   sale from creation until `obsStart` set a few days out, `obsEnd = obsStart + ~10 days`
+   (wide enough to catch one issue at the observed ~2–5 day cadence),
+   `redeemEnd = obsEnd + 7 days` (the contract minimum). Strikes/premium: run
+   `node agent/run.mjs` and use its plan (standard 800-cent band anchored to the latest
+   print; ~919 bps at the current σ), or price manually with `agent/policy/valuation.mjs`.
+   When the next issue lands in the throwaway inbox: settle via the app's upload flow (or
+   `scripts/e2e-mainnet.mjs` path), redeem any held cover, `withdrawResidual`.
+
+2. **The annual series: observation window October 2026 → October 2027.**
+   `saleEnd = obsStart = 1790812800` (2026-10-01 00:00 UTC — sale open from creation until
+   then), `obsEnd = 1822348800` (2027-10-01 00:00 UTC), `redeemEnd = 1824940800`
+   (obsEnd + 30 days). Strikes: standard band anchored at the latest print (9288/10088 at
+   today's data). Premium must be priced at the 1-year horizon — use
+   `fairPremiumBps` from `agent/policy/valuation.mjs` with this window (σ scales ≈ √12 vs
+   monthly; illustratively ≈ 2,700–2,800 bps at σ=$1.50/SF·mo, but take the engine's
+   number at execution time, not this note). Capacity per the operator's capital decision;
+   the agent's 0.5-unit clamp applies if executed through `run.mjs`.
+
+Also on hold, in order behind the above: Pages deploy of the multichain RentSafe build,
+live-site verification, and guide-GIF re-records for the changed flows. The Bankr custody
+rail stays dormant (direct executor on both chains) until re-enabled.

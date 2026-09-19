@@ -1,13 +1,19 @@
-# agent-daily — daily rent-scout run for NY Rent Cover (see agent/README.md).
+# agent-daily — daily market-maker run for NY Rent Cover (see agent/README.md).
 #
 # Every run is a DRY RUN: collectors hit their real endpoints, chain state is
-# read from Gnosis, the deterministic policy prints its Plan, and the run
-# report is uploaded as an artifact. NOTHING is written on-chain.
+# read per target (Gnosis WXDAI + Arbitrum USDC — the permissionless CoverPool
+# has NO roles; the agent is one underwriter/buyer wallet among any number),
+# the deterministic two-sided policy prints its Plan per target, and the run
+# report is uploaded as an artifact. NOTHING is written on-chain. The dry run
+# gets its identity from public ADDRESSES below (never keys): the policy
+# refuses to plan without knowing which wallet the book belongs to.
 #
 # Execution is a separate, operator-opt-in path: trigger workflow_dispatch with
 # execute=true. It requires the DEPLOYER_PRIVATE_KEY repository secret (the
-# CoverPool sponsor key; BANKR_API_KEY is optional and only enables the Bankr
-# advisory/notify executor). Secrets are passed via step env only and are never
+# agent's underwriter wallet key on direct targets; BANKR_API_KEY enables the
+# Bankr advisory + the read-only /wallet/me identity check — live Bankr-custody
+# execution additionally needs the explicit BANKR_EXECUTE=1 opt-in and is NOT
+# part of this workflow). Secrets are passed via step env only and are never
 # echoed; run.mjs never prints key material.
 name: agent-daily
 
@@ -50,10 +56,16 @@ jobs:
         working-directory: agent
         run: npm run test:policy
 
-      - name: Dry run (always — real signals, real chain reads, no transactions)
+      - name: Dry run (always — real signals, real chain reads per target, no transactions)
         working-directory: agent
         env:
           GNOSIS_RPC_URL: https://rpc.gnosischain.com
+          ARBITRUM_RPC_URL: https://arb1.arbitrum.io/rpc
+          # Identity WITHOUT keys (public addresses — the policy refuses to plan
+          # a book it cannot attribute to a wallet): the Gnosis underwriter
+          # wallet and the Bankr-custodied Arbitrum wallet.
+          AGENT_ADDRESS_GNOSIS: "0x6636A1CCBdf54485067304C1a590DE016DeaD9F0"
+          BANKR_WALLET: "0x1a7223bc942b053794e17b537e73d837cf695561"
         run: node run.mjs
 
       # Operator opt-in execution. Exit code 2 means "acted" and is success.
@@ -62,6 +74,8 @@ jobs:
         working-directory: agent
         env:
           GNOSIS_RPC_URL: https://rpc.gnosischain.com
+          ARBITRUM_RPC_URL: https://arb1.arbitrum.io/rpc
+          BANKR_WALLET: "0x1a7223bc942b053794e17b537e73d837cf695561"
           DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
           BANKR_API_KEY: ${{ secrets.BANKR_API_KEY }}
         run: |
@@ -70,7 +84,9 @@ jobs:
             exit 1
           fi
           set +e
-          node run.mjs --execute
+          # Execution from CI is scoped to the direct target: live Bankr-custody
+          # execution (arbitrum) is a deliberate manual operator action, never CI.
+          node run.mjs --execute gnosis
           code=$?
           set -e
           case "$code" in
