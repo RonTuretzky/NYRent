@@ -1,0 +1,73 @@
+{
+  "name": "rentsafe-polygon",
+  "recordedAt": "2026-09-19T21:31:55.797Z",
+  "duration": 137.04,
+  "chapters": [
+    {
+      "id": "overview",
+      "title": "The current Polygon market",
+      "caption": "This is the current interface reading the deployed Polygon market. No wallet is connected and no transaction is sent.",
+      "start": 0.328,
+      "end": 23.532
+    },
+    {
+      "id": "money-flow",
+      "title": "Follow the money through the three parties",
+      "start": 23.532,
+      "end": 43.532,
+      "caption": "The animated diagram separates backing escrow, pool trading and the final payout."
+    },
+    {
+      "id": "calculator",
+      "title": "Explore coverage without a transaction",
+      "caption": "The renter calculator sizes the band: $60,000 annual rent corresponds to 3,000 RENT. Its cost estimate is a model.",
+      "start": 43.532,
+      "end": 62.176
+    },
+    {
+      "id": "quote",
+      "title": "Understand price and available liquidity",
+      "caption": "Buy & Sell shows the current RENT price. A spot-price conversion is different from what the current pool can execute.",
+      "start": 62.176,
+      "end": 89.603
+    },
+    {
+      "id": "integration",
+      "title": "See the Uniswap integration",
+      "caption": "The dedicated guide separates backing escrow, trading inventory, the timing hook and final redemption.",
+      "start": 89.603,
+      "end": 104.142
+    },
+    {
+      "id": "forecast",
+      "title": "Read the price-implied rent level",
+      "caption": "Market view converts price into a payout-equivalent growth level. It does not turn a capped token price into expected rent growth.",
+      "start": 104.142,
+      "end": 112.56
+    },
+    {
+      "id": "publisher-email",
+      "title": "Verify the actual publisher email",
+      "start": 112.56,
+      "end": 137.04,
+      "caption": "The actual CRE Daily publisher signature authenticates the $92.88/SF baseline. Its 2026 timestamp cannot settle the 2027 market."
+    }
+  ],
+  "proof": {
+    "scope": "Polygon mainnet \u00b7 read-only walkthrough \u00b7 no transactions",
+    "chainId": 137,
+    "interfaceOrigin": "http://127.0.0.1:5205",
+    "walletConnected": false,
+    "transactionsSent": 0,
+    "quoteEvidence": "LIVE TRADING MARKET \u00b7 POLYGON\n\nBuy & Sell\n\nCurrent RENT price\n\n0.326709 USDC per RENT\n\nTrading open\n\nThis is the price before your trade. Your order can change it when liquidity is limited.\n\nConnect your wallet to see your balances.\n\nConnect wallet\n\nPay with native USDC; keep POL for network fees.\n\nBuy\nSell\nYou pay (USDC)\n\nConnect your wallet to see your USDC balance on Polygon.\n\nAt the current price\n\n100 USDC \u00f7 0.326709 \u2248 306.082489 RENT\n\nBefore trading fees or any price movement caused by your order.\n\nYou receive \u00b7 live pool quote\n\n0.461615 RENT\n\nIncludes trading fees and the effect of your order on the price.\n\nAverage price for your order\n216.630742 USDC / RENT\nPrice impact + trading fees\n99.85%\n\nThis order is too large for the available liquidity.\n\nYou would receive 99.85% less RENT than the current-price calculation. Orders above 10% are blocked here. Reduce your amount, or wait for more liquidity.\n\nThe market has only 1.5 RENT in total; it cannot supply 306.082489 RENT.\n\nThe quote refreshes automatically. A 1% slippage limit protects against further price changes after the quote; it does not remove the price impact shown above. Network fees are paid separately.\n\nConfirm trade\nWhat does owning RENT mean?",
+    "moneyFlowInsert": {
+      "duration": 20,
+      "transactionsSent": 0
+    },
+    "actualPublisherEmail": {
+      "scope": "Actual CRE Daily publisher-signed baseline email, authenticated Polygon oracle, no transaction",
+      "actualEmailChecks": "Authenticated on-chain\n\nRent print in the signed email\n\n$92.88 /SF\n\nPayout preview per RENT\n\n0.0000 USDC\n\nOutside the settlement window: this email cannot settle this market. The payout becomes final only after the oracle authenticates an eligible email and the settlement transaction confirms.",
+      "checks": "\u2713 Email parsed (CRLF normalized, headers/body split): header block and body located\n\u2713 DKIM signature for d=newyork.credaily.com present: selected dkim-signature with d=newyork.credaily.com, s=b37\n\u2713 DKIM tag policy, byte-exact as on-chain (v/a/c/d/s, no l=, empty b=): v=1 a=rsa-sha256 c=relaxed/relaxed d/s pinned, no l=, b= empty (canonical line verbatim)\n\u2713 Signed header block ends with a b=-emptied dkim-signature line: 1378 bytes, trailing dkim-signature line with empty b= (any tag position), no trailing CRLF\n\u2713 A signed from: line ends with <mail@newyork.credaily.com>: from:CRE Daily New York <mail@newyork.credaily.com>\n\u2713 sha256(canonical body) matches bh= tag: bh=XO8VsgH6yzZkDP1Z0WZojXMdOoa4j1i17epBk4K5SOE=\n\u2713 RSA signature verifies (WebCrypto, pinned key): RSASSA-PKCS1-v1_5/SHA-256 valid for pinned 2048-bit key\n\u2713 t= parses, is nonzero, and is not in the future (>1 day): t=1789642464 (2026-09-17T10:54:24.000Z)\n\u2713 Rent value extracted (unique anchor, cents > 0): Manhattan Office Rent > Avg Effective > $92.88 / SF -> 9288 cents (anchor @ canon offset 43411)"
+    }
+  }
+}

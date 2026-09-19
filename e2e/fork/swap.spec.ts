@@ -48,9 +48,8 @@ test("buyer pays with USDC.e: real QuoterV2 quote, one router swap-and-buy, cove
 
   // The plain-language protection summary precedes the confirm buttons.
   await expect(page.getByTestId("protection-summary")).toBeVisible();
-  await expect(page.getByTestId("index-disclosure")).toContainText(
-    "Manhattan office rent",
-  );
+  await expect(page.getByTestId("index-disclosure").getByRole("link", { name: "market page" })).toHaveAttribute("href", `#/market/${seriesId}`);
+  await expect(page.getByTestId("index-disclosure").getByRole("link", { name: "docs", exact: true })).toHaveAttribute("href", "#/docs");
 
   // Uniform router UX: approve the router for USDC.e, then ONE transaction
   // swaps to the exact premium and buys — no stepper, no pool approval.

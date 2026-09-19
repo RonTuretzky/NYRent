@@ -80,10 +80,8 @@ const DOCS = [
   },
 ];
 
-/** One recorded guide GIF per flow, in journey order. `media` lives in
- * web/public/docs/ (vite copies public/ → dist, so the same file serves
- * GitHub Pages and this page). Recorded on a local Anvil / Gnosis
- * mainnet-fork stack — see the honesty note in the Guides section. */
+/** Historical written guides, in journey order. Original capture metadata
+ * remains here for reference; current recordings live in /docs/walkthrough. */
 interface Flow {
   id: string;
   n: number;
@@ -274,14 +272,6 @@ function FlowCard({ flow }: { flow: Flow }) {
           <li key={i}>{step}</li>
         ))}
       </ol>
-      <img
-        src={import.meta.env.BASE_URL + "docs/" + flow.media}
-        alt={flow.alt}
-        loading="lazy"
-        width={flow.width}
-        height={flow.height}
-        className="w-full h-auto rounded-xl border-2 border-paper-2 mt-4"
-      />
     </Card>
   );
 }
@@ -351,8 +341,8 @@ const RULES: { pool?: boolean; body: ReactNode }[] = [
   {
     body: (
       <>
-        Template extraction: exactly one <Code>Manhattan Office Rent</Code>{" "}
-        anchor, then <Code>Avg Effective</Code>, then <Code>$NN.NN / SF</Code>{" "}
+        Template extraction: exactly one configured rent-index anchor,
+        then <Code>Avg Effective</Code>, then <Code>$NN.NN / SF</Code>{" "}
         within bounded distance — quoted-printable decoded on the fly.
       </>
     ),
@@ -457,7 +447,7 @@ export function LegacyDocs() {
         <p className="font-parkBody text-surface-grey-2 mt-1">
           RentSafe pays you when the reported rent number goes up. This page
           is the full disclosure behind that sentence: exactly which rent
-          number settles the market (Manhattan office rent), how the signed
+          number settles the market (the published rent index), how the signed
           newsletter is verified,
           what is trusted, and how to check everything yourself. The{" "}
           <Link to="/" className="underline decoration-dotted">
@@ -477,7 +467,7 @@ export function LegacyDocs() {
 
       <Card>
         <h2 className="font-parkDisplay font-bold text-lg text-text-standard">
-          Live Gmail-to-redemption walkthrough
+          Historical Gmail-to-redemption transactions
         </h2>
         <p className="font-parkBody text-sm text-surface-grey-2 mt-1">
           Captured on 2026-09-19 against the deployed contracts with real
@@ -487,17 +477,12 @@ export function LegacyDocs() {
           inspect the successful on-chain observation, settle at 61%, and
           redeem 0.00061 of the pool currency.
         </p>
-        <img
-          src={
-            import.meta.env.BASE_URL +
-            "docs/live-gmail-settle-redeem.gif"
-          }
-          alt="Live Gmail-to-redemption walkthrough using the real CRE Daily email and deployed contracts."
-          loading="eager"
-          width={1000}
-          height={525}
-          className="w-full h-auto rounded-xl border-2 border-paper-2 mt-4"
-        />
+        <Link
+          to="/docs/walkthrough"
+          className="mt-4 inline-flex min-h-11 items-center gap-2 font-parkBody font-bold text-sm text-core-green underline underline-offset-4"
+        >
+          Watch the current walkthroughs <ArrowSquareOutIcon size={18} />
+        </Link>
         <ul className="font-parkBody text-sm text-text-standard mt-4 space-y-1">
           {(
             [
@@ -530,18 +515,15 @@ export function LegacyDocs() {
 
       <section className="space-y-3">
         <h2 className="font-parkDisplay font-bold text-lg text-text-standard">
-          Guides
+          Historical flow guides
         </h2>
         <p className="font-parkBody text-sm text-surface-grey-2 border-l-4 border-system-warning pl-3 py-0.5">
-          Honesty note: unlike the live walkthrough above, these recordings were made on a local Anvil /
-          Gnosis-mainnet-fork stack running the earlier sponsor-model
-          contracts with the real 2026-09-17 newsletter <Code>.eml</Code> —
-          that deployment's market 0 is already settled, so the flows cannot
-          be re-recorded live. The live app is now the permissionless version
-          (see Underwriting below); the settle and redeem mechanics shown are
-          unchanged, while pay-with-any-token is now a single router
-          transaction (flow 5 explains the difference). The permanent
-          on-chain results are in the{" "}
+          These written guides describe an earlier contract version and its
+          local Anvil / Gnosis-mainnet-fork walkthrough. For the current
+          interface, see the{" "}
+          <Link to="/docs/walkthrough" className="underline decoration-dotted">
+            recorded walkthroughs
+          </Link>. The permanent on-chain results are in the{" "}
           <button
             type="button"
             onClick={() =>

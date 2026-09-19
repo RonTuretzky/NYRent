@@ -83,9 +83,8 @@ test("header chain switch, then one-tx native-ETH swap-and-buy on the real route
 
   // The plain-language protection summary + the index disclosure are there.
   await expect(page.getByTestId("protection-summary")).toBeVisible();
-  await expect(page.getByTestId("index-disclosure")).toContainText(
-    "Manhattan office rent",
-  );
+  await expect(page.getByTestId("index-disclosure").getByRole("link", { name: "market page" })).toHaveAttribute("href", `#/market/${seriesId}`);
+  await expect(page.getByTestId("index-disclosure").getByRole("link", { name: "docs", exact: true })).toHaveAttribute("href", "#/docs");
 
   // Native coin: no approval — ONE confirmation swaps and buys atomically.
   await expect(page.getByTestId("swap-approve-button")).toHaveCount(0);

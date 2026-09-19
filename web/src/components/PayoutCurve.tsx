@@ -146,7 +146,7 @@ export function PayoutCurve({
         fill="var(--color-surface-grey)"
         fontFamily="var(--font-parkBody)"
       >
-        CRE Daily · Manhattan Office Rent · Avg Effective $/SF
+        CRE Daily · Manhattan Rent Index · Avg Effective $/SF
       </text>
 
       {/* settled point */}

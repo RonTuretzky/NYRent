@@ -298,8 +298,8 @@ export function SeriesDetail() {
                 />
               ) : null}
               <p className="font-parkBody text-xs text-surface-grey mt-3">
-                What settles this market: the average effective Manhattan
-                office rent ($/SF) printed in CRE Daily's Market Snapshot
+                What settles this market: the average effective rent
+                snapshot ($/SF) printed in CRE Daily's Market Snapshot
                 newsletter, whose DKIM signature is verified on-chain.
               </p>
             </Card>

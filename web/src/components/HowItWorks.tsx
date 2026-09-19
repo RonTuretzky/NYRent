@@ -33,13 +33,13 @@ const STEPS: Step[] = [
   {
     key: "buy",
     title: "A renter pays a premium and gets RENT",
-    body: "Anyone exposed to Manhattan office rents buys protection: they pay the premium and receive RENT — non-transferable ERC-1155 tokens, each paying up to $1 at settlement. The matching claim amount is reserved in the pool from that moment. The market's terms are immutable from the first sale — no setter even exists.",
+    body: "Anyone exposed to the Manhattan rent index buys protection: they pay the premium and receive RENT — non-transferable ERC-1155 tokens, each paying up to $1 at settlement. The matching claim amount is reserved in the pool from that moment. The market's terms are immutable from the first sale — no setter even exists.",
     viz: BuyViz,
   },
   {
     key: "email",
     title: "The CRE Daily snapshot arrives",
-    body: "CRE Daily's Market Snapshot newsletter reports Manhattan office rent (Avg Effective $/SF, CompStak data) and is DKIM-signed by newyork.credaily.com. That cryptographic signature — not any trusted server — is the market data feed.",
+    body: "CRE Daily's Market Snapshot newsletter reports the Manhattan rent index (Avg Effective $/SF, CompStak data) and is DKIM-signed by newyork.credaily.com. That cryptographic signature — not any trusted server — is the market data feed.",
     viz: EmailViz,
   },
   {

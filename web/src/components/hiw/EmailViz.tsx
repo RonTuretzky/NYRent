@@ -46,7 +46,7 @@ export function EmailViz({ reducedMotion }: { reducedMotion: boolean }) {
         viewBox="0 0 420 240"
         className="w-full h-auto"
         role="img"
-        aria-label="The CRE Daily Market Snapshot email, DKIM-sealed, reporting Manhattan Office Rent, average effective, $92.88 per square foot."
+        aria-label="The CRE Daily Market Snapshot email, DKIM-sealed, reporting Manhattan Rent Index, average effective, $92.88 per square foot."
       >
         {/* the newsletter card */}
         <rect
@@ -98,7 +98,7 @@ export function EmailViz({ reducedMotion }: { reducedMotion: boolean }) {
         {/* the snapshot line, revealed group by group */}
         <Reveal at={GROUPS[0]} frozen={reducedMotion}>
           <text x={66} y={122} fontSize={12} fill={C.ink} fontFamily={MONO}>
-            Manhattan Office Rent
+            Manhattan Rent Index
           </text>
         </Reveal>
         <Reveal at={GROUPS[1]} frozen={reducedMotion}>

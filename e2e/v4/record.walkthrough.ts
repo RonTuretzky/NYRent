@@ -18,6 +18,7 @@ test("record the complete backed RENT lifecycle with captions", async ({ browser
   const proof: Record<string, unknown> = { scope: "Local Anvil chain 31337; synthetic USDC; test-key signed emails. No mainnet settlement or user funds.", chainId: 31337, deployment: deployment() };
   const d = deployment();
   const chapter = async (id: string, title: string, caption: string) => {
+    console.log(`Recording chapter: ${title}`);
     chapters.push({ id, title, caption, start: Math.max(0, (Date.now() - began) / 1000) });
     await say(page, caption);
   };
@@ -86,7 +87,7 @@ test("record the complete backed RENT lifecycle with captions", async ({ browser
     await hold(page, 5);
     await click(page, page.getByRole("button", { name: "+8%", exact: true }));
     await expect(page.getByTestId("renter-outcome-payout")).toContainText("$3,000");
-    await say(page, "At +8% or more: the maximum is $3,000. This follows the office-rent index, not the renter’s own lease.");
+    await say(page, "At +8% or more: the maximum is $3,000. The payout follows the published rent index.");
     await hold(page, 6);
 
     await click(page, page.getByTestId("renter-buy"));

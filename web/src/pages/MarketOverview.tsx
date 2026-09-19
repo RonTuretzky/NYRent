@@ -70,7 +70,7 @@ export function MarketOverview() {
           <span className="text-core-green">RentSafe helps you cover the rise.</span>
         </h1>
         <p className="font-parkBody text-lg text-surface-grey-2 mt-6">
-          Pay once for protection against rising Manhattan office rents.
+          Pay once for protection against a rise in the published rent index.
           Each RENT pays up to $1 from money already in escrow: payouts start
           above +{floorPct}% growth and reach the full $1 at +{ceilPct}%.
           A signed rent newsletter supplies the index.

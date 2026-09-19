@@ -79,7 +79,7 @@ function StoryStaticScreen({ step, phase }: { step: number; phase: number }) {
   if (step === 5) {
     const date = (time: bigint) => unavailable ? "—" : formatDate(time);
     const terms = [
-      ["Index", "CRE Daily · Manhattan office rent"],
+      ["Index", "CRE Daily · Manhattan rent index"],
       ["September 2026 base", `${value(market.baseCents)}/SF`],
       ["Pays from +3%", `${value(market.strikeLowCents)}/SF`],
       ["Full payout at +8%", `${value(market.strikeHighCents)}/SF`],
@@ -102,7 +102,7 @@ function StoryStaticScreen({ step, phase }: { step: number; phase: number }) {
   if (step === 8) return <>
     <p className="story-copy">Anyone can submit a qualifying signed email.<br />The first successful qualifying settlement fixes the payout.</p>
     <div className="story-resolution">
-      <div className="story-email"><span className="story-badge">Illustration · not a verified email</span><div className="story-email-heading"><EnvelopeSimpleIcon /><strong>CRE Daily · Market Snapshot</strong></div><p>Hypothetical September 2027 print</p><div className="story-email-rent"><span>Manhattan office rent · Avg effective</span><strong>{formatCents(exampleCents)} <small>/SF</small></strong></div><span className="story-small">The real future newsletter has not arrived.</span></div>
+      <div className="story-email"><span className="story-badge">Illustration · not a verified email</span><div className="story-email-heading"><EnvelopeSimpleIcon /><strong>CRE Daily · Market Snapshot</strong></div><p>Hypothetical September 2027 print</p><div className="story-email-rent"><span>Manhattan rent index · Avg effective</span><strong>{formatCents(exampleCents)} <small>/SF</small></strong></div><span className="story-small">The real future newsletter has not arrived.</span></div>
       <div className="story-checks" aria-label="Illustrative verification sequence">{["Publisher signature", "Body hash", "Sender domain", "Signed timestamp", "Rent anchor phrase", "Value parsed"].map((label, index) => <div key={label} className={phase > index ? "story-check story-checked" : "story-check"}><span className="story-check-icon">{phase > index ? <CheckIcon weight="bold" /> : <span>·</span>}</span><span>{label}</span></div>)}</div>
     </div>
     <Reveal shown={phase >= 7} className="story-resolution-result"><span>{formatCents(exampleCents)}/SF → {(growthFor(exampleCents, market.baseCents) * 100).toFixed(2)}% growth → {(ratio * 100).toFixed(0)}% payout</span><strong>{ratio.toFixed(2)} USDC per RENT <small>· illustrated outcome</small></strong></Reveal>

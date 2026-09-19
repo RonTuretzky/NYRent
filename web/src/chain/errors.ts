@@ -74,7 +74,7 @@ const ERROR_COPY: Record<string, string> = {
   BadBodyHash:
     "The canonicalized body hash doesn't match the bh= tag in the DKIM signature — the body was modified after signing.",
   AnchorNotUnique:
-    "The anchor phrase “Manhattan Office Rent” does not appear exactly once in the email body, so the value can't be extracted unambiguously.",
+    "The configured rent-index anchor does not appear exactly once in the email body, so the value can't be extracted unambiguously.",
   BadTimestamp:
     "The DKIM t= timestamp is in the future beyond the allowed one-day tolerance.",
   MissingFrom:
@@ -84,7 +84,7 @@ const ERROR_COPY: Record<string, string> = {
   BadTagPolicy:
     "A dkim-signature tag violates the pinned policy (v=1, rsa-sha256, relaxed/relaxed, d=newyork.credaily.com, s=b37, no l=, empty b=).",
   SnapshotNotFound:
-    "The rent value pattern (“Manhattan Office Rent … Avg Effective … $NN.NN / SF”) wasn't found in the email body.",
+    "The required average-effective rent value ($NN.NN / SF) wasn't found after the configured rent-index anchor in the email body.",
   BadModulus: "The pinned RSA modulus is malformed (deployment error).",
   DuplicateTag: "The dkim-signature line contains a duplicated tag.",
   MalformedTag: "The dkim-signature line contains a malformed tag.",

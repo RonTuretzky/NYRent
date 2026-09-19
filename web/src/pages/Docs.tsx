@@ -13,7 +13,7 @@ export function Docs() {
   const v4 = V4_DEPLOYMENTS[String(deployment.chainId)];
   return <div className="max-w-3xl min-w-0 mx-auto space-y-6 [&_p]:leading-relaxed [&_li]:leading-relaxed">
     <header><h1 className="font-parkDisplay font-bold text-2xl leading-tight sm:text-3xl">How Manhattan Rent Cover works</h1>
-      <p className="font-parkBody text-surface-grey-2 mt-2">Contract reference: CRE Daily’s Manhattan Office Rent average effective rent, quoted in dollars per square foot.</p>
+      <p className="font-parkBody text-surface-grey-2 mt-2">Contract reference: the average effective rent snapshot in CRE Daily’s Market Snapshot newsletter, quoted in dollars per square foot.</p>
       <p className="font-parkBody mt-3">Looking for the automation layer? Read how the live <Link className="font-bold text-core-green underline" to="/docs/bankr">Bankr market agent</Link> researches the market, places bounded v4 quotes and handles a future signed settlement email.</p>
     </header>
     <div className="grid gap-4 sm:grid-cols-3">

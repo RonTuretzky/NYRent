@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { test, expect } from "@playwright/test";
 import { ROOT } from "./constants";
-import { RAW, presentation, say, focus, fill, click, hold, publishCapture, type Chapter } from "./record.helpers";
+import { MEDIA, RAW, presentation, say, focus, fill, click, hold, publishCapture, type Chapter } from "./record.helpers";
 
 test("record the current Polygon market without connecting or transacting", async ({ browser, baseURL }) => {
   fs.mkdirSync(RAW, { recursive: true });
@@ -12,6 +13,7 @@ test("record the current Polygon market without connecting or transacting", asyn
   const chapters: Chapter[] = [];
   const speak = (text: string) => say(page, text, scope);
   const chapter = async (id: string, title: string, caption: string) => {
+    console.log(`Recording chapter: ${title}`);
     chapters.push({ id, title, caption, start: (Date.now() - began) / 1000 });
     await speak(caption);
   };
@@ -78,10 +80,19 @@ test("record the current Polygon market without connecting or transacting", asyn
     await focus(page, page.getByTestId("signed-rent-summary"));
     await speak("The real email verifies, but its 2026 timestamp is outside the 2027 settlement window. It supplies the baseline, not a future payout.");
     await expect(page.getByTestId("signed-rent-summary")).toContainText("Outside the settlement window");
+    const actualEmailChecks = await page.getByTestId("signed-rent-summary").innerText({ timeout: 45000 });
+    const checks = await page.getByTestId("v4-preflight").innerText({ timeout: 45000 });
     await hold(page, 14);
-    const actualEmailChecks = await page.getByTestId("signed-rent-summary").innerText();
+    console.log("Read-only capture complete; encoding current media.");
     await context.close();
     const raw = path.join(RAW, "rentsafe-polygon.webm"); await video.saveAs(raw);
-    if (!process.env.RECORD_DRAFT) publishCapture(raw, "rentsafe-polygon", chapters, { scope, chainId: 137, interfaceOrigin: baseURL, walletConnected: false, transactionsSent: 0, quoteEvidence, actualEmailChecks });
+    if (!process.env.RECORD_DRAFT) {
+      const actualPublisherEmail = { scope: "Actual CRE Daily publisher-signed baseline email, authenticated Polygon oracle, no transaction", actualEmailChecks, checks };
+      const capture = publishCapture(raw, "rentsafe-polygon", chapters, { scope, chainId: 137, interfaceOrigin: baseURL, walletConnected: false, transactionsSent: 0, quoteEvidence, actualPublisherEmail });
+      const publisher = capture.chapters.find(chapter => chapter.id === "publisher-email")!;
+      const poster = spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", "5", "-i", path.join(MEDIA, "rentsafe-polygon-publisher-email.mp4"), "-frames:v", "1", "-q:v", "2", path.join(MEDIA, "rentsafe-polygon-publisher-email.jpg")], { stdio: "inherit" });
+      if (poster.status !== 0) throw new Error("Publisher-email poster generation failed");
+      fs.writeFileSync(path.join(MEDIA, "rentsafe-polygon-publisher-email.json"), JSON.stringify({ name: "rentsafe-polygon-publisher-email", recordedAt: new Date().toISOString(), duration: publisher.end - publisher.start, sourceRecording: "rentsafe-polygon", proof: actualPublisherEmail }, null, 2));
+    }
   } finally { await context.close(); }
 });

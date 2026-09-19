@@ -6,6 +6,7 @@ import { Card } from "../components/States";
 type Chapter = { id: string; title: string; caption: string; start: number; end: number };
 type Recording = { duration: number; chapters: Chapter[] };
 const ROOT = "/guides/rentsafe-lifecycle";
+const mediaUrl = (path: string) => `${path}?v=20260919-rent-index`;
 const timestamp = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 
 export function Walkthrough() {
@@ -15,7 +16,7 @@ export function Walkthrough() {
   const [recording, setRecording] = useState<Recording>();
   useEffect(() => {
     const controller = new AbortController();
-    void fetch(`${ROOT}.json`, { signal: controller.signal }).then(async response => {
+    void fetch(mediaUrl(`${ROOT}.json`), { signal: controller.signal }).then(async response => {
       if (!response.ok) throw new Error("Recording chapters are unavailable");
       return response.json() as Promise<Recording>;
     }).then(setRecording).catch(() => { /* The video remains usable without chapter metadata. */ });
@@ -47,16 +48,16 @@ export function Walkthrough() {
     </nav>
 
     <section className="overflow-hidden rounded-3xl border border-paper-2 bg-paper-0 shadow-sm" aria-label="Complete RentSafe lifecycle recording">
-      <video ref={player} className="aspect-[36/25] w-full scroll-mt-24 bg-primary-pine object-contain" controls playsInline preload="metadata" poster={`${ROOT}.jpg`} aria-label="Captioned recording of the complete RentSafe local lifecycle">
-        <source src={`${ROOT}.mp4`} type="video/mp4" />
-        Your browser cannot play this recording. <a href={`${ROOT}.mp4`}>Download the MP4</a>.
+      <video ref={player} className="aspect-[36/25] w-full scroll-mt-24 bg-primary-pine object-contain" controls playsInline preload="metadata" poster={mediaUrl(`${ROOT}.jpg`)} aria-label="Captioned recording of the complete RentSafe local lifecycle">
+        <source src={mediaUrl(`${ROOT}.mp4`)} type="video/mp4" />
+        Your browser cannot play this recording. <a href={mediaUrl(`${ROOT}.mp4`)}>Download the MP4</a>.
       </video>
       <div className="p-5 sm:p-6 flex flex-wrap gap-4 justify-between items-start">
         <div>
           <h2 className="font-parkDisplay font-bold text-xl text-text-standard">The complete lifecycle {recording ? <span className="text-surface-grey-2 font-normal">· {timestamp(recording.duration)}</span> : null}</h2>
           <p className="font-parkBody text-sm text-surface-grey-2 mt-1">Local lifecycle · test-signed emails · synthetic funds</p>
         </div>
-        <a href={`${ROOT}.mp4`} download className="inline-flex min-h-11 w-full justify-center items-center gap-2 rounded-xl border border-paper-2 bg-paper-1 px-4 py-2 font-parkBody font-bold text-sm hover:border-core-green focus-visible:outline-2 focus-visible:outline-core-green sm:w-auto"><DownloadSimpleIcon size={18} /> Download recording</a>
+        <a href={mediaUrl(`${ROOT}.mp4`)} download className="inline-flex min-h-11 w-full justify-center items-center gap-2 rounded-xl border border-paper-2 bg-paper-1 px-4 py-2 font-parkBody font-bold text-sm hover:border-core-green focus-visible:outline-2 focus-visible:outline-core-green sm:w-auto"><DownloadSimpleIcon size={18} /> Download recording</a>
       </div>
     </section>
 
@@ -64,7 +65,6 @@ export function Walkthrough() {
       <h2 className="font-parkDisplay font-bold text-xl text-text-standard">What you’re watching</h2>
       <p className="font-parkBody text-surface-grey-2 mt-3">These are actual contract calls on an isolated local chain running the RentSafe contracts and Uniswap v4. The wallet funds are synthetic, and the future settlement email is signed with the test key. Local time advances to show the entire lifecycle, including the claim deadline.</p>
       <p className="font-parkBody text-surface-grey-2 mt-3">The public market is on Polygon. Its real September 2027 settlement has not happened. The recording uses a larger local liquidity pool so the complete 3,000 RENT example can execute; a quote on the public pool depends on its own available liquidity.</p>
-      <p className="font-parkBody text-surface-grey-2 mt-3">The liquidity form has been simplified since this recording: enter RENT only, and matching USDC is calculated automatically. The backing and trading flows shown here are unchanged.</p>
     </Card>
 
     <section ref={polygonSection} className="scroll-mt-24 overflow-hidden rounded-3xl border border-paper-2 bg-paper-0 shadow-sm" aria-label="Polygon market walkthrough recording">
@@ -72,13 +72,13 @@ export function Walkthrough() {
         <h2 className="font-parkDisplay font-bold text-2xl text-text-standard">A look at the Polygon market</h2>
         <p className="font-parkBody text-surface-grey-2 mt-2">The current interface reading Polygon mainnet: the money-flow diagram, coverage calculator, a real liquidity-limited quote, the Uniswap guide and market view. It also verifies the actual CRE Daily publisher-signed email behind the $92.88/SF baseline. This separate recording connects no wallet and sends no transactions.</p>
       </div>
-      <video className="aspect-[36/25] w-full scroll-mt-24 bg-primary-pine object-contain" controls playsInline preload="metadata" poster="/guides/rentsafe-polygon.jpg" aria-label="Captioned read-only walkthrough of the Polygon market">
-        <source src="/guides/rentsafe-polygon.mp4" type="video/mp4" />
-        Your browser cannot play this recording. <a href="/guides/rentsafe-polygon.mp4">Download the MP4</a>.
+      <video className="aspect-[36/25] w-full scroll-mt-24 bg-primary-pine object-contain" controls playsInline preload="metadata" poster={mediaUrl("/guides/rentsafe-polygon.jpg")} aria-label="Captioned read-only walkthrough of the Polygon market">
+        <source src={mediaUrl("/guides/rentsafe-polygon.mp4")} type="video/mp4" />
+        Your browser cannot play this recording. <a href={mediaUrl("/guides/rentsafe-polygon.mp4")}>Download the MP4</a>.
       </video>
       <div className="p-5 flex flex-wrap justify-between gap-3 items-center">
         <p className="font-parkBody text-sm text-surface-grey-2">Polygon mainnet · read-only · recorded September 19, 2026</p>
-        <a href="/guides/rentsafe-polygon.mp4" download className="inline-flex min-h-11 items-center gap-2 rounded-lg font-parkBody font-bold text-sm text-core-green underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-core-green"><DownloadSimpleIcon size={18} /> Download recording</a>
+        <a href={mediaUrl("/guides/rentsafe-polygon.mp4")} download className="inline-flex min-h-11 items-center gap-2 rounded-lg font-parkBody font-bold text-sm text-core-green underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-core-green"><DownloadSimpleIcon size={18} /> Download recording</a>
       </div>
     </section>
 
@@ -91,7 +91,7 @@ export function Walkthrough() {
             <span><span className="block font-parkBody text-xs text-surface-grey-2 mb-1">{String(index + 1).padStart(2, "0")} · {timestamp(chapter.start)}</span><span className="font-parkDisplay font-bold text-lg text-text-standard group-hover:text-core-green">{chapter.title}</span></span>
           </button>
           <p className="font-parkBody text-sm text-surface-grey-2 leading-relaxed">{chapter.caption}</p>
-          <a href={`${ROOT}-${chapter.id}.mp4`} download className="inline-flex min-h-11 items-center gap-2 rounded-lg font-parkBody text-sm font-bold text-core-green underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-core-green"><DownloadSimpleIcon size={14} /> Download this clip</a>
+          <a href={mediaUrl(`${ROOT}-${chapter.id}.mp4`)} download className="inline-flex min-h-11 items-center gap-2 rounded-lg font-parkBody text-sm font-bold text-core-green underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-core-green"><DownloadSimpleIcon size={14} /> Download this clip</a>
         </article>)}
       </div>
     </section> : null}

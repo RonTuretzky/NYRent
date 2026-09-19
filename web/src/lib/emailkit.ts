@@ -498,7 +498,7 @@ export function extractSnapshot(canonBody: Uint8Array): Extraction {
     error,
   });
 
-  if (firstIdx === -1) return fail(`anchor "${ANCHOR}" not found`);
+  if (firstIdx === -1) return fail("configured rent-index anchor not found");
 
   // Value machine — exact port of Dkim.sol's budget semantics: every decoded byte
   // fed to the machine first fails on budget==0, then decrements; a token must
@@ -905,7 +905,7 @@ export async function preflight(
     "Rent value extracted (unique anchor, cents > 0)",
     exOk,
     exOk
-      ? `${ex.valuePreview} -> ${ex.cents} cents (anchor @ canon offset ${ex.anchorOffset})`
+      ? `Average effective rent: $${(ex.cents / 100).toFixed(2)} / SF -> ${ex.cents} cents (anchor @ canon offset ${ex.anchorOffset})`
       : ex.anchorCount !== 1
         ? `anchor count ${ex.anchorCount} (need exactly 1)${ex.error ? "; " + ex.error : ""}`
         : ex.error,
