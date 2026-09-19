@@ -1,11 +1,11 @@
 {
   "name": "rentsafe-polygon-publisher-email",
-  "recordedAt": "2026-09-19T21:35:13.702Z",
-  "duration": 24.48,
-  "chapters": [],
+  "recordedAt": "2026-09-19T23:02:49.996Z",
+  "duration": 23.45899999999999,
+  "sourceRecording": "rentsafe-polygon",
   "proof": {
     "scope": "Actual CRE Daily publisher-signed baseline email, authenticated Polygon oracle, no transaction",
     "actualEmailChecks": "Authenticated on-chain\n\nRent print in the signed email\n\n$92.88 /SF\n\nPayout preview per RENT\n\n0.0000 USDC\n\nOutside the settlement window: this email cannot settle this market. The payout becomes final only after the oracle authenticates an eligible email and the settlement transaction confirms.",
-    "checks": "✓ Email parsed (CRLF normalized, headers/body split): header block and body located\n✓ DKIM signature for d=newyork.credaily.com present: selected dkim-signature with d=newyork.credaily.com, s=b37\n✓ DKIM tag policy, byte-exact as on-chain (v/a/c/d/s, no l=, empty b=): v=1 a=rsa-sha256 c=relaxed/relaxed d/s pinned, no l=, b= empty (canonical line verbatim)\n✓ Signed header block ends with a b=-emptied dkim-signature line: 1378 bytes, trailing dkim-signature line with empty b= (any tag position), no trailing CRLF\n✓ A signed from: line ends with <mail@newyork.credaily.com>: from:CRE Daily New York <mail@newyork.credaily.com>\n✓ sha256(canonical body) matches bh= tag: bh=XO8VsgH6yzZkDP1Z0WZojXMdOoa4j1i17epBk4K5SOE=\n✓ RSA signature verifies (WebCrypto, pinned key): RSASSA-PKCS1-v1_5/SHA-256 valid for pinned 2048-bit key\n✓ t= parses, is nonzero, and is not in the future (>1 day): t=1789642464 (2026-09-17T10:54:24.000Z)\n✓ Rent value extracted (unique anchor, cents > 0): Manhattan Office Rent > Avg Effective > $92.88 / SF -> 9288 cents (anchor @ canon offset 43411)"
+    "checks": "✓ Email parsed (CRLF normalized, headers/body split): header block and body located\n✓ DKIM signature for d=newyork.credaily.com present: selected dkim-signature with d=newyork.credaily.com, s=b37\n✓ DKIM tag policy, byte-exact as on-chain (v/a/c/d/s, no l=, empty b=): v=1 a=rsa-sha256 c=relaxed/relaxed d/s pinned, no l=, b= empty (canonical line verbatim)\n✓ Signed header block ends with a b=-emptied dkim-signature line: 1378 bytes, trailing dkim-signature line with empty b= (any tag position), no trailing CRLF\n✓ A signed from: line ends with <mail@newyork.credaily.com>: from:CRE Daily New York <mail@newyork.credaily.com>\n✓ sha256(canonical body) matches bh= tag: bh=XO8VsgH6yzZkDP1Z0WZojXMdOoa4j1i17epBk4K5SOE=\n✓ RSA signature verifies (WebCrypto, pinned key): RSASSA-PKCS1-v1_5/SHA-256 valid for pinned 2048-bit key\n✓ t= parses, is nonzero, and is not in the future (>1 day): t=1789642464 (2026-09-17T10:54:24.000Z)\n✓ Rent value extracted (unique anchor, cents > 0): Average effective rent: $92.88 / SF -> 9288 cents (anchor @ canon offset 43411)"
   }
 }
