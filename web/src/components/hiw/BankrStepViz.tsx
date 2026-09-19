@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { BrainIcon, EnvelopeSimpleIcon, LockKeyIcon, ShieldCheckIcon, TrendUpIcon } from "@phosphor-icons/react";
 import { C, DotStream, IconBox, PulseRing, Track, VizCard, useReducedMotion } from "./shared";
 
@@ -42,12 +42,17 @@ const INVENTORY = [
 export function BankrQuotesViz() {
   const [choice, setChoice] = useState(0);
   const reduced = useReducedMotion();
-  const scenario = INVENTORY[choice];
+  useEffect(() => {
+    if (reduced) return;
+    const timer = window.setInterval(() => setChoice(current => (current + 1) % INVENTORY.length), 4000);
+    return () => window.clearInterval(timer);
+  }, [reduced]);
+  const scenario = INVENTORY[reduced ? 0 : choice];
   return <VizCard caption="Illustrative inventory scenarios · prices and proportions are not live quotes">
-    <div className="mb-3 flex flex-wrap justify-center gap-2" aria-label="Inventory scenario">
-      {INVENTORY.map((item, i) => <button key={item.name} type="button" aria-pressed={choice === i} onClick={() => setChoice(i)} className={`min-h-11 rounded-full border px-3 py-2 font-parkBody text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-core-green ${choice === i ? "border-core-green bg-core-green text-white" : "border-paper-2 bg-paper-0 text-text-standard hover:border-core-green"}`}>{item.name}</button>)}
+    <div aria-hidden="true" className="mb-3 flex justify-center">
+      <span className="min-w-32 rounded-full border border-core-green bg-green-0 px-4 py-2 text-center font-parkBody text-sm font-bold text-primary-pine">{scenario.name}</span>
     </div>
-    <svg viewBox="0 0 480 290" className="h-auto w-full" role="img" aria-label={`${scenario.name} inventory. ${scenario.note} Bid fills exchange USDC for RENT; ask fills exchange RENT for USDC. Rebalancing replaces the agent’s own liquidity ranges.`}>
+    <svg viewBox="0 0 480 290" className="h-auto w-full" role="img" aria-label="Inventory cycles from balanced to more RENT to less RENT. More RENT shifts quotes lower; less RENT shifts them higher. Bid fills exchange USDC for RENT; ask fills exchange RENT for USDC. Rebalancing replaces the agent’s own liquidity ranges.">
       <Label x={240} y={20}>RENT price in USDC</Label>
       <path d="M 28 111 H 452" stroke={C.paper2} strokeWidth={2} />
       <path d="M 240 35 V 128" stroke={C.grey2} strokeDasharray="3 5" />
@@ -67,7 +72,7 @@ export function BankrQuotesViz() {
       {!reduced && <DotStream path="M 420 248 C 454 280 26 280 60 248" color={C.pine} dur={DUR} windows={[[0.72, 0.94]]} />}
       <Label x={240} y={283}>Read fills → remove old ranges → post fresh quotes</Label>
     </svg>
-    <p aria-live="polite" className="mt-3 min-h-12 font-parkBody text-sm leading-relaxed text-surface-grey-2">{scenario.note}</p>
+    <p className="mt-3 min-h-16 font-parkBody text-sm leading-relaxed text-surface-grey-2">{reduced ? "More RENT lowers quotes to encourage selling. Less RENT raises quotes to encourage buying." : scenario.note}</p>
   </VizCard>;
 }
 

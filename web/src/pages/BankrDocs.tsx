@@ -1,7 +1,6 @@
 import { ArrowSquareOutIcon, CheckCircleIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { Card } from "../components/States";
-import { BankrAgentViz } from "../components/hiw/BankrAgentViz";
 import { BankrExecutionViz, BankrQuotesViz, BankrResearchViz, BankrSettlementViz } from "../components/hiw/BankrStepViz";
 
 function Step({ number, title, children, visual }: { number: number; title: string; children: ReactNode; visual: ReactNode }) {
@@ -37,8 +36,6 @@ export function BankrDocs() {
       <p className="max-w-3xl font-parkBody text-lg leading-relaxed text-surface-grey-2">The agent supplies both sides of the RENT market: USDC to buy RENT from sellers, and backed RENT to sell to buyers. It researches market context, estimates a fair price, and uses its Bankr wallet to place and rebalance real Uniswap v4 liquidity positions.</p>
       <p className="max-w-3xl font-parkBody leading-relaxed text-surface-grey-2">Its aim is to earn a spread and trading fees while managing the inventory left by trades. Both returns and inventory value depend on prices and fills. The pilot has placed live positions; rebalancing runs when an operator invokes the agent, with no unattended schedule enabled.</p>
     </header>
-
-    <div className="mx-auto max-w-3xl"><BankrAgentViz /></div>
 
     <div className="space-y-16 sm:space-y-24">
       <Step number={1} title="Research, then constrain" visual={<BankrResearchViz />}>
