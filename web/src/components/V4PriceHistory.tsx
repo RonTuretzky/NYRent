@@ -1,3 +1,7 @@
+import { useEffect, useState } from "react";
+import { ArrowsLeftRightIcon, ArrowUpRightIcon } from "@phosphor-icons/react";
+import { useActiveDeployment } from "../chain/registry";
+import { txUrl } from "../chain/explorer";
 import { useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import { parseAbiItem } from "viem";
@@ -10,6 +14,15 @@ const swapEvent = parseAbiItem("event Swap(bytes32 indexed id,address indexed se
 
 export function V4PriceHistory() {
   const market = useV4Market();
+  const { deployment } = useActiveDeployment();
+  const [visibleCount, setVisibleCount] = useState(10);
+  const [compact, setCompact] = useState(() => window.matchMedia("(max-width: 639px)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const update = () => setCompact(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const d = market.deployment;
   const m = market.data;
   const client = usePublicClient({ chainId: d?.chainId });
@@ -54,23 +67,49 @@ export function V4PriceHistory() {
   const padding = Math.max((highest - lowest) * 0.2, highest * 0.01, 0.0001);
   const minPrice = Math.max(0, lowest - padding);
   const maxPrice = highest + padding;
-  const x = (time: number, index: number) => points.length === 1 ? 325 :
-    55 + (sameTimestamp ? index / (points.length - 1) : (time - minTime) / Math.max(1, maxTime - minTime)) * 540;
+  const chartWidth = compact ? 320 : 710;
+  const left = compact ? 48 : 55;
+  const right = compact ? 306 : 595;
+  const x = (time: number, index: number) => points.length === 1 ? (left + right) / 2 :
+    left + (sameTimestamp ? index / (points.length - 1) : (time - minTime) / Math.max(1, maxTime - minTime)) * (right - left);
   const y = (price: number) => 220 - (price - minPrice) / (maxPrice - minPrice) * 180;
   const path = points.map((p, i) => `${i ? "L" : "M"}${x(p.time, i)},${y(p.p)}`).join(" ");
+  const axisTime = (time: number) => new Date(time * 1000).toLocaleString(undefined, compact ? {month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"} : undefined);
   const rentAt = (p: number) => (impliedRentCents(m?.baseCents ?? 0, p) / 100).toFixed(2);
   return <Card>
     {history.isPending ? <p>Loading recorded swaps…</p> : history.isError ? <p role="status">Trade history could not be loaded. The current spot price is shown above; no synthetic history is substituted.</p> : !points.length ? <p>No swaps were found in the scanned block window. Earlier trades may exist outside this window; the spot price above is a current pool-state reading.</p> : <>
-      <svg viewBox="0 0 710 275" className="w-full" role="img" data-testid="v4-price-history-chart" aria-label="RENT prices after recent on-chain swaps; right axis gives price-equivalent rent">
-        {[0, .5, 1].map(f => <g key={f}><line x1="55" x2="595" y1={220 - 180 * f} y2={220 - 180 * f} stroke="#d4d4d0" /><text x="48" y={224 - 180 * f} textAnchor="end" fontSize="12">{(minPrice + (maxPrice - minPrice) * f).toFixed(4)}</text><text x="605" y={224 - 180 * f} fontSize="12">${rentAt(minPrice + (maxPrice - minPrice) * f)}</text></g>)}
-        <path d={path} fill="none" stroke="#16a34a" strokeWidth="3" />
-        {points.map((p, i) => <circle key={`${p.tx}:${i}`} cx={x(p.time, i)} cy={y(p.p)} r="4" fill="#16a34a" data-testid="v4-swap-point"><title>{new Date(p.time * 1000).toLocaleString()} · {p.p.toFixed(5)} {d?.symbol} / RENT</title></circle>)}
-        <text x="55" y="20" fontSize="12">{d?.symbol} / RENT</text><text x="605" y="20" fontSize="12">Rent /SF</text>
-        <text x="55" y="250" fontSize="12">{sameTimestamp ? "Swap 1" : new Date(minTime * 1000).toLocaleString()}</text><text x="595" y="250" textAnchor="end" fontSize="12">{sameTimestamp ? `Swap ${points.length}` : new Date(maxTime * 1000).toLocaleString()}</text>
+      <svg viewBox={`0 0 ${chartWidth} 275`} className="w-full font-parkBody" role="img" data-testid="v4-price-history-chart" aria-label={compact ? "RENT prices after recent on-chain swaps; price-equivalent rent appears in the cards below" : "RENT prices after recent on-chain swaps; right axis gives price-equivalent rent"}>
+        {[0, .5, 1].map(f => <g key={f}><line x1={left} x2={right} y1={220 - 180 * f} y2={220 - 180 * f} stroke="var(--color-paper-2)" /><text x={left - 7} y={224 - 180 * f} textAnchor="end" fontSize="12">{(minPrice + (maxPrice - minPrice) * f).toFixed(4)}</text>{!compact && <text x="605" y={224 - 180 * f} fontSize="12">${rentAt(minPrice + (maxPrice - minPrice) * f)}</text>}</g>)}
+        <path d={path} fill="none" stroke="var(--color-core-green)" strokeWidth="3" />
+        {points.map((p, i) => <circle key={`${p.tx}:${i}`} cx={x(p.time, i)} cy={y(p.p)} r="4" fill="var(--color-core-green)" data-testid="v4-swap-point"><title>{new Date(p.time * 1000).toLocaleString()} · {p.p.toFixed(5)} {d?.symbol} / RENT</title></circle>)}
+        <text x={left} y="20" fontSize="12">{d?.symbol} / RENT</text>{!compact && <text x="605" y="20" fontSize="12">Rent /SF</text>}
+        <text x={left} y="250" fontSize={compact ? 10 : 12}>{sameTimestamp ? "Swap 1" : axisTime(minTime)}</text><text x={right} y="250" textAnchor="end" fontSize={compact ? 10 : 12}>{sameTimestamp ? `Swap ${points.length}` : axisTime(maxTime)}</text>
       </svg>
       {sameTimestamp && <p className="text-xs mb-3">These swaps share the timestamp {new Date(minTime * 1000).toLocaleString()}; horizontal position shows execution order.</p>}
-      <details><summary className="cursor-pointer text-sm">Recorded swap prices</summary><div className="overflow-auto"><table className="w-full text-sm"><thead><tr><th>Time</th><th>RENT price</th><th>Price-implied rent</th></tr></thead><tbody>{points.map((p, i) => <tr key={`${p.tx}:${i}`} data-testid="v4-swap-row" data-transaction={p.tx}><td>{new Date(p.time * 1000).toLocaleString()}</td><td>{p.p.toFixed(5)}</td><td>${rentAt(p.p)} /SF</td></tr>)}</tbody></table></div></details>
+      <section className="mt-6 border-t border-paper-2 pt-5" aria-labelledby="recorded-swaps-title" data-testid="recorded-swaps">
+        <div className="flex items-center gap-3"><span className="rounded-xl bg-paper-1 p-2.5 text-core-green"><ArrowsLeftRightIcon size={22} weight="bold" /></span><div><h3 id="recorded-swaps-title" className="font-parkDisplay font-bold text-lg">Recorded swap prices</h3><p className="font-parkBody text-xs text-surface-grey-2 mt-1">Latest first · pool price immediately after each swap</p></div></div>
+        <ul className="mt-4 space-y-3" aria-label="Recorded swap prices">
+          {[...points].reverse().slice(0, visibleCount).map((point, i) => <SwapPriceRow key={`${point.tx}:${i}`} point={point} symbol={d?.symbol ?? "USDC"} impliedRent={rentAt(point.p)} explorer={deployment.explorerBase} />)}
+        </ul>
+        {points.length > visibleCount && <button type="button" className="mt-4 min-h-11 w-full rounded-xl border border-paper-2 bg-paper-1 px-4 py-2 font-parkBody text-sm font-bold text-core-green hover:border-core-green" onClick={() => setVisibleCount(count => count + 10)}>Show more swaps ({points.length - visibleCount} remaining)</button>}
+      </section>
     </>}
-    <p className="text-xs mt-3">Last 100 swaps within the latest 100,000 blocks, read from this pool’s on-chain events. Price reflects risk, liquidity and fees; the right axis is a price-equivalent rent level, not expected rent.</p>
+    <p className="text-xs mt-3">Last 100 swaps within the latest 100,000 blocks, read from this pool’s on-chain events. Price reflects risk, liquidity and fees; the implied rent is a price-equivalent level, not expected rent.</p>
   </Card>;
+}
+
+function SwapPriceRow({ point, symbol, impliedRent, explorer }: {
+  point: { time: number; p: number; tx: string }; symbol: string; impliedRent: string; explorer: string;
+}) {
+  const date = new Date(point.time * 1000);
+  return <li className="rounded-xl border border-paper-2 bg-paper-1/50 p-4" data-testid="v4-swap-row" data-transaction={point.tx}>
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+      <time dateTime={date.toISOString()} className="font-parkBody text-xs text-surface-grey-2">{date.toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"})} · {date.toLocaleTimeString(undefined, {hour: "2-digit", minute: "2-digit", second: "2-digit"})}</time>
+      {explorer && <a href={txUrl(point.tx, explorer)} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 rounded-lg font-parkBody text-xs font-bold text-core-green hover:underline focus-visible:outline-2 focus-visible:outline-core-green" aria-label={`View swap transaction ${point.tx.slice(0, 10)}`}>View transaction <ArrowUpRightIcon size={14} /></a>}
+    </div>
+    <dl className="grid grid-cols-2 gap-4 mt-2 font-parkBody">
+      <div className="min-w-0"><dt className="text-xs text-surface-grey-2">RENT price</dt><dd className="font-parkDisplay text-xl font-bold text-core-green mt-1 break-words">{point.p.toFixed(5)} <span className="font-parkBody text-xs font-normal">{symbol}</span></dd></div>
+      <div className="min-w-0"><dt className="text-xs text-surface-grey-2">Price-implied rent</dt><dd className="font-parkDisplay text-xl font-bold mt-1">${impliedRent} <span className="font-parkBody text-xs font-normal">/SF</span></dd></div>
+    </dl>
+  </li>;
 }

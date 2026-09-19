@@ -1,0 +1,261 @@
+[
+  {
+    "id": "cre-daily",
+    "name": "CRE Daily New York",
+    "url": "https://www.credaily.com/newsletters/new-york/",
+    "description": "Residential rent coverage in the research archive. Separately, CRE Daily’s signed Manhattan office-rent snapshot is the source used by the live contract.",
+    "logo": "/sources/cre-daily.png",
+    "logoKind": "Small publication icon",
+    "darkLogo": false,
+    "smallLogo": true,
+    "liveOraclePublisher": true,
+    "editions": [
+      {
+        "id": "cre-2026-03",
+        "title": "Manhattan inventory and NYC rents",
+        "publishedAt": "2026-03-18",
+        "dateApproximate": false,
+        "url": "https://www.credaily.com/newsletters/new-york/issue/manhattan-inventory-slide-extends-record-streak-as-nyc-rents-climb/",
+        "publicArticleUrl": null,
+        "kind": "newsletter_web_version",
+        "lineage": null,
+        "lineageUrl": "https://streeteasy.com/blog/manhattan-rental-inventory-falls-24th-consecutive-month/",
+        "requiresReview": false
+      },
+      {
+        "id": "cre-2026-08",
+        "title": "Manhattan rents hit $5K",
+        "publishedAt": "2026-08-18",
+        "dateApproximate": false,
+        "url": "https://www.credaily.com/newsletters/new-york/issue/manhattan-rents-hit-5k-as-apartment-listings-plunge-39/",
+        "publicArticleUrl": null,
+        "kind": "newsletter_web_version",
+        "lineage": "The same paragraph explicitly attributes the statistic to Miller Samuel and The Real Deal.",
+        "lineageUrl": null,
+        "requiresReview": false
+      }
+    ]
+  },
+  {
+    "id": "pinpointe",
+    "name": "The Pinpointe Post",
+    "url": "https://newsletter.pinpointe.nyc/",
+    "description": "Manhattan rental reports covering average and median rents. Some editions repeat Corcoran data; one edition needs review for conflicting period and unit labels.",
+    "logo": "/sources/pinpointe.png",
+    "logoKind": "Publisher wordmark",
+    "darkLogo": false,
+    "smallLogo": false,
+    "liveOraclePublisher": false,
+    "editions": [
+      {
+        "id": "pinpointe-2025-05",
+        "title": "Market Pulse: April 2025",
+        "publishedAt": "2025-05-13",
+        "dateApproximate": false,
+        "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-1665998f412718e0",
+        "publicArticleUrl": null,
+        "kind": "newsletter_web_version",
+        "lineage": null,
+        "lineageUrl": null,
+        "requiresReview": false
+      },
+      {
+        "id": "pinpointe-2025-06",
+        "title": "Market Pulse: May 2025",
+        "publishedAt": "2025-06-17",
+        "dateApproximate": false,
+        "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-96b26dd99d98b18f",
+        "publicArticleUrl": null,
+        "kind": "newsletter_web_version",
+        "lineage": null,
+        "lineageUrl": null,
+        "requiresReview": false
+      },
+      {
+        "id": "pinpointe-2025-07",
+        "title": "Market Pulse and later rent-news summary disagree about period/unit",
+        "publishedAt": "2025-07-15",
+        "dateApproximate": false,
+        "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-2c850f5bdeded31c",
+        "publicArticleUrl": null,
+        "kind": "newsletter_web_version",
+        "lineage": null,
+        "lineageUrl": null,
+        "requiresReview": true
+      },
+      {
+        "id": "pinpointe-2026-02",
+        "title": "Market Pulse: January 2026",
+        "publishedAt": "2026-02-17",
+        "dateApproximate": false,
+        "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-c440aefcabbd2af9",
+        "publicArticleUrl": null,
+        "kind": "newsletter_web_version",
+        "lineage": null,
+        "lineageUrl": null,
+        "requiresReview": false
+      },
+      {
+        "id": "pinpointe-2026-04",
+        "title": "Market Pulse: March 2026",
+        "publishedAt": "2026-04-21",
+        "dateApproximate": false,
+        "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-ccef858c5887a89f",
+        "publicArticleUrl": null,
+        "kind": "newsletter_web_version",
+        "lineage": "Amounts corroborated in Corcoran's March report; not counted as independent data from Corcoran.",
+        "lineageUrl": "https://inhabit.corcoran.com/nyc-residential-rental-market-report-march-2026/",
+        "requiresReview": false
+      },
+      {
+        "id": "pinpointe-2026-05",
+        "title": "News You Can Use, rental headline; reviewed using live browser",
+        "publishedAt": "2026-05-26",
+        "dateApproximate": false,
+        "url": "https://newsletter.pinpointe.nyc/p/the-pinpointe-post-3e4d1c4f070ddd42",
+        "publicArticleUrl": null,
+        "kind": "newsletter_web_version",
+        "lineage": "Adjacent paragraph explicitly attributes the April figures to Corcoran via Brick Underground.",
+        "lineageUrl": null,
+        "requiresReview": false
+      }
+    ]
+  },
+  {
+    "id": "bigger-apple",
+    "name": "The Bigger Apple",
+    "url": "https://thebiggerapple.manhattan.institute/",
+    "description": "New York housing commentary with Manhattan and Brooklyn median-rent figures. Its March entry cites Corcoran.",
+    "logo": "/sources/bigger-apple.png",
+    "logoKind": "Publication logo",
+    "darkLogo": false,
+    "smallLogo": false,
+    "liveOraclePublisher": false,
+    "editions": [
+      {
+        "id": "bigger-2026-02",
+        "title": "Friday newsletter how rich do you",
+        "publishedAt": "2026-02-13",
+        "dateApproximate": false,
+        "url": "https://thebiggerapple.manhattan.institute/p/friday-newsletter-how-rich-do-you",
+        "publicArticleUrl": null,
+        "kind": "newsletter_web_version",
+        "lineage": null,
+        "lineageUrl": null,
+        "requiresReview": false
+      },
+      {
+        "id": "bigger-2026-03",
+        "title": "Friday newsletter its getting expensive",
+        "publishedAt": "2026-03-20",
+        "dateApproximate": false,
+        "url": "https://thebiggerapple.manhattan.institute/p/friday-newsletter-its-getting-expensive",
+        "publicArticleUrl": null,
+        "kind": "newsletter_web_version",
+        "lineage": "The bullet attributes the rent figures to Corcoran. Its separate Manhattan dollar amount omits the statistic label, so this fixture selects the explicit Brooklyn median.",
+        "lineageUrl": null,
+        "requiresReview": false
+      }
+    ]
+  },
+  {
+    "id": "hallmark",
+    "name": "Hallmark Abstract Wonders!",
+    "url": "https://hallmarkabsservice.substack.com/",
+    "description": "A Manhattan rental breakdown citing Corcoran, with studio and one-bedroom averages. These are different measures from an all-apartment median.",
+    "logo": "/sources/hallmark.png",
+    "logoKind": "Publication logo",
+    "darkLogo": false,
+    "smallLogo": false,
+    "liveOraclePublisher": false,
+    "editions": [
+      {
+        "id": "hallmark-2026-07",
+        "title": "Nyc livingrecord rents while theft",
+        "publishedAt": "2026-07-13",
+        "dateApproximate": false,
+        "url": "https://hallmarkabsservice.substack.com/p/nyc-livingrecord-rents-while-theft",
+        "publicArticleUrl": null,
+        "kind": "newsletter_web_version",
+        "lineage": "The immediately preceding paragraph specifies Manhattan and Corcoran's June 2026 report.",
+        "lineageUrl": null,
+        "requiresReview": false
+      }
+    ]
+  },
+  {
+    "id": "finding-space",
+    "name": "Finding Space",
+    "url": "https://jyarton.substack.com/",
+    "description": "A New York rental-market breakdown with a Manhattan median-rent observation.",
+    "logo": "/sources/finding-space.jpg",
+    "logoKind": "Publication image",
+    "darkLogo": false,
+    "smallLogo": false,
+    "liveOraclePublisher": false,
+    "editions": [
+      {
+        "id": "finding-2025-04",
+        "title": "Nyc rental market breakdown",
+        "publishedAt": "2025-04-23",
+        "dateApproximate": false,
+        "url": "https://jyarton.substack.com/p/nyc-rental-market-breakdown",
+        "publicArticleUrl": null,
+        "kind": "newsletter_web_version",
+        "lineage": null,
+        "lineageUrl": null,
+        "requiresReview": false
+      }
+    ]
+  },
+  {
+    "id": "hemlane",
+    "name": "Hemlane",
+    "url": "https://www.hemlane.com/",
+    "description": "An archived email discussing housing policy and Manhattan median rent. It cites New York Focus; the underlying rent-data lineage is not independently established.",
+    "logo": "/sources/hemlane.svg",
+    "logoKind": "Publisher wordmark",
+    "darkLogo": true,
+    "smallLogo": false,
+    "liveOraclePublisher": false,
+    "editions": [
+      {
+        "id": "hemlane-2025-07",
+        "title": "Policy shockwaves: why housing feels harder this summer",
+        "publishedAt": "2025-07-18",
+        "dateApproximate": false,
+        "url": "https://milled.com/hemlane.com/policy-shockwaves-why-housing-feels-harder-this-summer-aWb8aOP9WiHWX8Qo",
+        "publicArticleUrl": null,
+        "kind": "sent_email_web_archive",
+        "lineage": "Cites New York Focus, not independently verified here back to an original rent dataset. Do not count as independent corroboration of the identical Pinpointe May value.",
+        "lineageUrl": null,
+        "requiresReview": false
+      }
+    ]
+  },
+  {
+    "id": "broadsheet",
+    "name": "The Broadsheet",
+    "url": "https://www.ebroadsheet.com/",
+    "description": "Lower Manhattan’s local newspaper and email newsletter. The indexed average-rent observation needs review for period and publication-date precision.",
+    "logo": "/sources/broadsheet.png",
+    "logoKind": "Publisher wordmark",
+    "darkLogo": false,
+    "smallLogo": false,
+    "liveOraclePublisher": false,
+    "editions": [
+      {
+        "id": "broadsheet-2024-09",
+        "title": "Chronic Instability",
+        "publishedAt": "2024-09-30",
+        "dateApproximate": true,
+        "url": "https://myemail-api.constantcontact.com/Chronic-Instability.html?aid=qRI3u58YAKI&soid=1101992539878",
+        "publicArticleUrl": "https://www.ebroadsheet.com/chronic-instability/",
+        "kind": "sent_email_web_archive",
+        "lineage": null,
+        "lineageUrl": null,
+        "requiresReview": true
+      }
+    ]
+  }
+]

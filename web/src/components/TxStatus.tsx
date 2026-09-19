@@ -43,7 +43,7 @@ export function TxStatus({
 
   if (state.status === "simulating") {
     return (
-      <div className="flex items-center gap-2 text-surface-grey-2 font-parkBody text-sm animate-nrc-fade-in">
+      <div className="flex flex-wrap items-center gap-2 text-surface-grey-2 font-parkBody text-sm animate-nrc-fade-in">
         <CircleNotchIcon size={18} className="animate-spin" />
         {prefix}simulating transaction…
       </div>
@@ -51,7 +51,7 @@ export function TxStatus({
   }
   if (state.status === "wallet") {
     return (
-      <div className="flex items-center gap-2 text-surface-grey-2 font-parkBody text-sm animate-nrc-fade-in">
+      <div className="flex flex-wrap items-center gap-2 text-surface-grey-2 font-parkBody text-sm animate-nrc-fade-in">
         <WalletIcon size={18} weight="fill" className="animate-nrc-pulse" />
         {prefix}confirm in your wallet…
       </div>
@@ -60,7 +60,7 @@ export function TxStatus({
   if (state.status === "pending") {
     return (
       <div
-        className="flex items-center gap-2 text-primary-sky font-parkBody text-sm animate-nrc-fade-in"
+        className="flex flex-wrap items-center gap-2 text-primary-sky font-parkBody text-sm animate-nrc-fade-in"
         data-testid="tx-pending"
       >
         <CircleNotchIcon size={18} className="animate-spin" />
@@ -72,7 +72,7 @@ export function TxStatus({
   if (state.status === "confirmed") {
     return (
       <div
-        className="flex items-center gap-2 text-system-green font-parkBody text-sm animate-nrc-pop"
+        className="flex flex-wrap items-center gap-2 text-system-green font-parkBody text-sm animate-nrc-pop"
         data-testid="tx-confirmed"
       >
         <CheckCircleIcon size={18} weight="fill" />
@@ -90,12 +90,12 @@ export function TxStatus({
         data-testid="tx-still-pending"
         role="status"
       >
-        <div className="flex items-center gap-2 font-bold text-system-warning">
+        <div className="flex flex-wrap items-center gap-2 font-bold text-system-warning">
           <ClockIcon size={18} weight="fill" />
           {prefix}submitted — still waiting for confirmation —{" "}
           <HashLink hash={state.hash} base={state.explorerBase} />
         </div>
-        <p className="mt-1">{state.error.message}</p>
+        <p className="mt-1 break-words">{state.error.message}</p>
       </div>
     );
   }
@@ -111,7 +111,7 @@ export function TxStatus({
       data-testid="tx-reverted"
       role={cancelled ? "status" : "alert"}
     >
-      <div className="flex items-center gap-2 font-bold">
+      <div className="flex flex-wrap items-center gap-2 font-bold">
         <XCircleIcon size={18} weight="fill" />
         {prefix}
         {cancelled ? "cancelled" : "failed"}
@@ -121,7 +121,7 @@ export function TxStatus({
           </span>
         ) : null}
       </div>
-      <p className="mt-1">{state.error.message}</p>
+      <p className="mt-1 break-words">{state.error.message}</p>
       {state.error.detail ? (
         <details className="mt-1 opacity-80">
           <summary className="cursor-pointer">raw detail</summary>

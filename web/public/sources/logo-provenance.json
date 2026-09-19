@@ -1,0 +1,76 @@
+{
+  "note": "Publisher logos or publication icons obtained from the public publisher page. Source identification only; no endorsement or partnership is implied. Original bytes retained.",
+  "assets": [
+    {
+      "id": "pinpointe",
+      "publisherPage": "https://newsletter.pinpointe.nyc/",
+      "assetUrl": "https://media.beehiiv.com/cdn-cgi/image/format=auto,width=800,height=421,fit=scale-down,onerror=redirect/uploads/asset/file/db206877-a91a-4dd9-bba9-095c65089bf9/Pinpointe_Logo_Colored_Small.png",
+      "localPath": "/sources/pinpointe.png",
+      "retrievedAt": "2026-09-19",
+      "contentType": "image/png",
+      "bytes": 14835,
+      "sha256": "4f0ccb736b6cc49ba8c61864717ca3b2f952d9e13d7b1bbb50c9cd065d793728"
+    },
+    {
+      "id": "cre-daily",
+      "publisherPage": "https://www.credaily.com/",
+      "assetUrl": "https://cdn.credaily.com/uploads/2024/04/cre-fav.png",
+      "localPath": "/sources/cre-daily.png",
+      "retrievedAt": "2026-09-19",
+      "contentType": "image/png",
+      "bytes": 265,
+      "sha256": "97613530cb71d982530be9af6efe810de70ecdf259d6a321c45cd2de374a717f"
+    },
+    {
+      "id": "bigger-apple",
+      "publisherPage": "https://thebiggerapple.manhattan.institute/",
+      "assetUrl": "https://substack-post-media.s3.amazonaws.com/public/images/b56378f7-c034-4722-8843-bbf77883f597_256x256.png",
+      "localPath": "/sources/bigger-apple.png",
+      "retrievedAt": "2026-09-19",
+      "contentType": "image/png",
+      "bytes": 1770,
+      "sha256": "93816090d0c05eabdc1a863c446e91245e8bba42e2abd8cc4e09ac2ac29cc805"
+    },
+    {
+      "id": "hallmark",
+      "publisherPage": "https://hallmarkabsservice.substack.com/",
+      "assetUrl": "https://substack-post-media.s3.amazonaws.com/public/images/b02a7ff7-6a06-4074-98e7-7d5177ac32fa_196x196.png",
+      "localPath": "/sources/hallmark.png",
+      "retrievedAt": "2026-09-19",
+      "contentType": "image/png",
+      "bytes": 60886,
+      "sha256": "053e97002bb1bb66fe42072df82d8ceb4657a8a761a1bcb14f5337d513280f41"
+    },
+    {
+      "id": "finding-space",
+      "publisherPage": "https://jyarton.substack.com/",
+      "assetUrl": "https://substackcdn.com/image/fetch/$s_!7xuG!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F1c58e2df-d937-41aa-a813-bfb5aa6a5195%2Fapple-touch-icon-180x180.png",
+      "localPath": "/sources/finding-space.jpg",
+      "retrievedAt": "2026-09-19",
+      "contentType": "image/jpeg",
+      "bytes": 11251,
+      "sha256": "0a3e7bffe7fcb81eb8a42517cf76e80942282ae336e06eceebda38d2f50a982e"
+    },
+    {
+      "id": "hemlane",
+      "publisherPage": "https://www.hemlane.com/",
+      "assetUrl": "https://www.hemlane.com/#header-wordmark",
+      "localPath": "/sources/hemlane.svg",
+      "retrievedAt": "2026-09-19",
+      "contentType": "image/svg+xml",
+      "bytes": 4090,
+      "sha256": "47ee818b1dd74c14a26863bc20aedc6024747685c93046ef834db34effceb8fc",
+      "extraction": "Unmodified inline SVG with hemlane-logo_svg__a from publisher header"
+    },
+    {
+      "id": "broadsheet",
+      "publisherPage": "https://www.ebroadsheet.com/",
+      "assetUrl": "https://i0.wp.com/www.ebroadsheet.com/wp-content/uploads/2024/04/thebroadsheet-logo%402x.png?fit=1136%2C159&ssl=1",
+      "localPath": "/sources/broadsheet.png",
+      "retrievedAt": "2026-09-19",
+      "contentType": "image/png",
+      "bytes": 10624,
+      "sha256": "5216db5459a05710dd9e779bcac77414f1fe0c1fa23933bdab3c0e8286a018bd"
+    }
+  ]
+}

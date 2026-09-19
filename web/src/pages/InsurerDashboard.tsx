@@ -188,9 +188,10 @@ export function InsurerDashboard() {
               : `In this model you lose money if index growth exceeds ${formatGrowth(q.breakevenGrowth)}. Premiums offset part of your claim exposure.`}
         </p>
 
-        <div className="mt-4 overflow-x-auto">
+        <p className="mt-4 font-parkBody text-xs text-surface-grey-2 sm:hidden">Swipe the table to see every outcome detail.</p>
+        <div className="mt-2 sm:mt-4 overflow-x-auto overscroll-x-contain rounded-lg focus-visible:outline-2 focus-visible:outline-core-green" role="region" aria-label="Insurer outcome details" tabIndex={0}>
           <table
-            className="w-full font-parkBody text-sm"
+            className="w-full min-w-[620px] font-parkBody text-sm"
             data-testid="insurer-table"
           >
             <caption className="text-left font-parkBody text-xs text-surface-grey-2 mb-1">
@@ -277,7 +278,7 @@ export function InsurerDashboard() {
           execute.
         </p>
         <details className="mt-2 font-parkBody text-xs text-surface-grey-2">
-          <summary className="cursor-pointer">Legacy underwriting tools</summary>
+          <summary className="min-h-11 py-2.5 sm:min-h-0 sm:py-0 cursor-pointer">Legacy underwriting tools</summary>
           The hidden legacy{" "}
           <Link className="underline" to="/underwrite">
             underwriting console

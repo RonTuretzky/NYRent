@@ -123,10 +123,10 @@ function GuideStep({ index, reducedMotion }: { index: number; reducedMotion: boo
   return <li ref={ref} id={`uniswap-${step.key}`} data-testid={`uniswap-step-${step.key}`} className={`grid items-center gap-8 lg:grid-cols-2 lg:gap-16 ${reducedMotion ? "" : "transition-all duration-700 ease-out"} ${shown ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}>
     <div className={flip ? "lg:order-2" : undefined}>
       <div className="flex items-center gap-4"><span aria-hidden="true" className="font-parkDisplay flex h-10 w-10 flex-none items-center justify-center rounded-full bg-core-green text-lg font-bold text-white">{index + 1}</span><h2 className="font-parkDisplay text-xl font-bold sm:text-2xl">{step.title}</h2></div>
-      <p className="font-parkBody mt-4 text-surface-grey-2">{step.body}</p>
-      <p className="font-parkBody mt-3 text-sm text-surface-grey-2">{step.detail}</p>
+      <p className="font-parkBody mt-4 leading-relaxed text-surface-grey-2">{step.body}</p>
+      <p className="font-parkBody mt-3 text-sm leading-relaxed text-surface-grey-2">{step.detail}</p>
     </div>
-    <div className={flip ? "lg:order-1" : undefined}><Scene key={shown ? "live" : "idle"} reducedMotion={reducedMotion} /></div>
+    <div className={`${flip ? "lg:order-1" : ""} min-w-0 [&>div>p]:text-sm sm:[&>div>p]:text-[11px]`}><Scene key={shown ? "live" : "idle"} reducedMotion={reducedMotion} /></div>
   </li>;
 }
 
@@ -134,23 +134,23 @@ export function UniswapGuide() {
   const reducedMotion = useReducedMotion();
   const { deployment } = useActiveDeployment();
   const v4 = V4_DEPLOYMENTS[String(deployment.chainId)];
-  return <div className="space-y-12 sm:space-y-16">
+  return <div className="min-w-0 space-y-12 sm:space-y-16">
     <header className="max-w-3xl">
-      <Link to="/docs" className="font-parkBody text-sm text-core-green hover:underline">← Docs</Link>
-      <div className="font-parkBody mt-5 inline-flex items-center gap-2 rounded-full border border-paper-2 bg-paper-1 px-3 py-1 text-xs text-surface-grey-2"><ArrowsLeftRightIcon size={16} weight="bold" />RentSafe × Uniswap v4</div>
+      <Link to="/docs" className="font-parkBody inline-flex min-h-11 items-center rounded-lg text-sm text-core-green hover:underline focus-visible:outline-2 focus-visible:outline-core-green">← Docs</Link>
+      <div className="font-parkBody mt-3 flex w-fit sm:mt-5 sm:inline-flex items-center gap-2 rounded-full border border-paper-2 bg-paper-1 px-3 py-1 text-xs text-surface-grey-2"><ArrowsLeftRightIcon size={16} weight="bold" />RentSafe × Uniswap v4</div>
       <h1 className="font-parkDisplay mt-4 text-3xl font-bold sm:text-4xl">How RENT becomes a live market</h1>
-      <p className="font-parkBody mt-4 text-lg text-surface-grey-2">Escrow backs the claim. Uniswap prices the trade. The signed rent index determines the final payout.</p>
-      <div className="font-parkBody mt-5 flex flex-wrap gap-x-6 gap-y-3 text-sm"><Link to="/buy" className="font-semibold text-core-green hover:underline">Buy &amp; Sell →</Link><Link to="/docs/walkthrough" className="text-core-green hover:underline">Watch the walkthrough →</Link></div>
+      <p className="font-parkBody mt-4 text-base leading-relaxed sm:text-lg text-surface-grey-2">Escrow backs the claim. Uniswap prices the trade. The signed rent index determines the final payout.</p>
+      <div className="font-parkBody mt-5 flex flex-wrap gap-x-6 gap-y-3 text-sm"><Link to="/buy" className="inline-flex min-h-11 items-center rounded-lg font-semibold text-core-green hover:underline focus-visible:outline-2 focus-visible:outline-core-green">Buy &amp; Sell →</Link><Link to="/docs/walkthrough" className="inline-flex min-h-11 items-center rounded-lg text-core-green hover:underline focus-visible:outline-2 focus-visible:outline-core-green">Watch the walkthrough →</Link></div>
     </header>
     <ol role="list" className="list-none space-y-16 sm:space-y-24">{STEPS.map((step, index) => <GuideStep key={step.key} index={index} reducedMotion={reducedMotion} />)}</ol>
     <Card>
       <div className="flex items-center gap-3"><BankIcon size={24} className="text-core-green" /><h2 className="font-parkDisplay text-xl font-bold">What the market price tells you</h2></div>
       <p className="font-parkBody mt-3 text-surface-grey-2">Because RENT pays a capped ratio, its price can be mapped to a price-equivalent index growth: 3% + 5% × price. At $0.285, that is 4.425%. This is not the expected growth of rent itself: outcomes outside the band, risk margins and liquidity are not captured by that simple mapping.</p>
-      <Link className="font-parkBody mt-4 inline-block text-sm font-semibold text-core-green hover:underline" to="/market-view">Explore the price interpretation →</Link>
+      <Link className="font-parkBody mt-4 inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-core-green hover:underline focus-visible:outline-2 focus-visible:outline-core-green" to="/market-view">Explore the price interpretation →</Link>
     </Card>
     <section className="font-parkBody rounded-2xl border border-paper-2 bg-paper-1 p-5 text-sm text-surface-grey-2 sm:p-6">
       <h2 className="font-parkDisplay text-lg font-bold text-text-standard">Follow the contracts</h2>
-      {v4 ? <><p className="mt-2">The selected v4 market is on {deployment.name}, chain {deployment.chainId}. Wallet balances and trading liquidity must be on the same network.</p><div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">{[["RENT + escrow", v4.market], ["RentSafe hook", v4.hook], ["Uniswap PoolManager", v4.poolManager], ["Signed-rent oracle", v4.oracle]].map(([label, address]) => <a key={address} className="text-core-green underline" href={addressUrl(address, deployment.explorerBase)} target="_blank" rel="noreferrer">{label} ↗</a>)}</div></> : <p className="mt-2">Select Polygon to use the live RENT / USDC v4 market. Other network versions can have different trading mechanics.</p>}
+      {v4 ? <><p className="mt-2">The selected v4 market is on {deployment.name}, chain {deployment.chainId}. Wallet balances and trading liquidity must be on the same network.</p><div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">{[["RENT + escrow", v4.market], ["RentSafe hook", v4.hook], ["Uniswap PoolManager", v4.poolManager], ["Signed-rent oracle", v4.oracle]].map(([label, address]) => <a key={address} className="inline-flex min-h-11 items-center rounded-lg text-core-green underline focus-visible:outline-2 focus-visible:outline-core-green" href={addressUrl(address, deployment.explorerBase)} target="_blank" rel="noreferrer">{label} ↗</a>)}</div></> : <p className="mt-2">Select Polygon to use the live RENT / USDC v4 market. Other network versions can have different trading mechanics.</p>}
       <p className="mt-4">RentSafe implementation: <a className="underline" href={`${SOURCE}/RentV4Market.sol`} target="_blank" rel="noreferrer">market and escrow</a> · <a className="underline" href={`${SOURCE}/RentV4Factory.sol`} target="_blank" rel="noreferrer">pool creation</a> · <a className="underline" href={`${SOURCE}/RentV4Hook.sol`} target="_blank" rel="noreferrer">hook rules</a>. Uniswap background: <a className="underline" href="https://developers.uniswap.org/docs/get-started/concepts/hooks" target="_blank" rel="noreferrer">v4 hooks</a> · <a className="underline" href="https://developers.uniswap.org/docs/get-started/concepts/liquidity-providers/concentrated-liquidity" target="_blank" rel="noreferrer">liquidity and price ranges</a>.</p>
       <p className="mt-3">Contracts are unaudited. Full backing does not guarantee a secondary-market exit. The index measures Manhattan office rent, which can move differently from an individual lease.</p>
     </section>

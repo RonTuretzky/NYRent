@@ -94,7 +94,7 @@ test("real v4 UI: backed mint, LP, buy/sell, blackout, DKIM settlement, payout a
     });
     expect(swaps).toHaveLength(2);
     await expect(renter.getByTestId("v4-swap-point")).toHaveCount(swaps.length);
-    await renter.getByText("Recorded swap prices", {exact: true}).click();
+    await expect(renter.getByRole("heading", {name: "Recorded swap prices", exact: true})).toBeVisible();
     await expect(renter.getByTestId("v4-swap-row")).toHaveCount(swaps.length);
     for (const swap of swaps) {
       const token1PerToken0 = (Number(swap.args.sqrtPriceX96!) / 2 ** 96) ** 2;

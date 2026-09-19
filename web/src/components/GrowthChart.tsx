@@ -4,6 +4,8 @@
  * deps). Used by the /insurer and /renter explainers.
  */
 
+import { useEffect, useState } from "react";
+
 export interface ChartLine {
   label: string;
   color: string;
@@ -28,9 +30,17 @@ export function GrowthChart({
   ariaLabel: string;
   testId?: string;
 }) {
-  const W = 560;
+  const [compact, setCompact] = useState(() => window.matchMedia("(max-width: 639px)").matches);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 639px)");
+    const update = () => setCompact(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  const W = compact ? 320 : 560;
   const H = 280;
-  const pad = { left: 64, right: 16, top: 16, bottom: 56 };
+  const pad = { left: compact ? 48 : 64, right: 16, top: compact ? 24 : 16, bottom: 56 };
+  const labelSize = compact ? 13 : 11;
   const iw = W - pad.left - pad.right;
   const ih = H - pad.top - pad.bottom;
 
@@ -55,11 +65,17 @@ export function GrowthChart({
     ticks.push(v);
   }
 
-  const fmtTick = (v: number) =>
-    `${v < 0 ? "−" : ""}$${Math.abs(v) >= 1000 ? `${(Math.abs(v) / 1000).toLocaleString("en-US", { maximumFractionDigits: 1 })}k` : Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  const fmtTick = (v: number) => {
+    const magnitude = Math.abs(v);
+    const scale = magnitude >= 1_000_000 ? 1_000_000 : magnitude >= 1_000 ? 1_000 : 1;
+    const suffix = scale === 1_000_000 ? "m" : scale === 1_000 ? "k" : "";
+    return `${v < 0 ? "−" : ""}$${(magnitude / scale).toLocaleString("en-US", { maximumFractionDigits: scale === 1 ? 0 : 1 })}${suffix}`;
+  };
+  // Retain every data point; show fewer axis labels on narrow screens.
+  const tickGrowths = compact ? gs.filter((g) => [-0.02, 0, 0.03, 0.05, 0.08, 0.12].includes(g)) : gs;
 
   return (
-    <figure>
+    <figure className="min-w-0">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="w-full h-auto"
@@ -83,7 +99,7 @@ export function GrowthChart({
               x={pad.left - 8}
               y={y(v) + 4}
               textAnchor="end"
-              fontSize={11}
+              fontSize={labelSize}
               fill="var(--color-surface-grey)"
               fontFamily="var(--font-parkBody)"
             >
@@ -103,13 +119,13 @@ export function GrowthChart({
         />
 
         {/* x ticks at each grid growth value */}
-        {gs.map((g) => (
+        {tickGrowths.map((g) => (
           <text
             key={g}
             x={x(g)}
             y={H - pad.bottom + 18}
             textAnchor="middle"
-            fontSize={10}
+            fontSize={compact ? 12 : 10}
             fill="var(--color-surface-grey)"
             fontFamily="var(--font-parkBody)"
           >
@@ -120,7 +136,7 @@ export function GrowthChart({
           x={pad.left + iw / 2}
           y={H - 6}
           textAnchor="middle"
-          fontSize={11}
+          fontSize={labelSize}
           fill="var(--color-surface-grey)"
           fontFamily="var(--font-parkBody)"
         >
@@ -145,7 +161,7 @@ export function GrowthChart({
               x={x(breakevenG)}
               y={pad.top + 12}
               textAnchor="middle"
-              fontSize={11}
+              fontSize={labelSize}
               fontWeight={700}
               fill="var(--color-primary-pine)"
               fontFamily="var(--font-parkBody)"
@@ -191,13 +207,13 @@ export function GrowthChart({
           </g>
         ))}
       </svg>
-      <figcaption className="mt-1 flex flex-wrap gap-x-4 gap-y-1 justify-center">
+      <figcaption className="mt-2 flex flex-wrap gap-x-4 gap-y-2 justify-start sm:justify-center">
         {lines.map((line) => (
           <span
             key={line.label}
-            className="flex items-center gap-1.5 font-parkBody text-xs text-surface-grey-2"
+            className="flex min-w-0 items-center gap-1.5 font-parkBody text-xs leading-relaxed text-surface-grey-2"
           >
-            <svg width="18" height="6" aria-hidden="true">
+            <svg width="18" height="6" className="shrink-0" aria-hidden="true">
               <line
                 x1="0"
                 y1="3"

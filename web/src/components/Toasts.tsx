@@ -54,7 +54,7 @@ function ToastCard({
           {toast.label} — {STATUS_TEXT[toast.status]}
         </p>
         {toast.error ? (
-          <p className="mt-0.5 text-surface-grey-2">{toast.error}</p>
+          <p className="mt-0.5 text-surface-grey-2 break-words">{toast.error}</p>
         ) : null}
         {toast.hash ? (
           <a
@@ -71,7 +71,7 @@ function ToastCard({
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss notification"
-        className="shrink-0 -m-1 p-2 rounded-lg text-surface-grey-2 hover:text-text-standard hover:bg-paper-1"
+        className="shrink-0 -m-1 min-h-11 min-w-11 flex items-center justify-center p-2 rounded-lg text-surface-grey-2 hover:text-text-standard hover:bg-paper-1"
       >
         <XIcon size={16} />
       </button>
@@ -88,7 +88,8 @@ export function Toasts() {
   const { toasts, dismiss } = useTxToasts();
   return createPortal(
     <div
-      className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
+      style={{bottom: "max(1rem, env(safe-area-inset-bottom))"}}
+      className="pointer-events-none fixed right-4 z-50 flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
       aria-live="polite"
       data-testid="tx-toasts"
     >

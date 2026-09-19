@@ -24,15 +24,15 @@ export function SliderInput({ label, value, onChange, min, max, step, unit, hint
     const next = text.trim() !== "" && Number.isFinite(parsed) ? clamp(parsed) : value;
     onChange(next); setText(String(next));
   }
-  return <div className="space-y-3">
+  return <div className="min-w-0 space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <label htmlFor={id} className="font-parkBody text-sm font-bold text-text-standard">{label}</label>
-      <div className="flex items-center gap-2 rounded-xl border-2 border-paper-2 bg-paper-0 px-3 py-2 focus-within:border-core-green focus-within:ring-2 focus-within:ring-core-green/15 transition-colors">
+      <div className="flex items-center gap-2 rounded-xl border-2 border-paper-2 bg-paper-0 px-3 focus-within:border-core-green focus-within:ring-2 focus-within:ring-core-green/15 transition-colors">
         <input id={id} type="text" inputMode="decimal" value={text}
           onFocus={() => { editing.current = true; }} onChange={(e) => changeText(e.target.value)}
           onBlur={finish} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
           aria-label={`${label} (number)`} aria-describedby={hint ? `${id}-hint` : undefined}
-          data-testid={testId} className="w-24 min-w-0 bg-transparent outline-none text-right font-parkDisplay font-bold text-lg tabular-nums" />
+          data-testid={testId} className="w-24 min-w-0 min-h-11 bg-transparent outline-none text-right font-parkDisplay font-bold text-lg tabular-nums" />
         {unit ? <span className="font-parkBody text-xs text-surface-grey-2 whitespace-nowrap">{unit}</span> : null}
       </div>
     </div>
@@ -40,7 +40,7 @@ export function SliderInput({ label, value, onChange, min, max, step, unit, hint
       onChange={(e) => { const n = Number(e.target.value); editing.current = false; setText(String(n)); onChange(n); }}
       aria-label={label} aria-valuetext={`${bound(value)}${unit ? ` ${unit}` : ""}`}
       data-testid={testId ? `${testId}-slider` : undefined}
-      className="rent-range" style={{ "--range-progress": `${progress}%` } as CSSProperties} />
+      className="rent-range" style={{ "--range-progress": `${progress}%`, minHeight: 44 } as CSSProperties} />
     <div className="flex justify-between font-parkBody text-xs text-surface-grey" aria-hidden="true"><span>{bound(min)}</span><span>{bound(max)}</span></div>
     {hint ? <p id={`${id}-hint`} className="font-parkBody text-xs text-surface-grey-2 leading-relaxed">{hint}</p> : null}
   </div>;

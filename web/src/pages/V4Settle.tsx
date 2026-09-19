@@ -123,7 +123,7 @@ function Settlement() {
     {m.settled ? <p className="my-4 font-bold">Already settled at {(Number(m.payoutRatioWad) / 1e16).toFixed(2)}% of maximum payout.</p> : qualifying ? <div className="my-4"><p>Authenticated qualifying print: {formatCents(qualifying.cents)} · {formatTimestamp(qualifying.t)}</p><Button app="fund" className="mt-3" disabled={!ready} onClick={() => void settle()}>Settle market</Button></div> : <p className="my-4">{observations.isError ? "Could not read recorded observations. Retry before settling." : "No qualifying observation has been recorded yet."}</p>}
     {(!address || chainId !== d.chainId) && <p>Connect a wallet on the selected network to submit or settle.</p>}
   </Card><Card><h2 className="text-xl font-bold">Verify the original newsletter</h2>
-    <label className="block mt-3">Original email (.eml)<input type="file" accept=".eml,message/rfc822" className="block mt-2" disabled={working || m.settled} onChange={e => { const f = e.target.files?.[0]; if (f) void upload(f); }} /></label>
+    <label className="block mt-3">Original email (.eml)<input type="file" accept=".eml,message/rfc822" className="block mt-2 w-full min-w-0 max-w-full text-base file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-paper-2 file:bg-paper-1 file:px-3 file:text-sm file:font-bold" disabled={working || m.settled} onChange={e => { const f = e.target.files?.[0]; if (f) void upload(f); }} /></label>
     {report && <>
       {report.parsed && <div className="mt-5 rounded-xl border-2 border-paper-2 bg-paper-1 p-4" data-testid="signed-rent-summary">
         <p className="text-sm font-bold text-primary-green">{known ? "Authenticated on-chain" : report.ok ? "Signature checks passed locally" : "Email checks need attention"}</p>
@@ -133,10 +133,10 @@ function Settlement() {
         </div>
         <p className="text-sm mt-3">{inWindow ? "The signed timestamp is inside the settlement window." : "Outside the settlement window: this email cannot settle this market."} {!m.settled && "The payout becomes final only after the oracle authenticates an eligible email and the settlement transaction confirms."}</p>
       </div>}
-      <ul className="my-4 space-y-2" data-testid="v4-preflight">{report.checks.map(c => <li key={c.id}>{c.pass ? "✓" : "✕"} {c.label}: {c.detail}</li>)}</ul>
+      <ul className="my-4 space-y-3 text-sm sm:text-base [overflow-wrap:anywhere]" data-testid="v4-preflight">{report.checks.map(c => <li key={c.id}>{c.pass ? "✓" : "✕"} {c.label}: {c.detail}</li>)}</ul>
 
       <Button app="fund" className="mt-4" disabled={!ready || !report.ok || !!known || m.settled} onClick={() => void record()}>{known ? "Email already authenticated" : "Authenticate email on-chain"}</Button>
     </>}
     {progress && <p role="status" className="mt-3">{progress}</p>}
-  </Card><TxStatus state={tx.state} />{error && <p role="alert" className="text-system-red">{error}</p>}</div>;
+  </Card><TxStatus state={tx.state} />{error && <p role="alert" className="text-system-red break-words">{error}</p>}</div>;
 }

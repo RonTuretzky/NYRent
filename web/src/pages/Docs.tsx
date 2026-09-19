@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowsLeftRightIcon, PlayCircleIcon } from "@phosphor-icons/react";
+import { ArrowsLeftRightIcon, NewspaperIcon, PlayCircleIcon } from "@phosphor-icons/react";
 import { Card } from "../components/States";
 import { useActiveMarket } from "../chain/useActiveMarket";
 import { formatCents, formatDate } from "../chain/format";
@@ -11,11 +11,11 @@ export function Docs() {
   const market = useActiveMarket();
   const { deployment } = useActiveDeployment();
   const v4 = V4_DEPLOYMENTS[String(deployment.chainId)];
-  return <div className="max-w-3xl mx-auto space-y-6">
-    <header><h1 className="font-parkDisplay font-bold text-3xl">How Manhattan Rent Cover works</h1>
+  return <div className="max-w-3xl min-w-0 mx-auto space-y-6 [&_p]:leading-relaxed [&_li]:leading-relaxed">
+    <header><h1 className="font-parkDisplay font-bold text-2xl leading-tight sm:text-3xl">How Manhattan Rent Cover works</h1>
       <p className="font-parkBody text-surface-grey-2 mt-2">One market follows the CRE Daily Manhattan Office Rent average effective rent index, measured in dollars per square foot. It tracks office rents, not residential leases.</p>
     </header>
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-3">
       <Link to="/docs/uniswap" className="group rounded-2xl border border-paper-2 bg-paper-1 p-5 transition-colors hover:border-core-green focus-visible:outline-2 focus-visible:outline-core-green">
         <ArrowsLeftRightIcon size={28} className="text-core-green" weight="bold" />
         <h2 className="font-parkDisplay mt-3 text-lg font-bold">The Uniswap integration</h2>
@@ -28,20 +28,26 @@ export function Docs() {
         <p className="font-parkBody mt-2 text-sm text-surface-grey-2">Follow the renter, insurer, signed-email oracle and redemption flows.</p>
         <span className="font-parkBody mt-4 inline-block text-sm font-semibold text-core-green">Open recordings →</span>
       </Link>
+      <Link to="/docs/sources" className="group rounded-2xl border border-paper-2 bg-paper-1 p-5 transition-colors hover:border-core-green focus-visible:outline-2 focus-visible:outline-core-green">
+        <NewspaperIcon size={28} className="text-core-green" weight="bold" />
+        <h2 className="font-parkDisplay mt-3 text-lg font-bold">The source archive</h2>
+        <p className="font-parkBody mt-2 text-sm text-surface-grey-2">The seven publications we indexed, their editions and the live oracle source.</p>
+        <span className="font-parkBody mt-4 inline-block text-sm font-semibold text-core-green">Explore the evidence →</span>
+      </Link>
     </div>
     {v4 ? <Card>
       <h2 className="font-parkDisplay font-bold text-xl">On-chain market · {deployment.name}</h2>
       <p className="font-parkBody mt-3">RENT trades against native {v4.symbol} on {deployment.name} (chain {deployment.chainId}). Its backing and trading liquidity stay on this network.</p>
       <div className="font-parkBody mt-3 flex flex-wrap gap-x-5 gap-y-2">
         {[["RENT and escrow", v4.market], ["Uniswap v4 hook", v4.hook], ["Signed-rent oracle", v4.oracle]].map(([label, address]) =>
-          <a key={address} className="underline text-core-green" href={addressUrl(address, deployment.explorerBase)} target="_blank" rel="noreferrer">{label} ↗</a>
+          <a key={address} className="inline-flex min-h-11 items-center rounded-lg underline text-core-green focus-visible:outline-2 focus-visible:outline-core-green" href={addressUrl(address, deployment.explorerBase)} target="_blank" rel="noreferrer">{label} ↗</a>
         )}
       </div>
     </Card> : null}
     <Card><h2 className="font-parkDisplay font-bold text-xl">The fixed terms</h2>
       <p className="font-parkBody mt-3">The market uses a signed September 2026 oracle observation as its base. {market.baseIsDemo ? "The recorded base is currently unavailable on this network." : <>The authenticated base is {formatCents(market.baseCents)}/SF.</>}</p>
       <p className="font-parkBody mt-3">The first successful settlement transaction fixes the payout using a qualifying observation for September 2027; the contract cannot prove that no earlier email was withheld. Growth is g = settlement / base − 1. RENT pays nothing through 3% growth, increases linearly to $1 at 8%, and stays capped at $1 above that.</p>
-      <p className="font-mono text-sm my-4 rounded-lg bg-paper-1 p-3">r = clamp((g − 0.03) / 0.05, 0, 1)</p>
+      <p className="font-mono break-words text-xs sm:text-sm my-4 rounded-lg bg-paper-1 p-3">r = clamp((g − 0.03) / 0.05, 0, 1)</p>
       <p className="font-parkBody">Contracts using cent-denominated strikes settle against {formatCents(market.strikeLowCents)} and {formatCents(market.strikeHighCents)}. Cent rounding can differ slightly from the ideal percentage curve; the contract's integer formula determines the actual payout.</p>
       <p className="font-parkBody mt-3">Sales close {formatDate(market.saleEnd)}. Observation runs {formatDate(market.obsStart)} through {formatDate(market.obsEnd)}. Claims close {formatDate(market.redeemEnd)}. The configured sale window cannot extend beyond the start of observation.</p>
     </Card>

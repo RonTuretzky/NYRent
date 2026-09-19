@@ -7,6 +7,7 @@ import { CaretDownIcon, ListIcon, XIcon } from "@phosphor-icons/react";
 import { DEPLOYMENTS, useActiveDeployment } from "../chain/registry";
 import { NotDeployedBanner, WrongNetworkBanner } from "./Banners";
 import { Toasts } from "./Toasts";
+import { SourceGallery } from "./SourceGallery";
 
 /** Legacy multi-market nav entries stay hidden unless explicitly re-exposed
  * (the routes themselves are always registered). */
@@ -50,6 +51,7 @@ const TITLES: [prefix: string, title: string][] = [
   ["/choose", "Help me choose"],
   ["/docs/uniswap", "How Uniswap powers RENT"],
   ["/docs/walkthrough", "Watch the walkthrough"],
+  ["/docs/sources", "Indexed newsletter sources"],
   ["/docs", "Docs"],
 ];
 
@@ -63,8 +65,8 @@ function usePageTitle() {
   }, [pathname]);
 }
 
-const navClass = (active: boolean) =>
-  `font-parkBody text-sm whitespace-nowrap px-1 py-2 border-b-2 transition-colors rounded-t-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-core-green ${
+const navClass = (active: boolean, mobile = false) =>
+  `font-parkBody ${mobile ? "text-base px-3 py-3 min-h-12" : "text-sm px-1 py-2"} whitespace-nowrap border-b-2 transition-colors rounded-t-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-core-green ${
     active ? "border-core-green text-core-green font-bold" : "border-transparent text-text-standard hover:text-core-green"
   }`;
 
@@ -127,7 +129,7 @@ function NavDropdown({ label, items, open, onToggle, onClose, onNavigate, mobile
           if (open) container.current?.querySelector<HTMLAnchorElement>("a")?.focus();
           else { focusFirst.current = true; onToggle(); }
         }}
-        className={`${navClass(active)} flex items-center gap-1.5 ${mobile ? "w-full justify-between" : ""}`}
+        className={`${navClass(active, mobile)} flex items-center gap-1.5 ${mobile ? "w-full justify-between" : ""}`}
       >
         {label}
         <CaretDownIcon size={14} weight="bold" aria-hidden="true" className={`transition-transform ${open ? "rotate-180" : ""}`} />
@@ -139,7 +141,7 @@ function NavDropdown({ label, items, open, onToggle, onClose, onNavigate, mobile
           {items.map((item) => (
             <NavLink key={item.to} to={item.to}
               onClick={() => { onClose(); onNavigate?.(); }}
-              className={({ isActive }) => `rounded-lg px-3 py-2.5 font-parkBody text-sm transition-colors focus-visible:outline-2 focus-visible:outline-core-green ${
+              className={({ isActive }) => `rounded-lg px-3 py-3 min-h-11 font-parkBody text-base sm:text-sm transition-colors focus-visible:outline-2 focus-visible:outline-core-green ${
                 isActive ? "bg-paper-1 text-core-green font-bold" : "text-text-standard hover:bg-paper-1 hover:text-core-green"
               }`}>
               {item.label}
@@ -163,7 +165,7 @@ function NavLinks({ onNavigate, mobile = false }: { onNavigate?: () => void; mob
       ) : (
         <NavLink key={item.to} to={item.to} end={item.to === "/"}
           onClick={() => { setOpenSection(null); onNavigate?.(); }}
-          className={({ isActive }) => navClass(isActive)}>
+          className={({ isActive }) => navClass(isActive, mobile)}>
           {item.label}
         </NavLink>
       ))}
@@ -239,7 +241,7 @@ function ChainSwitcher() {
         onChange={(e) => onChange(Number(e.target.value))}
         aria-label="Network"
         data-testid="chain-switcher"
-        className="font-parkBody text-sm bg-transparent outline-none py-1 pr-1 cursor-pointer"
+        className="font-parkBody text-base sm:text-sm bg-transparent outline-none min-h-11 sm:min-h-0 py-1 pr-1 cursor-pointer"
       >
         {options.map((d) => (
           <option key={d.chainId} value={d.chainId}>
@@ -274,6 +276,8 @@ function AppNavbar() {
 
   useEffect(() => {
     if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const menu = menuRef.current;
     const burger = burgerRef.current;
     const focusables = () =>
@@ -300,13 +304,14 @@ function AppNavbar() {
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
       burger?.focus();
     };
   }, [open]);
 
   return (
-    <header className="relative py-2.5 flex items-center justify-between gap-4">
-      <Link to="/" className="flex items-center gap-3 shrink-0">
+    <header className="relative py-2.5 flex items-center justify-between gap-2 sm:gap-4">
+      <Link to="/" className="flex min-h-11 items-center gap-2 sm:gap-3 shrink-0">
         <Logo size={28} />
         <span className="font-parkDisplay font-bold text-sm md:text-base text-primary-green border border-primary-green rounded-full px-3 py-0.5 whitespace-nowrap">
           RentSafe
@@ -325,8 +330,8 @@ function AppNavbar() {
       </nav>
 
       {/* Wallet access remains visible on mobile, as does the menu. */}
-      <div className="flex items-center gap-3 xl:hidden">
-        <ConnectButton showBalance={false} chainStatus="none" accountStatus="avatar" />
+      <div className="flex items-center gap-2 xl:hidden">
+        <ConnectButton label="Connect" showBalance={false} chainStatus="none" accountStatus="avatar" />
       <button
         ref={burgerRef}
         onClick={() => setOpen(true)}
@@ -346,7 +351,8 @@ function AppNavbar() {
           role="dialog"
           aria-modal="true"
           aria-label="Navigation menu"
-          className="bg-paper-main fixed inset-0 z-50 p-6 xl:hidden overflow-y-auto"
+          className="bg-paper-main fixed inset-0 z-50 max-h-[100dvh] p-5 xl:hidden overflow-y-auto overscroll-contain"
+          style={{paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))"}}
         >
           <div className="flex items-center justify-between mb-8">
             <Logo text="RentSafe" size={24} color="green" />
@@ -387,6 +393,7 @@ export function Layout() {
       </main>
       <Toasts />
       <div className="mt-10">
+        <div className="max-w-6xl w-full mx-auto px-4 sm:px-6"><SourceGallery /></div>
         <p className="font-parkBody text-xs text-surface-grey-2 text-center max-w-6xl w-full mx-auto px-4 sm:px-6 pb-1">
           RentSafe is built by Decentral Park. The contracts have not been audited.
         </p>

@@ -131,7 +131,7 @@ function V4Panel({ mode }: { mode: V4Mode }) {
   const paySymbol = buyRent ? d.symbol : "RENT";
   const payBalance = wallet.data ? buyRent ? wallet.data.cash : wallet.data.rent : undefined;
   const insufficientFunds = payBalance !== undefined && amountIn > payBalance;
-  const inputClass = "w-full rounded-lg border border-paper-2 bg-paper-0 p-3 font-parkBody";
+  const inputClass = "w-full min-w-0 min-h-12 rounded-lg border border-paper-2 bg-paper-0 p-3 font-parkBody text-base";
 
   async function send(target: Address, abi: Abi, functionName: string, args: readonly unknown[], label: string) {
     const result = await tx.send({ address: target, abi, functionName, args, chainId: d.chainId, account: address }, { label });
@@ -172,7 +172,7 @@ function V4Panel({ mode }: { mode: V4Mode }) {
   }
 
   return <div className="max-w-3xl mx-auto space-y-6" data-testid="v4-market-actions">
-    <Card><p className="text-sm font-bold uppercase text-primary-green">Live trading market · {networkName}</p><h1 className="text-3xl font-parkDisplay font-bold mt-2">{mode === "trade" ? "Buy & Sell" : mode === "underwrite" ? "Fund cover and provide liquidity" : "Redeem RENT"}</h1>
+    <Card><p className="text-xs sm:text-sm font-bold uppercase text-primary-green">Live trading market · {networkName}</p><h1 className="text-3xl font-parkDisplay font-bold mt-2">{mode === "trade" ? "Buy & Sell" : mode === "underwrite" ? "Fund cover and provide liquidity" : "Redeem RENT"}</h1>
       {mode === "trade" ? <>
         <div className="mt-5 rounded-xl bg-paper-1 p-4" data-testid="rent-current-price">
           <p className="text-sm text-surface-grey-2">Current RENT price</p>
@@ -232,9 +232,9 @@ function V4Panel({ mode }: { mode: V4Mode }) {
           : <p className="text-sm mt-2">{!m.tradingOpen ? "Trading is closed." : m.liquidity === 0n ? "The pool has no trading liquidity." : quote.isError ? "Could not price this order. Try a smaller amount or refresh the quote." : amountIn > 0n ? "Fetching a live quote…" : "Enter an amount to see what you receive."}</p>}
       </div>
       {currentQuote && <dl className="space-y-3 text-sm border-t border-paper-2 pt-4" data-testid="trade-price-details">
-        <div className="flex justify-between gap-4"><dt>Average price for your order</dt><dd className="text-right font-bold">{averagePrice?.toLocaleString(undefined, { maximumFractionDigits: 6 }) ?? "—"} {d.symbol} / RENT</dd></div>
-        <div className="flex justify-between gap-4"><dt>Price impact + trading fees</dt><dd className={`text-right font-bold ${highImpact ? "text-system-red" : ""}`}>{impact?.bps !== null && impact?.bps !== undefined ? `${(Number(impact.bps) / 100).toFixed(2)}%` : "—"}</dd></div>
-        {!impact?.blocked && <div className="flex justify-between gap-4"><dt>Minimum you receive</dt><dd className="text-right">{short(minimumOutput(currentQuote.amountOut), d.decimals)} {outputSymbol}</dd></div>}
+        <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4"><dt>Average price for your order</dt><dd className="sm:text-right font-bold break-words">{averagePrice?.toLocaleString(undefined, { maximumFractionDigits: 6 }) ?? "—"} {d.symbol} / RENT</dd></div>
+        <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4"><dt>Price impact + trading fees</dt><dd className={`sm:text-right font-bold ${highImpact ? "text-system-red" : ""}`}>{impact?.bps !== null && impact?.bps !== undefined ? `${(Number(impact.bps) / 100).toFixed(2)}%` : "—"}</dd></div>
+        {!impact?.blocked && <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4"><dt>Minimum you receive</dt><dd className="sm:text-right break-words">{short(minimumOutput(currentQuote.amountOut), d.decimals)} {outputSymbol}</dd></div>}
       </dl>}
       {highImpact && <div role="alert" className="mt-5 rounded-xl border border-system-warning bg-system-warning/10 p-4" data-testid="price-impact-warning">
         <p className="font-bold">This order is too large for the available liquidity.</p>

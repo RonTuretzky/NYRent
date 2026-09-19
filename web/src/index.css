@@ -131,3 +131,24 @@ body {
 .rent-range:focus-visible { outline: 2px solid var(--color-core-green); outline-offset: 5px; border-radius: 999px; }
 .rent-range:hover::-webkit-slider-thumb { background: var(--color-paper-1); }
 .rent-range:hover::-moz-range-thumb { background: var(--color-paper-1); }
+
+[data-testid="v4-market-actions"] button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Phone-sized controls retain the brand treatment with comfortable touch areas. */
+@media (max-width: 1279px) {
+  header [data-rk] button { min-height: 44px; }
+}
+@media (max-width: 639px) {
+  .rent-range { height: 44px; }
+  [data-testid="v4-market-actions"] button {
+    min-height: 44px;
+    max-width: 100%;
+  }
+  [data-testid="v4-market-actions"] button:not([aria-pressed]) { width: 100%; }
+  [data-testid="v4-market-actions"] [aria-label="Trade direction"] > button { flex: 1; }
+  [data-testid="v4-market-actions"] summary { min-height: 44px; padding-block: 12px; }
+  [data-testid="v4-market-actions"] { overflow-wrap: anywhere; }
+}

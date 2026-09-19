@@ -150,7 +150,7 @@ export function RenterVisualizer() {
                   type="button"
                   onClick={() => setGrowthPct(growth)}
                   aria-pressed={growthPct === growth}
-                  className={`rounded-full border-2 px-4 py-1.5 font-parkBody text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-core-green ${growthPct === growth ? "border-core-green bg-core-green/10 text-core-green" : "border-paper-2 bg-paper-0 text-surface-grey-2 hover:border-core-green"}`}
+                  className={`min-h-11 flex-1 sm:flex-none rounded-full border-2 px-4 py-1.5 font-parkBody text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-core-green ${growthPct === growth ? "border-core-green bg-core-green/10 text-core-green" : "border-paper-2 bg-paper-0 text-surface-grey-2 hover:border-core-green"}`}
                 >
                   +{growth}%
                 </button>
@@ -159,7 +159,7 @@ export function RenterVisualizer() {
           </div>
           <div className="rounded-2xl border-2 border-core-green/30 bg-core-green/5 px-5 py-4" aria-live="polite" data-testid="renter-outcome">
             <p className="font-parkBody text-sm text-surface-grey-2">Your payout at +{growthPct}% growth</p>
-            <p className="font-parkDisplay text-4xl font-bold text-core-green mt-1" data-testid="renter-outcome-payout">{formatDollars(selectedPayout)}</p>
+            <p className="font-parkDisplay text-4xl font-bold text-core-green mt-1 break-words" data-testid="renter-outcome-payout">{formatDollars(selectedPayout)}</p>
             <p className="font-parkBody text-sm text-surface-grey-2 mt-2">{formatCount(q.units)} RENT · {formatDollars(selectedPayout - q.cost)} after your modeled cost</p>
           </div>
         </div>

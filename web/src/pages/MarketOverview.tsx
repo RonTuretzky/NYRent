@@ -88,7 +88,7 @@ export function MarketOverview() {
           </Link>
         </div>
         <p className="mt-5 font-parkBody text-sm text-surface-grey-2">
-          <Link to="/market-view" className="inline-flex items-center gap-1 underline decoration-dotted underline-offset-4 hover:text-core-green">Explore what the price says <ArrowRightIcon size={14} /></Link>
+          <Link to="/market-view" className="inline-flex min-h-11 sm:min-h-0 items-center gap-1 underline decoration-dotted underline-offset-4 hover:text-core-green">Explore what the price says <ArrowRightIcon size={14} /></Link>
         </p>
       </section>
 
@@ -117,7 +117,7 @@ export function MarketOverview() {
           />
         </div>
         <details className="mt-5 max-w-3xl mx-auto rounded-2xl border border-paper-2 bg-paper-0 p-5">
-          <summary className="cursor-pointer font-parkDisplay font-bold text-text-standard">Follow the money</summary>
+          <summary className="min-h-11 py-2.5 sm:min-h-0 sm:py-0 cursor-pointer font-parkDisplay font-bold text-text-standard">Follow the money</summary>
           <div className="mt-5"><MoneyFlowViz symbol={symbol} /></div>
         </details>
       </section>
@@ -143,9 +143,9 @@ export function MarketOverview() {
         </h2>
         <p className="text-center font-parkBody text-sm text-surface-grey-2">
           {m.source === "v4" ? `Uniswap v4 on ${deployment.name} · ` : ""}
-          <Link to="/buy" className="underline decoration-dotted underline-offset-4 hover:text-core-green">Buy &amp; Sell</Link>
-          {" · "}<Link to="/docs/uniswap" className="underline decoration-dotted underline-offset-4 hover:text-core-green">How the pool works</Link>
-          {" · "}<Link to="/docs" className="underline decoration-dotted underline-offset-4 hover:text-core-green">Rent index &amp; source</Link>
+          <Link to="/buy" className="inline-flex min-h-11 sm:min-h-0 items-center underline decoration-dotted underline-offset-4 hover:text-core-green">Buy &amp; Sell</Link>
+          {" · "}<Link to="/docs/uniswap" className="inline-flex min-h-11 sm:min-h-0 items-center underline decoration-dotted underline-offset-4 hover:text-core-green">How the pool works</Link>
+          {" · "}<Link to="/docs" className="inline-flex min-h-11 sm:min-h-0 items-center underline decoration-dotted underline-offset-4 hover:text-core-green">Rent index &amp; source</Link>
         </p>
         {m.rpcError ? <RpcStaleBanner /> : null}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -246,11 +246,11 @@ function Stat({
   sub?: string;
 }) {
   return (
-    <div className="bg-paper-0 border-2 border-paper-2 rounded-2xl px-4 py-3.5">
+    <div className="min-w-0 bg-paper-0 border-2 border-paper-2 rounded-2xl px-3 sm:px-4 py-3.5">
       <div className="font-parkBody text-xs text-surface-grey-2 flex items-center gap-1.5">
         {label}
       </div>
-      <div className="font-parkDisplay font-bold text-xl text-text-standard mt-1">
+      <div className="font-parkDisplay font-bold text-lg sm:text-xl break-words text-text-standard mt-1">
         {value}
       </div>
       {sub ? (
