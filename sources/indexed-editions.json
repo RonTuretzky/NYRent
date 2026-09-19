@@ -1,12 +1,12 @@
 {
   "asOf": "2026-09-19",
-  "scope": "14 public newsletter web editions from the rent research archive. None is an authenticated original email. This inventory is separate from the live CRE Daily office-rent oracle.",
+  "scope": "14 public newsletter web editions from the rent research archive. This metadata preserves publication dates and original source lineage.",
   "publishers": [
     {
       "id": "cre-daily",
       "name": "CRE Daily New York",
       "url": "https://www.credaily.com/newsletters/new-york/",
-      "description": "Residential rent coverage in the research archive. Separately, CRE Daily’s signed Manhattan office-rent snapshot is the source used by the live contract.",
+      "description": "Rent coverage and market reporting, with indexed Manhattan and NYC rental figures.",
       "logo": "/sources/cre-daily.png",
       "logoKind": "Small publication icon",
       "darkLogo": false,

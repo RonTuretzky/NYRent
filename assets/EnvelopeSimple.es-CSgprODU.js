@@ -1,1 +1,0 @@
-import{a as e}from"./wagmi-BZdT_CRC.js";import{p as a,g as t}from"./index-CqwD2dRs.js";const p=e.forwardRef((o,r)=>e.createElement(a,{ref:r,...o,weights:t}));p.displayName="EnvelopeSimpleIcon";export{p as o};
