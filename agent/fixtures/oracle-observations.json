@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-09-19T03:11:58.316Z",
+  "chainId": 100,
+  "rpcUrl": "https://rpc.gnosischain.com",
+  "oracle": "0xdd45a0f7fcA25dD540625130d6c252b1880D0561",
+  "observations": [
+    {
+      "index": 0,
+      "t": "1789642464",
+      "cents": 9288,
+      "emailId": "0x5cef15b201facb36640cfd59d166688d731d3a86b88f58b5edea419382b948e1"
+    }
+  ]
+}

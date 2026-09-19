@@ -1,0 +1,21 @@
+{
+  "name": "nyrent-agent",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Daily rent-scout agent for NY Rent Cover (Node 22+, viem): collectors (real endpoints), deterministic policy, and Gnosis executors. Fixtures are captured responses used for parser unit tests.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node run.mjs",
+    "test": "node --test 'policy/**/*.test.mjs' 'collectors/**/*.test.mjs' 'executors/*.test.mjs'",
+    "test:policy": "node --test 'policy/**/*.test.mjs'",
+    "test:executors": "node --test 'executors/*.test.mjs'",
+    "test:fork": "node executors/fork-proof.mjs",
+    "collect": "node collectors/collect.mjs"
+  },
+  "dependencies": {
+    "viem": "^2.38.0"
+  }
+}

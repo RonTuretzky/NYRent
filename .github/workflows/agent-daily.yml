@@ -1,0 +1,91 @@
+# agent-daily — daily rent-scout run for NY Rent Cover (see agent/README.md).
+#
+# Every run is a DRY RUN: collectors hit their real endpoints, chain state is
+# read from Gnosis, the deterministic policy prints its Plan, and the run
+# report is uploaded as an artifact. NOTHING is written on-chain.
+#
+# Execution is a separate, operator-opt-in path: trigger workflow_dispatch with
+# execute=true. It requires the DEPLOYER_PRIVATE_KEY repository secret (the
+# CoverPool sponsor key; BANKR_API_KEY is optional and only enables the Bankr
+# advisory/notify executor). Secrets are passed via step env only and are never
+# echoed; run.mjs never prints key material.
+name: agent-daily
+
+on:
+  schedule:
+    - cron: "0 13 * * *" # 13:00 UTC, after CRE Daily's morning send
+  workflow_dispatch:
+    inputs:
+      execute:
+        description: "Execute the plan on-chain (operator opt-in; needs DEPLOYER_PRIVATE_KEY secret)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-daily
+  cancel-in-progress: false
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: agent/package-lock.json
+
+      - name: Install agent dependencies
+        working-directory: agent
+        run: npm ci
+
+      - name: Policy unit tests
+        working-directory: agent
+        run: npm run test:policy
+
+      - name: Dry run (always — real signals, real chain reads, no transactions)
+        working-directory: agent
+        env:
+          GNOSIS_RPC_URL: https://rpc.gnosischain.com
+        run: node run.mjs
+
+      # Operator opt-in execution. Exit code 2 means "acted" and is success.
+      - name: Execute plan (workflow_dispatch with execute=true only)
+        if: github.event_name == 'workflow_dispatch' && inputs.execute
+        working-directory: agent
+        env:
+          GNOSIS_RPC_URL: https://rpc.gnosischain.com
+          DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+          BANKR_API_KEY: ${{ secrets.BANKR_API_KEY }}
+        run: |
+          if [ -z "$DEPLOYER_PRIVATE_KEY" ]; then
+            echo "::error::execute=true but the DEPLOYER_PRIVATE_KEY secret is not configured"
+            exit 1
+          fi
+          set +e
+          node run.mjs --execute
+          code=$?
+          set -e
+          case "$code" in
+            0) echo "Plan was a no-op — nothing to execute." ;;
+            2) echo "Plan executed on-chain (exit 2 = acted)." ;;
+            3) echo "::error::Agent refused to execute (exit 3) — no transactions were sent; see the run report artifact."; exit 3 ;;
+            4) echo "::error::PARTIAL execution (exit 4) — some transactions LANDED before the batch aborted. Chain state changed and does not match the plan; check the landed tx hashes in the run report artifact before re-running."; exit 4 ;;
+            *) echo "::error::Runner failed with exit $code"; exit "$code" ;;
+          esac
+
+      - name: Upload run report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-run-${{ github.run_id }}
+          path: agent/runs/*.json
+          if-no-files-found: warn
+          retention-days: 90

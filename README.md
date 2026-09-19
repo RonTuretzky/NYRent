@@ -114,3 +114,38 @@ Hash-routed React app in `web/` (works on static hosting):
 
 Never commit private keys or `.env` (the deployer key exists only in local env), and never commit
 personal-mailbox emails beyond the documented fixture.
+
+## Agent executors (`agent/executors/`)
+
+Pluggable executors that consume the sponsor agent's Plan
+(`{ targetFreeCapitalWei, newSeries|null, pause|null, rationale[] }`, produced by
+`agent/policy/decide.mjs`):
+
+- **`direct.mjs` — the Gnosis writer** (viem, `DEPLOYER_PRIVATE_KEY`). Reads live state
+  (sponsor xDAI/WXDAI, allowance, `freeCapital` = pool balance − `totalReserved()`,
+  `salesPaused`), computes the minimal tx diff for the Plan (wrap xDAI if WXDAI is short →
+  approve the exact amount if allowance is short → `fundPool`/`withdrawExcess` delta →
+  `createSeries` → `setSalesPaused`), simulates every tx before sending, sends sequentially
+  with receipt waits + Blockscout links, and aborts the batch on the first failure. Gas
+  sanity: it refuses to send unless the sponsor holds the wrap value plus 3× estimated fees.
+  `--dry-run` returns the tx list without sending anything.
+- **`bankr.mjs` — advisory only.** Real client for the Bankr API (`api.bankr.bot`,
+  `X-API-Key: $BANKR_API_KEY`; async `POST /agent/prompt` + polled `GET /agent/job/{id}`)
+  and Bankr's LLM Gateway (`llm.bankr.bot`, `$BANKR_LLM_KEY`). **Bankr has NO Gnosis
+  support** (its chains: Base, Ethereum, Polygon, Unichain, World Chain, Arbitrum, BNB,
+  Robinhood Chain, Arc, Solana, Hyperliquid), and the CoverPool sponsor is immutable, so a
+  Bankr-custodied wallet can never execute this pool. Its roles are strictly: (1) advisory
+  second opinion on the Plan (structured approve/caution/veto verdict, non-blocking by
+  default), (2) operator notification after execution, (3) an optional tiny mirrored hedge
+  on Base, double-gated on `BANKR_API_KEY` **and** `BANKR_MIRROR=1`. Without `BANKR_API_KEY`
+  the executor reports `{enabled:false}` and the runner proceeds Direct-only; a Bankr
+  failure never blocks Direct execution.
+- **`index.mjs`** selects executors from the environment and exposes
+  `execute(plan, { dryRun })`; also a CLI: `node agent/executors/index.mjs --plan p.json --dry-run`.
+
+Tests: `npm --prefix agent run test:executors` (pure tx-diff unit tests + Bankr request
+construction/disabled path; the live Bankr test self-skips because no `BANKR_API_KEY` is
+provisioned) and `npm --prefix agent run test:fork` — spawns
+`anvil --fork-url https://rpc.gnosischain.com`, impersonates the sponsor, and proves every
+sponsor lever (wrap → exact approve → `fundPool` → `createSeries` → `setSalesPaused` →
+`withdrawExcess`) against the **real forked mainnet contracts** without spending.

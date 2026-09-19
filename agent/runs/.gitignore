@@ -1,0 +1,3 @@
+# Daily run reports are build artifacts (uploaded by CI), not source.
+*
+!.gitignore

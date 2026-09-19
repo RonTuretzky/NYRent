@@ -202,3 +202,61 @@ temporary `web/src/deployment.json` (restored afterwards) and never touch Gnosis
   takes `GNOSIS_RPC_URL` from env — point it at any healthy Gnosis RPC.
 - **Sponsor liquidity:** `withdrawExcess` can never take reserved collateral; if a withdraw
   reverts, the amount exceeds `freeCapital()` — wait for `redeemEnd` or unsold capacity.
+
+## Agent runbook (daily rent-scout, `agent/`)
+
+The `agent/` package (own `package.json`, Node ≥ 22, `viem` as its only dependency) is the
+autonomous sponsor: real collectors (CRE Daily web archive, Kalshi, CRE reports, the on-chain
+oracle) → deterministic policy (`agent/policy/decide.mjs`, pure + clamped) → Gnosis executors
+(`agent/executors/direct.mjs`). Full architecture, policy-constant table, and a worked example
+live in [`agent/README.md`](../agent/README.md).
+
+### Dry run (default — never touches the chain, no key needed)
+
+```sh
+npm run agent            # repo root: installs agent deps + runs a dry run
+# or, inside agent/:
+npm install && node run.mjs            # live collectors + live Gnosis reads
+node run.mjs --skip-collectors         # chain-only signals (offline endpoints)
+```
+
+The run prints the signal notes, chain state, every policy rationale line, and the Plan table,
+then writes the machine-readable report to `agent/runs/<date>.json` (gitignored; CI uploads it
+as an artifact). Exit codes: `0` ok/dry, `2` acted, `3` refused (e.g. failed chain read), `1`
+unexpected error. Safety clamps enforced by the policy: ≤ 0.5 WXDAI capital delta per run,
+premium in [500, 5000] bps, at most one new series per run, no obs-window overlap with
+unsettled series, `saleEnd <= obsStart` always, refusal without a verified chain read.
+
+Tests: `npm test` inside `agent/` (all `*.test.mjs` against real captured fixtures);
+`npm run test:fork` spawns `anvil --fork-url` against Gnosis mainnet, impersonates the sponsor,
+and proves every sponsor lever (wrap → exact approve → `fundPool` → `createSeries` →
+`setSalesPaused` → `withdrawExcess`) end-to-end without spending real funds.
+
+### Scheduled runs + enabling on-chain execution (GitHub Actions)
+
+`.github/workflows/agent-daily.yml` runs the dry run every day at 13:00 UTC (after CRE Daily's
+morning send) and uploads `agent/runs/*.json`. Scheduled runs **never** execute.
+
+To allow on-chain execution (operator opt-in, per run):
+
+1. Add the repository secret `DEPLOYER_PRIVATE_KEY` (Settings → Secrets and variables →
+   Actions). This is the immutable CoverPool sponsor key — same hygiene as the deploy runbook:
+   never committed, never echoed; the workflow passes it via step `env` only and fails fast if
+   it is missing.
+2. Trigger the workflow manually: Actions → agent-daily → *Run workflow* → set `execute=true`.
+   Exit `2` (acted) is mapped to success; exit `3` (policy refused) fails the run — read the
+   uploaded run report before retrying.
+3. Locally the same path is `node run.mjs --execute` with `DEPLOYER_PRIVATE_KEY` in the
+   repo-root `.env`. The executor re-reads live state, simulates each transaction immediately
+   before sending, aborts the batch on first failure, and refuses if the signer is not the
+   on-chain sponsor or if sponsor xDAI cannot cover wrap value + 3× estimated fees.
+
+### Bankr (optional, strictly advisory)
+
+Bankr has **no Gnosis support** and the sponsor is immutable, so Bankr can never execute the
+pool. With the `BANKR_API_KEY` secret/env set, `agent/executors/bankr.mjs` adds: a pre-execution
+second opinion on the Plan via `api.bankr.bot` (approve/caution/veto — recorded, non-blocking
+unless `BANKR_ADVISORY_BLOCKING=1`), a post-execution operator notification, and an optional
+tiny Base-chain mirror (double-gated: also needs `BANKR_MIRROR=1`). `BANKR_LLM_KEY` enables the
+OpenAI-compatible `llm.bankr.bot` gateway for the advisory prompt. Without the key everything
+degrades to `{enabled:false}` no-ops — Bankr can never block Direct execution.
