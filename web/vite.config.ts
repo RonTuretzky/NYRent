@@ -18,9 +18,13 @@ export default defineConfig({
     target: "es2022",
     rollupOptions: {
       output: {
+        // Wallet/ethereum vendor split from app code (and from each other) so
+        // the eager payload shrinks and each vendor caches independently.
         manualChunks: {
-          react: ["react", "react-dom"],
-          ethereum: ["viem", "wagmi", "@rainbow-me/rainbowkit"],
+          react: ["react", "react-dom", "react-router-dom"],
+          viem: ["viem"],
+          wagmi: ["wagmi", "@tanstack/react-query"],
+          rainbowkit: ["@rainbow-me/rainbowkit"],
         },
       },
     },

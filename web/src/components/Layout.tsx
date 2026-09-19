@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Footer, Logo } from "@decentralpark/ui";
 import { ListIcon, XIcon } from "@phosphor-icons/react";
 import { NotDeployedBanner, WrongNetworkBanner } from "./Banners";
+import { Toasts } from "./Toasts";
 
 const NAV_ITEMS = [
   { to: "/series", label: "Series" },
@@ -35,6 +36,9 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
 /**
  * Brand navbar built from kit primitives (Logo + brand typography classes),
  * structured like @decentralpark/ui's Navbar but with RainbowKit's injected
@@ -43,6 +47,40 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
  */
 function AppNavbar() {
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const burgerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const menu = menuRef.current;
+    const focusables = () =>
+      Array.from(menu?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
+    focusables()[0]?.focus();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const list = focusables();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      burgerRef.current?.focus();
+    };
+  }, [open]);
+
   return (
     <header className="relative py-2.5 flex items-center justify-between gap-4">
       <Link to="/" className="flex items-center gap-3 shrink-0">
@@ -67,19 +105,30 @@ function AppNavbar() {
 
       {/* mobile burger */}
       <button
+        ref={burgerRef}
         onClick={() => setOpen(true)}
-        className="md:hidden text-primary-green"
+        className="md:hidden text-primary-green h-11 w-11 -mr-1.5 flex items-center justify-center"
         aria-label="Open menu"
+        aria-expanded={open}
+        aria-controls="mobile-menu"
+        aria-haspopup="dialog"
       >
         <ListIcon size={32} />
       </button>
       {open ? (
-        <div className="bg-paper-main fixed inset-0 z-50 p-6 md:hidden overflow-y-auto">
+        <div
+          ref={menuRef}
+          id="mobile-menu"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation menu"
+          className="bg-paper-main fixed inset-0 z-50 p-6 md:hidden overflow-y-auto"
+        >
           <div className="flex items-center justify-between mb-8">
             <Logo text="NY Rent Cover" size={24} color="green" />
             <button
               onClick={() => setOpen(false)}
-              className="text-primary-green"
+              className="text-primary-green h-11 w-11 -mr-1.5 flex items-center justify-center"
               aria-label="Close menu"
             >
               <XIcon size={32} />
@@ -108,6 +157,7 @@ export function Layout() {
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6">
         <Outlet />
       </main>
+      <Toasts />
       <div className="mt-10">
         <p className="font-parkBody text-xs text-surface-grey-2 text-center max-w-6xl w-full mx-auto px-4 sm:px-6 pb-4">
           Unaudited software. Fully collateralized but experimental — use tiny

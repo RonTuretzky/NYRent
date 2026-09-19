@@ -9,7 +9,7 @@ import {
   poolAbi,
   coverTokenAbi as tokenAbi,
   erc20Abi,
-} from "../lib/abi";
+} from "../lib/abi.ts";
 
 export { oracleAbi, poolAbi, tokenAbi, erc20Abi };
 

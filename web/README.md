@@ -2,8 +2,10 @@
 
 Vite + React + TS app implementing SPEC §4. Decentral Park branded
 (`@decentralpark/ui`, vendored tarball in `vendor/` for hermetic builds),
-wagmi v2 + RainbowKit v2 **injected-only** (no WalletConnect projectId needed,
-no WalletConnect network calls), hash router (GitHub-Pages safe).
+wagmi v2 + RainbowKit v2 **injected-only by default** (no WalletConnect
+network calls), hash router (GitHub-Pages safe). Setting
+`VITE_WALLETCONNECT_PROJECT_ID` (a Reown/WalletConnect Cloud projectId) at
+build time additionally enables the WalletConnect, Coinbase and Safe wallets.
 
 ## Commands
 

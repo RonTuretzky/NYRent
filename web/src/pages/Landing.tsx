@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Link } from "react-router-dom";
 import { LiftedButton, Chip } from "@decentralpark/ui";
 import {
@@ -6,10 +7,26 @@ import {
   ShieldCheckIcon,
   VaultIcon,
 } from "@phosphor-icons/react";
-import { HowItWorks } from "../components/HowItWorks";
 import { PayoutCurve } from "../components/PayoutCurve";
 import { useAllSeries } from "../chain/hooks";
 import { isDeployed } from "../chain/deployment";
+
+// The 800+-line animated explainer is below the fold on every visit — load it
+// as its own chunk so the eager landing bundle stays small. The Suspense
+// fallback reserves the same vertical rhythm (five step rows) to avoid CLS.
+const HowItWorks = lazy(() =>
+  import("../components/HowItWorks").then((m) => ({ default: m.HowItWorks })),
+);
+
+function HowItWorksSkeleton() {
+  return (
+    <div className="space-y-16 sm:space-y-24" aria-hidden="true">
+      {Array.from({ length: 5 }, (_, i) => (
+        <div key={i} className="nrc-skeleton h-64 rounded-2xl" />
+      ))}
+    </div>
+  );
+}
 
 export function Landing() {
   const { series } = useAllSeries();
@@ -73,7 +90,9 @@ export function Landing() {
             except one: the email, which is cryptography, not custody.
           </p>
         </div>
-        <HowItWorks />
+        <Suspense fallback={<HowItWorksSkeleton />}>
+          <HowItWorks />
+        </Suspense>
       </section>
 
       {/* pillars */}

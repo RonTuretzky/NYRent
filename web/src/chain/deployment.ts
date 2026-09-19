@@ -1,5 +1,8 @@
 import type { Address } from "viem";
 import raw from "../deployment.json";
+import { computeIsDeployed, ZERO_ADDRESS } from "./isDeployed";
+
+export { ZERO_ADDRESS };
 
 export interface Deployment {
   chainId: number;
@@ -10,9 +13,6 @@ export interface Deployment {
   seriesIds: number[];
 }
 
-export const ZERO_ADDRESS =
-  "0x0000000000000000000000000000000000000000" as Address;
-
 export const deployment: Deployment = {
   chainId: raw.chainId,
   oracle: raw.oracle as Address,
@@ -22,13 +22,9 @@ export const deployment: Deployment = {
   seriesIds: raw.seriesIds,
 };
 
-/** True once real contract addresses have been written by the deploy tooling. */
-export const isDeployed =
-  deployment.oracle !== ZERO_ADDRESS &&
-  deployment.pool !== ZERO_ADDRESS &&
-  deployment.token !== ZERO_ADDRESS &&
-  deployment.currency !== ZERO_ADDRESS &&
-  // A production build must never point at a non-Gnosis deployment (e.g. a
-  // leftover e2e deployment.json written for a local anvil chain). The e2e
-  // stack builds in production mode against anvil on purpose and declares it.
-  (!import.meta.env.PROD || deployment.chainId === 100 || import.meta.env.VITE_ALLOW_TEST_CHAIN === "1");
+/** True once real contract addresses have been written by the deploy tooling
+ * (see isDeployed.ts for the full rules, incl. the wrong-chain kill-switch). */
+export const isDeployed = computeIsDeployed(deployment, {
+  prod: import.meta.env.PROD,
+  allowTestChain: import.meta.env.VITE_ALLOW_TEST_CHAIN === "1",
+});

@@ -7,6 +7,7 @@ import {
   useReadContracts,
 } from "wagmi";
 import { deployment, isDeployed } from "./deployment";
+import { isNetworkError } from "./errors";
 import { erc20Abi, oracleAbi, poolAbi, tokenAbi } from "./contracts";
 import {
   decodeObservation,
@@ -27,9 +28,28 @@ function useRefetchOnBlock(refetch: () => void, enabled: boolean) {
   }, [blockNumber]);
 }
 
+/**
+ * True only for transport/network failures (RPC unreachable, HTTP error,
+ * timeout). A contract revert — e.g. series(id) on a nonexistent id — is NOT
+ * an RPC failure: pages must render "not found" for those, and the distinct
+ * RPC-down state only when the chain itself couldn't be reached.
+ */
+function isRpcFailure(error: unknown): boolean {
+  return error != null && isNetworkError(error);
+}
+
+type BatchItem = { status: string; error?: unknown };
+
+function anyRpcFailure(items: readonly BatchItem[] | undefined): boolean {
+  return (items ?? []).some(
+    (r) => r.status === "failure" && isRpcFailure(r.error),
+  );
+}
+
 export function useSeries(seriesId: number | undefined): {
   series: Series | undefined;
   isLoading: boolean;
+  rpcError: boolean;
   error: unknown;
 } {
   const enabled = isDeployed && seriesId !== undefined;
@@ -44,6 +64,7 @@ export function useSeries(seriesId: number | undefined): {
   return {
     series: useMemo(() => decodeSeries(read.data), [read.data]),
     isLoading: enabled && read.isLoading,
+    rpcError: enabled && isRpcFailure(read.error),
     error: read.error,
   };
 }
@@ -51,10 +72,30 @@ export function useSeries(seriesId: number | undefined): {
 export function useAllSeries(): {
   series: { id: number; series: Series }[];
   isLoading: boolean;
+  rpcError: boolean;
 } {
-  const enabled = isDeployed && deployment.seriesIds.length > 0;
+  // Enumeration is on-chain: seriesCount() → ids 0..n-1, so a series created
+  // after the site build appears without a rebuild. deployment.seriesIds is
+  // only the instant-render seed while the count is still resolving.
+  const countRead = useReadContract({
+    abi: poolAbi,
+    address: deployment.pool,
+    functionName: "seriesCount",
+    query: { enabled: isDeployed },
+  });
+  useRefetchOnBlock(countRead.refetch, isDeployed);
+  const onChainCount =
+    countRead.data !== undefined ? Number(countRead.data) : undefined;
+  const ids = useMemo(
+    () =>
+      onChainCount !== undefined
+        ? Array.from({ length: onChainCount }, (_, i) => i)
+        : deployment.seriesIds,
+    [onChainCount],
+  );
+  const enabled = isDeployed && ids.length > 0;
   const read = useReadContracts({
-    contracts: deployment.seriesIds.map((id) => ({
+    contracts: ids.map((id) => ({
       abi: poolAbi,
       address: deployment.pool,
       functionName: "series",
@@ -67,12 +108,23 @@ export function useAllSeries(): {
     if (!read.data) return [];
     return read.data
       .map((r, i) => ({
-        id: deployment.seriesIds[i],
+        id: ids[i],
         series: r.status === "success" ? decodeSeries(r.result) : undefined,
       }))
       .filter((x): x is { id: number; series: Series } => !!x.series);
-  }, [read.data]);
-  return { series, isLoading: enabled && read.isLoading };
+  }, [read.data, ids]);
+  return {
+    series,
+    isLoading:
+      isDeployed &&
+      ((enabled && read.isLoading) ||
+        (countRead.isLoading && deployment.seriesIds.length === 0)),
+    rpcError:
+      isDeployed &&
+      (isRpcFailure(countRead.error) ||
+        isRpcFailure(read.error) ||
+        anyRpcFailure(read.data)),
+  };
 }
 
 export interface PoolStats {
@@ -83,7 +135,11 @@ export interface PoolStats {
   sponsor?: Address;
 }
 
-export function usePoolStats(): { stats: PoolStats; isLoading: boolean } {
+export function usePoolStats(): {
+  stats: PoolStats;
+  isLoading: boolean;
+  rpcError: boolean;
+} {
   const enabled = isDeployed;
   const read = useReadContracts({
     allowFailure: true,
@@ -121,7 +177,12 @@ export function usePoolStats(): { stats: PoolStats; isLoading: boolean } {
           : undefined,
     };
   }, [read.data]);
-  return { stats, isLoading: enabled && read.isLoading };
+  return {
+    stats,
+    isLoading: enabled && read.isLoading,
+    rpcError:
+      enabled && (isRpcFailure(read.error) || anyRpcFailure(read.data)),
+  };
 }
 
 export interface CurrencyMeta {
@@ -129,7 +190,7 @@ export interface CurrencyMeta {
   decimals: number;
 }
 
-export function useCurrencyMeta(): CurrencyMeta {
+export function useCurrencyMeta(): CurrencyMeta & { rpcError: boolean } {
   const read = useReadContracts({
     allowFailure: true,
     contracts: [
@@ -142,6 +203,8 @@ export function useCurrencyMeta(): CurrencyMeta {
   return {
     symbol: sym?.status === "success" ? (sym.result as string) : "WXDAI",
     decimals: dec?.status === "success" ? Number(dec.result) : 18,
+    rpcError:
+      isDeployed && (isRpcFailure(read.error) || anyRpcFailure(read.data)),
   };
 }
 
@@ -149,6 +212,7 @@ export function useUserCurrency(): {
   address?: Address;
   balance?: bigint;
   allowance?: bigint;
+  rpcError: boolean;
   refetch: () => void;
 } {
   const { address } = useAccount();
@@ -178,12 +242,15 @@ export function useUserCurrency(): {
     balance: bal?.status === "success" ? (bal.result as bigint) : undefined,
     allowance:
       allow?.status === "success" ? (allow.result as bigint) : undefined,
+    rpcError:
+      enabled && (isRpcFailure(read.error) || anyRpcFailure(read.data)),
     refetch: read.refetch,
   };
 }
 
 export function useCoverBalance(seriesId: number | undefined): {
   balance?: bigint;
+  rpcError: boolean;
   refetch: () => void;
 } {
   const { address } = useAccount();
@@ -198,6 +265,7 @@ export function useCoverBalance(seriesId: number | undefined): {
   useRefetchOnBlock(read.refetch, enabled);
   return {
     balance: enabled ? (read.data as bigint | undefined) : undefined,
+    rpcError: enabled && isRpcFailure(read.error),
     refetch: read.refetch,
   };
 }
@@ -205,6 +273,7 @@ export function useCoverBalance(seriesId: number | undefined): {
 export function useObservations(): {
   observations: Observation[];
   isLoading: boolean;
+  rpcError: boolean;
 } {
   const countRead = useReadContract({
     abi: oracleAbi,
@@ -235,6 +304,11 @@ export function useObservations(): {
   return {
     observations,
     isLoading: isDeployed && (countRead.isLoading || (count > 0 && read.isLoading)),
+    rpcError:
+      isDeployed &&
+      (isRpcFailure(countRead.error) ||
+        isRpcFailure(read.error) ||
+        anyRpcFailure(read.data)),
   };
 }
 

@@ -4,11 +4,11 @@ import { Chip } from "@decentralpark/ui";
 import { ArrowSquareOutIcon, BookOpenIcon } from "@phosphor-icons/react";
 import { Card, StatRow } from "../components/States";
 import { deployment, isDeployed, ZERO_ADDRESS } from "../chain/deployment";
+import { addressUrl, txUrl } from "../chain/explorer";
 import { LIFECYCLE_TXS, SETTLEMENT_EMAIL_ID } from "../chain/lifecycle";
 import { truncateAddress, truncateHex } from "../chain/format";
 
 const REPO = "https://github.com/RonTuretzky/nyrent-cover";
-const BLOCKSCOUT = "https://gnosis.blockscout.com";
 
 const DOCS = [
   {
@@ -148,7 +148,7 @@ function AddressLink({ address }: { address: string }) {
   if (address === ZERO_ADDRESS) return <>not deployed</>;
   return (
     <a
-      href={`${BLOCKSCOUT}/address/${address}`}
+      href={addressUrl(address)}
       target="_blank"
       rel="noopener noreferrer"
       className="underline decoration-dotted"
@@ -285,7 +285,7 @@ export function Docs() {
                 {tx.step}
               </span>
               <a
-                href={`${BLOCKSCOUT}/tx/${tx.hash}`}
+                href={txUrl(tx.hash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono text-xs underline decoration-dotted break-all text-right"

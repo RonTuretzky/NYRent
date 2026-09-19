@@ -9,7 +9,7 @@
     "preview": "vite preview --host 127.0.0.1 --port 5174 --strictPort",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src e2e-shim",
-    "test": "node --test src/lib/emailkit.test.ts"
+    "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@decentralpark/ui": "file:./vendor/decentralpark-ui-0.1.0.tgz",

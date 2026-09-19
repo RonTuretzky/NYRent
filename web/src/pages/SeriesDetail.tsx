@@ -11,7 +11,16 @@ import { isDeployed } from "../chain/deployment";
 import { CapacityBar, SolvencyBar } from "../components/Bars";
 import { PayoutCurve } from "../components/PayoutCurve";
 import { SeriesTimeline } from "../components/Timeline";
-import { Card, EmptyState, LoadingSkeleton, StatRow } from "../components/States";
+import {
+  Card,
+  EmptyState,
+  LoadingSkeleton,
+  RpcDownState,
+  RpcStaleBanner,
+  StatRow,
+} from "../components/States";
+import { AccountingCard } from "../components/Accounting";
+import { PricingPanel } from "../components/PricingPanel";
 import { PhaseBadge } from "./SeriesList";
 import { seriesPhase } from "../chain/types";
 import {
@@ -27,9 +36,9 @@ import {
 export function SeriesDetail() {
   const { id } = useParams();
   const seriesId = id !== undefined ? Number(id) : undefined;
-  const { series: s, isLoading } = useSeries(seriesId);
+  const { series: s, isLoading, rpcError } = useSeries(seriesId);
   const { stats } = usePoolStats();
-  const { symbol } = useCurrencyMeta();
+  const { symbol, decimals } = useCurrencyMeta();
   const { balance: coverBalance } = useCoverBalance(seriesId);
   const { observations } = useObservations();
   const now = nowSec();
@@ -49,6 +58,15 @@ export function SeriesDetail() {
       <Card className="max-w-4xl mx-auto">
         <LoadingSkeleton lines={6} />
       </Card>
+    );
+  }
+  // Full-page outage state only when nothing is cached — a transient refetch
+  // failure keeps the rendered page with a slim stale banner instead.
+  if (!s && rpcError) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <RpcDownState />
+      </div>
     );
   }
   if (!s) {
@@ -76,6 +94,7 @@ export function SeriesDetail() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {rpcError ? <RpcStaleBanner /> : null}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-parkDisplay font-bold text-3xl text-text-standard">
@@ -194,7 +213,24 @@ export function SeriesDetail() {
             />
           ) : null}
         </Card>
+
+        {s.settled ? (
+          <AccountingCard
+            entries={[{ id: seriesId, series: s }]}
+            symbol={symbol}
+            decimals={decimals}
+          />
+        ) : null}
       </div>
+
+      <PricingPanel
+        premiumRateBps={s.premiumRateBps}
+        maxClaimWei={0n}
+        decimals={decimals}
+        symbol={symbol}
+        strikeLowCents={s.strikeLowCents}
+        strikeHighCents={s.strikeHighCents}
+      />
 
       <Card>
         <h2 className="font-parkDisplay font-bold text-lg mb-3">

@@ -13,7 +13,14 @@ import {
 } from "../chain/hooks";
 import { useTx } from "../chain/useTx";
 import { TxStatus } from "../components/TxStatus";
-import { Card, EmptyState, LoadingSkeleton, StatRow } from "../components/States";
+import {
+  Card,
+  EmptyState,
+  LoadingSkeleton,
+  RpcDownState,
+  RpcStaleBanner,
+  StatRow,
+} from "../components/States";
 import {
   formatCurrency,
   formatRatioWad,
@@ -26,7 +33,7 @@ import {
 export function Redeem() {
   const { id } = useParams();
   const seriesId = id !== undefined ? Number(id) : undefined;
-  const { series: s, isLoading } = useSeries(seriesId);
+  const { series: s, isLoading, rpcError } = useSeries(seriesId);
   const { symbol, decimals } = useCurrencyMeta();
   const { address, isConnected, chainId } = useAccount();
   const { balance: coverBalance, refetch: refetchCover } =
@@ -70,6 +77,16 @@ export function Redeem() {
       </Card>
     );
   }
+  // Full-page outage state only when there is nothing to render; a failed
+  // background refetch keeps the cached page (with a slim stale banner) so
+  // component state (typed amounts, in-flight TxStatus) survives RPC blips.
+  if (!s && rpcError) {
+    return (
+      <div className="max-w-xl mx-auto">
+        <RpcDownState />
+      </div>
+    );
+  }
   if (!s) {
     return <EmptyState title={`Series #${seriesId} not found`} />;
   }
@@ -82,13 +99,16 @@ export function Redeem() {
 
   async function onRedeem() {
     if (amount === null) return;
-    const result = await redeemTx.send({
-      abi: poolAbi,
-      address: deployment.pool,
-      functionName: "redeem",
-      args: [BigInt(seriesId!), amount],
-      account: address,
-    });
+    const result = await redeemTx.send(
+      {
+        abi: poolAbi,
+        address: deployment.pool,
+        functionName: "redeem",
+        args: [BigInt(seriesId!), amount],
+        account: address,
+      },
+      { label: "Redeem cover" },
+    );
     if (result.status === "confirmed") {
       refetchCover();
       refetchCurrency();
@@ -106,6 +126,8 @@ export function Redeem() {
           never be paused.
         </p>
       </header>
+
+      {rpcError ? <RpcStaleBanner /> : null}
 
       {!s.settled ? (
         <EmptyState title="Not settled yet">

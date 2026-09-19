@@ -3,7 +3,13 @@ import { ArrowRightIcon, ChartLineUpIcon } from "@phosphor-icons/react";
 import { useAllSeries, useCurrencyMeta } from "../chain/hooks";
 import { isDeployed } from "../chain/deployment";
 import { CapacityBar } from "../components/Bars";
-import { Card, EmptyState, LoadingSkeleton } from "../components/States";
+import {
+  Card,
+  EmptyState,
+  LoadingSkeleton,
+  RpcDownState,
+  RpcStaleBanner,
+} from "../components/States";
 import { seriesPhase, type SeriesPhase } from "../chain/types";
 import {
   formatCents,
@@ -40,7 +46,7 @@ export function PhaseBadge({ phase }: { phase: SeriesPhase }) {
 }
 
 export function SeriesList() {
-  const { series, isLoading } = useAllSeries();
+  const { series, isLoading, rpcError } = useAllSeries();
   const { symbol } = useCurrencyMeta();
   const now = nowSec();
 
@@ -65,12 +71,17 @@ export function SeriesList() {
         <Card>
           <LoadingSkeleton lines={4} />
         </Card>
+      ) : rpcError && series.length === 0 ? (
+        // Full-page outage state only when nothing is cached; a failed
+        // background refetch keeps the last-good list plus a stale banner.
+        <RpcDownState />
       ) : series.length === 0 ? (
         <EmptyState title="No series found">
           The pool exists but no series could be read from it.
         </EmptyState>
       ) : (
         <div className="space-y-4" data-testid="series-list">
+          {rpcError ? <RpcStaleBanner /> : null}
           {series.map(({ id, series: s }) => {
             const phase = seriesPhase(s, now);
             return (

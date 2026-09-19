@@ -1,6 +1,7 @@
 import {
   CheckCircleIcon,
   CircleNotchIcon,
+  ClockIcon,
   WalletIcon,
   XCircleIcon,
 } from "@phosphor-icons/react";
@@ -30,7 +31,8 @@ function HashLink({ hash }: { hash: string }) {
 }
 
 /** Renders one transaction's lifecycle: simulating → wallet → pending →
- * confirmed / reverted with decoded custom-error copy. */
+ * confirmed / stillPending (submitted, wait timed out — may still mine) /
+ * reverted (or neutrally cancelled) with decoded custom-error copy. */
 export function TxStatus({
   state,
   label,
@@ -80,17 +82,40 @@ export function TxStatus({
       </div>
     );
   }
-  // reverted / failed
+  // Submitted but the confirmation wait timed out / the RPC dropped — the tx
+  // may still mine, so this is distinctly NOT a failure (no red, no alert).
+  if (state.status === "stillPending") {
+    return (
+      <div
+        className="rounded-lg bg-system-warning/10 text-text-standard px-3 py-2 font-parkBody text-sm animate-nrc-fade-in"
+        data-testid="tx-still-pending"
+        role="status"
+      >
+        <div className="flex items-center gap-2 font-bold text-system-warning">
+          <ClockIcon size={18} weight="fill" />
+          {prefix}submitted — still waiting for confirmation —{" "}
+          <HashLink hash={state.hash} />
+        </div>
+        <p className="mt-1">{state.error.message}</p>
+      </div>
+    );
+  }
+
+  // reverted / failed — a wallet-side cancel (UserRejected before submission,
+  // or a Cancelled speed-up replacement) is neutral, not an error.
+  const cancelled = state.error.kind === "rejected";
   return (
     <div
-      className="rounded-lg bg-red-0 text-red-main px-3 py-2 font-parkBody text-sm animate-nrc-fade-in"
+      className={`rounded-lg px-3 py-2 font-parkBody text-sm animate-nrc-fade-in ${
+        cancelled ? "bg-paper-1 text-text-standard" : "bg-red-0 text-red-main"
+      }`}
       data-testid="tx-reverted"
-      role="alert"
+      role={cancelled ? "status" : "alert"}
     >
       <div className="flex items-center gap-2 font-bold">
         <XCircleIcon size={18} weight="fill" />
         {prefix}
-        {state.error.name === "UserRejected" ? "cancelled" : "failed"}
+        {cancelled ? "cancelled" : "failed"}
         {state.hash ? (
           <span className="font-normal">
             — <HashLink hash={state.hash} />

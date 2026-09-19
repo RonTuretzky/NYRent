@@ -1,11 +1,13 @@
 import {
   BaseError,
   ContractFunctionRevertedError,
+  HttpRequestError,
+  TimeoutError,
+  UserRejectedRequestError,
   decodeErrorResult,
   parseAbi,
-  type Hex,
 } from "viem";
-import { allAbis } from "./contracts";
+import { allAbis } from "./contracts.ts";
 
 /**
  * Error signatures read from the actual contracts (src/*.sol) — kept here as
@@ -48,6 +50,8 @@ const contractErrorsAbi = parseAbi([
   // CoverToken
   "error OnlyPool()",
   "error TransfersDisabled()",
+  // OpenZeppelin 5.x guards inherited by the deployed contracts
+  "error ReentrancyGuardReentrantCall()",
 ]);
 
 const decodeAbis = [...allAbis, ...contractErrorsAbi];
@@ -63,12 +67,6 @@ const ERROR_COPY: Record<string, string> = {
     "The canonicalized body hash doesn't match the bh= tag in the DKIM signature — the body was modified after signing.",
   AnchorNotUnique:
     "The anchor phrase “Manhattan Office Rent” does not appear exactly once in the email body, so the value can't be extracted unambiguously.",
-  BadHeaderStructure:
-    "The signed header block is malformed: it must contain the CRE Daily from: line and end with the b=-emptied dkim-signature: line.",
-  BadDkimTags:
-    "The dkim-signature tags don't match the pinned policy (v=1, rsa-sha256, relaxed/relaxed, d=newyork.credaily.com, s=b37, no l=, empty b=).",
-  FutureTimestamp:
-    "The DKIM t= timestamp is in the future beyond the allowed one-day tolerance.",
   BadTimestamp:
     "The DKIM t= timestamp is in the future beyond the allowed one-day tolerance.",
   MissingFrom:
@@ -87,15 +85,12 @@ const ERROR_COPY: Record<string, string> = {
   BadLength: "An input has the wrong length (signature or modulus).",
   // Pool
   SaleClosed: "Buying is closed for this series — the sale window ended or the series has already settled.",
-  SalePaused: "Sales are currently paused by the sponsor.",
   SalesArePaused: "Sales are currently paused by the sponsor.",
   InvalidSeries: "No series exists at this id.",
   InvalidParams: "Series parameters are invalid.",
   ZeroAmount: "Amount must be greater than zero.",
   CapacityExceeded:
     "That size would exceed the series' remaining capacity.",
-  InsufficientSolvency:
-    "The pool doesn't hold enough free capital to fully back that claim — the buy would break solvency.",
   Insolvent:
     "The pool doesn't hold enough free capital to fully back that claim — the buy would break solvency.",
   InsufficientFreeCapital:
@@ -112,7 +107,16 @@ const ERROR_COPY: Record<string, string> = {
   NotSponsor: "Only the sponsor wallet can perform this action.",
   TransfersDisabled:
     "Cover tokens are non-transferable in this demo (mint and redeem only).",
+  // OpenZeppelin 5.x (inherited by the deployed contracts)
+  ERC1155InsufficientBalance:
+    "You no longer hold that much cover — your balance changed since this page loaded (e.g. a redeem in another tab). Refresh and try a smaller amount.",
+  SafeERC20FailedOperation:
+    "The WXDAI transfer failed — your balance or allowance changed since this page loaded. Check both, approve again if needed, and retry.",
+  ReentrancyGuardReentrantCall:
+    "The call re-entered the pool mid-transaction and was blocked by the reentrancy guard.",
 };
+
+export type TxErrorKind = "rejected" | "network" | "revert" | "unknown";
 
 export interface DecodedTxError {
   /** short machine-ish name, e.g. AlreadyRecorded or "UserRejected" */
@@ -121,6 +125,8 @@ export interface DecodedTxError {
   message: string;
   /** raw detail for the expandable section */
   detail?: string;
+  /** coarse classification: wallet rejection / transport failure / on-chain revert */
+  kind?: TxErrorKind;
 }
 
 function copyFor(errorName: string, args?: readonly unknown[]): string {
@@ -131,23 +137,99 @@ function copyFor(errorName: string, args?: readonly unknown[]): string {
   return `The contract reverted with ${errorName}${argStr}.`;
 }
 
+const REJECT_CODE = 4001; // EIP-1193 userRejectedRequest
+const RESOURCE_UNAVAILABLE_CODE = -32002; // EIP-1193 resource unavailable
+
+function looksRejected(e: unknown): boolean {
+  if (e === null || typeof e !== "object") return false;
+  const maybe = e as { code?: unknown; name?: unknown; message?: unknown };
+  if (e instanceof UserRejectedRequestError) return true;
+  if (maybe.code === REJECT_CODE) return true;
+  if (maybe.name === "UserRejectedRequestError") return true;
+  return (
+    typeof maybe.message === "string" &&
+    /user rejected|rejected by user|denied transaction|user denied|transaction declined/i.test(
+      maybe.message,
+    )
+  );
+}
+
+/** Wallet rejection, detected by EIP-1193 code 4001 / viem's error class first
+ * (message phrasing varies across wallets), with a message fallback. */
+export function isUserRejection(error: unknown): boolean {
+  if (error instanceof BaseError) return !!error.walk((e) => looksRejected(e));
+  return looksRejected(error);
+}
+
+function looksAlreadyPending(e: unknown): boolean {
+  if (e === null || typeof e !== "object") return false;
+  const maybe = e as { code?: unknown; name?: unknown; message?: unknown };
+  if (maybe.code === RESOURCE_UNAVAILABLE_CODE) return true;
+  if (maybe.name === "ResourceUnavailableRpcError") return true;
+  return (
+    typeof maybe.message === "string" &&
+    /already pending|already processing/i.test(maybe.message)
+  );
+}
+
+/** EIP-1193 -32002: the wallet already has a request queued (often behind a
+ * locked wallet) — a second one is refused until it's dealt with. */
+export function isRequestAlreadyPending(error: unknown): boolean {
+  if (error instanceof BaseError) {
+    return !!error.walk((e) => looksAlreadyPending(e));
+  }
+  return looksAlreadyPending(error);
+}
+
+function looksLikeTransportFailure(e: unknown): boolean {
+  if (e === null || typeof e !== "object") return false;
+  if (e instanceof HttpRequestError || e instanceof TimeoutError) return true;
+  const message = (e as { message?: unknown }).message;
+  return (
+    typeof message === "string" &&
+    /failed to fetch|fetch failed|load failed|network ?error|http request failed/i.test(
+      message,
+    )
+  );
+}
+
+/** Transport/network failure (RPC unreachable, HTTP error, timeout) — NOT a
+ * contract revert. */
+export function isNetworkError(error: unknown): boolean {
+  if (error instanceof BaseError) {
+    if (error.walk((e) => e instanceof ContractFunctionRevertedError)) {
+      return false;
+    }
+    return !!error.walk((e) => looksLikeTransportFailure(e));
+  }
+  return looksLikeTransportFailure(error);
+}
+
+const NETWORK_COPY =
+  "Can't reach the Gnosis RPC endpoint. Check your internet connection — or the RPC may be briefly down — and try again.";
+
 /** Decode any error thrown by viem/wagmi writes or simulations into human copy. */
 export function decodeTxError(error: unknown): DecodedTxError {
-  if (error instanceof BaseError) {
-    // user rejected in wallet
-    if (
-      error.walk(
-        (e) =>
-          e instanceof Error &&
-          /User rejected|user rejected|denied transaction/i.test(e.message),
-      )
-    ) {
-      return {
-        name: "UserRejected",
-        message: "You rejected the transaction in your wallet.",
-      };
-    }
+  // Classify before decoding: wallet rejection first (code/class, not copy).
+  if (isUserRejection(error)) {
+    return {
+      name: "UserRejected",
+      kind: "rejected",
+      message: "You rejected the transaction in your wallet.",
+    };
+  }
 
+  if (isRequestAlreadyPending(error)) {
+    return {
+      name: "RequestAlreadyPending",
+      kind: "unknown",
+      message:
+        "A request is already pending in your wallet — open the wallet and confirm or dismiss it first. If nothing is shown, the wallet may be locked: unlock it and retry.",
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  if (error instanceof BaseError) {
     const revert = error.walk(
       (e) => e instanceof ContractFunctionRevertedError,
     ) as ContractFunctionRevertedError | null;
@@ -157,40 +239,68 @@ export function decodeTxError(error: unknown): DecodedTxError {
       if (errName) {
         return {
           name: errName,
+          kind: "revert",
           message: copyFor(errName, revert.data?.args),
           detail: revert.shortMessage,
         };
       }
       // Try decoding raw revert data against our combined ABI.
-      const raw = (revert as unknown as { raw?: Hex }).raw;
-      if (raw) {
+      const raw = revert.raw;
+      if (raw && raw !== "0x") {
         try {
           const decoded = decodeErrorResult({ abi: decodeAbis, data: raw });
           return {
             name: decoded.errorName,
+            kind: "revert",
             message: copyFor(decoded.errorName, decoded.args),
             detail: revert.shortMessage,
           };
         } catch {
           /* fall through */
         }
+        return {
+          name: "Reverted",
+          kind: "revert",
+          message: "The transaction reverted without a recognizable reason.",
+          detail: revert.shortMessage,
+        };
       }
+      // Bare revert with no data at all: WETH9-style tokens (WXDAI) revert
+      // like this when a transfer exceeds balance or allowance — usually an
+      // allowance that was spent or revoked since the page loaded.
       return {
         name: "Reverted",
-        message: "The transaction reverted without a recognizable reason.",
+        kind: "revert",
+        message:
+          "The transaction reverted without a reason — most often a WXDAI transfer failing because the allowance or balance changed. Approve again, then retry.",
         detail: revert.shortMessage,
+      };
+    }
+
+    if (isNetworkError(error)) {
+      return {
+        name: "Network",
+        kind: "network",
+        message: NETWORK_COPY,
+        detail: error.shortMessage,
       };
     }
 
     return {
       name: "Error",
+      kind: "unknown",
       message: error.shortMessage,
       detail: error.message,
     };
   }
 
+  if (isNetworkError(error)) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { name: "Network", kind: "network", message: NETWORK_COPY, detail };
+  }
+
   const msg = error instanceof Error ? error.message : String(error);
-  return { name: "Error", message: msg };
+  return { name: "Error", kind: "unknown", message: msg };
 }
 
 export function isErrorNamed(error: unknown, name: string): boolean {

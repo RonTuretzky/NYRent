@@ -5,6 +5,7 @@
     "agent": "npm --prefix agent install && npm --prefix agent start",
     "agent:test": "npm --prefix agent install && npm --prefix agent test",
     "e2e": "npm --prefix e2e install && npm --prefix e2e run e2e",
+    "e2e:fork": "npm --prefix e2e install && npm --prefix e2e run e2e:fork",
     "e2e:browsers": "npm --prefix e2e exec playwright install chromium"
   }
 }

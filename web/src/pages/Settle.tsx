@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { decodeEventLog } from "viem";
 import { useAccount } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { Button } from "@decentralpark/ui";
 import {
   CheckCircleIcon,
@@ -15,7 +16,13 @@ import { useObservations, useSeries } from "../chain/hooks";
 import { useAllSeries } from "../chain/hooks";
 import { useTx } from "../chain/useTx";
 import { TxStatus } from "../components/TxStatus";
-import { Card, EmptyState, LoadingSkeleton } from "../components/States";
+import {
+  Card,
+  EmptyState,
+  LoadingSkeleton,
+  RpcDownState,
+  RpcStaleBanner,
+} from "../components/States";
 import {
   runPreflight,
   toHex,
@@ -30,7 +37,7 @@ import {
 
 /** /settle without an id: pick a series. */
 export function SettlePicker() {
-  const { series, isLoading } = useAllSeries();
+  const { series, isLoading, rpcError } = useAllSeries();
   if (!isDeployed) {
     return (
       <EmptyState title="Not deployed yet">
@@ -45,6 +52,15 @@ export function SettlePicker() {
       </Card>
     );
   }
+  // Full-page outage state only when nothing is cached; a failed background
+  // refetch keeps the last-good list visible behind a slim stale banner.
+  if (rpcError && series.length === 0) {
+    return (
+      <div className="max-w-xl mx-auto">
+        <RpcDownState />
+      </div>
+    );
+  }
   if (series.length === 0) {
     return <EmptyState title="No series to settle" />;
   }
@@ -53,6 +69,7 @@ export function SettlePicker() {
       <h1 className="font-parkDisplay font-bold text-3xl text-text-standard">
         Settle a series
       </h1>
+      {rpcError ? <RpcStaleBanner /> : null}
       {series.map(({ id, series: s }) => (
         <Link key={id} to={`/settle/${id}`} className="block">
           <Card className="hover:border-core-green transition-colors">
@@ -81,9 +98,10 @@ type FileState =
 export function Settle() {
   const { id } = useParams();
   const seriesId = id !== undefined ? Number(id) : undefined;
-  const { series: s, isLoading } = useSeries(seriesId);
+  const { series: s, isLoading, rpcError } = useSeries(seriesId);
   const { observations } = useObservations();
   const { address, isConnected, chainId } = useAccount();
+  const { openConnectModal } = useConnectModal();
 
   const [file, setFile] = useState<FileState>({ status: "empty" });
   const [dragOver, setDragOver] = useState(false);
@@ -152,6 +170,16 @@ export function Settle() {
       </Card>
     );
   }
+  // Full-page outage state only when there is nothing to render — a transient
+  // refetch failure must NOT unmount the page (that would lose the uploaded
+  // and preflighted .eml plus any in-flight TxStatus).
+  if (!s && rpcError) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <RpcDownState />
+      </div>
+    );
+  }
   if (!s) {
     return <EmptyState title={`Series #${seriesId} not found`} />;
   }
@@ -166,17 +194,20 @@ export function Settle() {
 
   async function onSubmitObservation() {
     if (!parsed) return;
-    const result = await submitTx.send({
-      abi: oracleAbi,
-      address: deployment.oracle,
-      functionName: "submitObservation",
-      args: [
-        toHex(parsed.signedHeaders),
-        toHex(parsed.canonBody),
-        toHex(parsed.sig),
-      ],
-      account: address,
-    });
+    const result = await submitTx.send(
+      {
+        abi: oracleAbi,
+        address: deployment.oracle,
+        functionName: "submitObservation",
+        args: [
+          toHex(parsed.signedHeaders),
+          toHex(parsed.canonBody),
+          toHex(parsed.sig),
+        ],
+        account: address,
+      },
+      { label: "Record observation" },
+    );
     if (result.status === "confirmed") {
       // decode ObservationRecorded from the receipt for the exact index
       for (const log of result.receipt.logs) {
@@ -206,13 +237,16 @@ export function Settle() {
 
   async function onSettle() {
     if (recordedIndex === undefined) return;
-    await settleTx.send({
-      abi: poolAbi,
-      address: deployment.pool,
-      functionName: "settle",
-      args: [BigInt(seriesId!), recordedIndex],
-      account: address,
-    });
+    await settleTx.send(
+      {
+        abi: poolAbi,
+        address: deployment.pool,
+        functionName: "settle",
+        args: [BigInt(seriesId!), recordedIndex],
+        account: address,
+      },
+      { label: "Settle series" },
+    );
   }
 
   const alreadyRecorded =
@@ -232,6 +266,8 @@ export function Settle() {
           email verifies.
         </p>
       </header>
+
+      {rpcError ? <RpcStaleBanner /> : null}
 
       {s.settled ? (
         <Card>
@@ -281,14 +317,18 @@ export function Settle() {
             <p className="font-parkBody mt-3">
               Drag & drop the <code>.eml</code> here, or
             </p>
-            <label className="inline-block mt-2 cursor-pointer">
+            <label
+              htmlFor="eml-file-input"
+              className="inline-block mt-2 cursor-pointer rounded focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-core-green"
+            >
               <span className="font-parkBody font-bold text-core-green underline">
                 choose a file
               </span>
               <input
+                id="eml-file-input"
                 type="file"
-                accept=".eml,message/rfc822,*/*"
-                className="hidden"
+                accept=".eml,message/rfc822"
+                className="sr-only"
                 data-testid="eml-input"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
@@ -405,10 +445,18 @@ export function Settle() {
                   On-chain settlement
                 </h2>
                 {!isConnected ? (
-                  <p className="font-parkBody text-sm text-surface-grey-2">
-                    Connect a wallet to settle. Settlement is permissionless —
-                    any account may do it.
-                  </p>
+                  <div className="mb-3 flex flex-col gap-2">
+                    <p className="font-parkBody text-sm text-surface-grey-2">
+                      Settlement is permissionless — any account may do it.
+                    </p>
+                    <Button
+                      app="fund"
+                      onClick={() => openConnectModal?.()}
+                      data-testid="connect-cta"
+                    >
+                      Connect wallet to settle
+                    </Button>
+                  </div>
                 ) : null}
                 <div className="flex flex-col gap-3">
                   <Button
