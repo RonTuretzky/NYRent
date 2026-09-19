@@ -3,13 +3,27 @@ import { Card } from "../components/States";
 import { useActiveMarket } from "../chain/useActiveMarket";
 import { formatCents, formatDate } from "../chain/format";
 import { DemoBadge } from "../components/DemoBadge";
+import { useActiveDeployment } from "../chain/registry";
+import { V4_DEPLOYMENTS } from "../chain/v4";
+import { addressUrl } from "../chain/explorer";
 
 export function Docs() {
   const market = useActiveMarket();
+  const { deployment } = useActiveDeployment();
+  const v4 = V4_DEPLOYMENTS[String(deployment.chainId)];
   return <div className="max-w-3xl mx-auto space-y-6">
     <header><h1 className="font-parkDisplay font-bold text-3xl">How Manhattan Rent Cover works</h1>
       <p className="font-parkBody text-surface-grey-2 mt-2">One market follows the CRE Daily Manhattan Office Rent average effective rent index, measured in dollars per square foot. It tracks office rents, not residential leases.</p>
     </header>
+    {v4 ? <Card>
+      <h2 className="font-parkDisplay font-bold text-xl">On-chain market · {deployment.name}</h2>
+      <p className="font-parkBody mt-3">RENT trades against native {v4.symbol} on {deployment.name} (chain {deployment.chainId}). Its backing and trading liquidity stay on this network.</p>
+      <div className="font-parkBody mt-3 flex flex-wrap gap-x-5 gap-y-2">
+        {[["RENT and escrow", v4.market], ["Uniswap v4 hook", v4.hook], ["Signed-rent oracle", v4.oracle]].map(([label, address]) =>
+          <a key={address} className="underline text-core-green" href={addressUrl(address, deployment.explorerBase)} target="_blank" rel="noreferrer">{label} ↗</a>
+        )}
+      </div>
+    </Card> : null}
     <Card><h2 className="font-parkDisplay font-bold text-xl">The fixed terms</h2>
       <p className="font-parkBody mt-3">The configured base is an authenticated oracle observation signed in September 2026. The displayed base is {formatCents(market.baseCents)}/SF {market.baseIsDemo ? <DemoBadge /> : null}. Until that observation is recorded, the verified $92.88/SF fixture is a demo assumption.</p>
       <p className="font-parkBody mt-3">The first successful settlement transaction fixes the payout using a qualifying observation for September 2027; the contract cannot prove that no earlier email was withheld. Growth is g = settlement / base − 1. RENT pays nothing through 3% growth, increases linearly to $1 at 8%, and stays capped at $1 above that.</p>

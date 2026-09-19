@@ -185,5 +185,5 @@ test("Polygon stays a non-live production target and resolves wallet selection",
   assert.equal(legacyToTestDeployment({ ...anvilLegacy, chainId: POLYGON_CHAIN_ID }), undefined);
   assert.equal(isLiveDeployment(deployments[POLYGON_CHAIN_ID]), false);
   assert.equal(resolveActiveChainId(null, POLYGON_CHAIN_ID, deployments, GNOSIS_CHAIN_ID), POLYGON_CHAIN_ID);
-  assert.equal(computeDefaultChainId(deployments, undefined), GNOSIS_CHAIN_ID);
+  assert.equal(computeDefaultChainId(deployments, undefined), POLYGON_CHAIN_ID);
 });

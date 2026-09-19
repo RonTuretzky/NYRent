@@ -1,0 +1,223 @@
+{
+  "version": 1,
+  "complete": true,
+  "mode": "mainnet",
+  "planHash": "0xa420c73aa724b1d4fa77d35f8dd4292bfea72a2db29c793803a723e33fe3e95b",
+  "completedAt": "2026-09-19T20:58:51.148Z",
+  "integrationOnly": false,
+  "proof": "Production receipts on Polygon PoS",
+  "manifest": {
+    "chainId": 137,
+    "market": "0x9b6A4C232e31bd04A67D527d21C437269B137880",
+    "factory": "0xa4a64d84626134b4719313975cccf4c091e285b3",
+    "hook": "0x33601915b1912a02f7e64bB12805709C0F8CEa80",
+    "router": "0x83c637c270e47d10b48eed0fcb91c5a40cc92f16",
+    "poolManager": "0x67366782805870060151383f4bbff9dab53e5cd6",
+    "stateView": "0x5ea1bd7974c8a611cbab0bdcafcb1d9cc9b3ba5a",
+    "quoter": "0xb3d5c3dfc3a7aebff71895a7191796bffc2c81b9",
+    "observationSubmitter": "0x99c449011904f8f87972fd46493e00a1657aaf3c",
+    "oracle": "0x7e5339a04b8cdb05e5ec2b06e425bc4df19095ee",
+    "currency": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    "decimals": 6,
+    "symbol": "USDC",
+    "deploymentBlock": "94097622",
+    "baseObservationIndex": 0,
+    "poolKey": {
+      "currency0": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+      "currency1": "0x9b6A4C232e31bd04A67D527d21C437269B137880",
+      "fee": 8388608,
+      "tickSpacing": 60,
+      "hooks": "0x33601915b1912a02f7e64bB12805709C0F8CEa80"
+    }
+  },
+  "poolId": "0x8a8bfb10e911c252eedd23100ae1b56295de8b40fee28852083d41143116dac4",
+  "terms": {
+    "baseRentCents": 9288,
+    "strikeLowCents": 9567,
+    "strikeHighCents": 10031,
+    "saleEnd": "1819756800",
+    "obsStart": "1819756800",
+    "obsEnd": "1822348740",
+    "redeemEnd": "1824940740",
+    "baseObservationIndex": "0"
+  },
+  "rows": [
+    {
+      "name": "deployOracle",
+      "hash": "0xf634bfdb63e88b5c20dc48cb09addc315432cf0c2359e4dff2251c96ec89c1ae",
+      "blockNumber": "94097602",
+      "status": "success",
+      "gasUsed": "2664321",
+      "effectiveGasPrice": "28931870501",
+      "contractAddress": "0x7e5339a04b8cdb05e5ec2b06e425bc4df19095ee",
+      "estimate": "2686634"
+    },
+    {
+      "name": "deployObservationSubmitter",
+      "hash": "0xfc066124047e11c14ce0d7a82d754b7f7f3a327c6f3d40f4202aecee493aa7a7",
+      "blockNumber": "94097605",
+      "status": "success",
+      "gasUsed": "583518",
+      "effectiveGasPrice": "28931870501",
+      "contractAddress": "0x99c449011904f8f87972fd46493e00a1657aaf3c",
+      "estimate": "589316"
+    },
+    {
+      "name": "storeBodyPrefix",
+      "hash": "0xac44a90b4228c63c3e46a24ebbf8ec5e0e2469c4696fdbcf7907b19f3c785c31",
+      "blockNumber": "94097609",
+      "status": "success",
+      "gasUsed": "5283392",
+      "effectiveGasPrice": "28986306200",
+      "contractAddress": null,
+      "estimate": "5369591"
+    },
+    {
+      "name": "submitAuthenticBaseline",
+      "hash": "0x6b376af5423ef55f60356472646c19082b48e7b715599df700109faecedd2cb6",
+      "blockNumber": "94097612",
+      "status": "success",
+      "gasUsed": "3716874",
+      "effectiveGasPrice": "28996625032",
+      "contractAddress": null,
+      "estimate": "3778208"
+    },
+    {
+      "name": "deployFactory",
+      "hash": "0x1fbf309f91acf2984dc1bc824a1f3784855d326315ae73fe5e37d91c0e93968b",
+      "blockNumber": "94097615",
+      "status": "success",
+      "gasUsed": "3654721",
+      "effectiveGasPrice": "29008220080",
+      "contractAddress": "0xa4a64d84626134b4719313975cccf4c091e285b3",
+      "estimate": "3684894"
+    },
+    {
+      "name": "deployRouter",
+      "hash": "0xfea3e8d091820c17465f6e6c30d9eb5ac3ae52903f67c72667732aa9c07a7914",
+      "blockNumber": "94097619",
+      "status": "success",
+      "gasUsed": "1563432",
+      "effectiveGasPrice": "29007584453",
+      "contractAddress": "0x83c637c270e47d10b48eed0fcb91c5a40cc92f16",
+      "estimate": "1577007"
+    },
+    {
+      "name": "createMarket",
+      "hash": "0x8acff061af1ba07475afc2d18c7d22e0ec64e60e3334f0b317a324ed658f3784",
+      "blockNumber": "94097622",
+      "status": "success",
+      "gasUsed": "1688229",
+      "effectiveGasPrice": "28931870501",
+      "contractAddress": null,
+      "estimate": "1703790"
+    },
+    {
+      "name": "approveEscrow",
+      "hash": "0xa89ac18567c18c06c509c18d3d3a2e3e9d9cdcd75d6270769b2c453263511eb6",
+      "blockNumber": "94097625",
+      "status": "success",
+      "gasUsed": "66357",
+      "effectiveGasPrice": "29035989028",
+      "contractAddress": null,
+      "estimate": "67203"
+    },
+    {
+      "name": "depositAndMint",
+      "hash": "0x10c36edb0b986c12ef5774fa3bf4cade18ce0be729322530925024fa738afd58",
+      "blockNumber": "94097627",
+      "status": "success",
+      "gasUsed": "207102",
+      "effectiveGasPrice": "28931870501",
+      "contractAddress": null,
+      "estimate": "215829"
+    },
+    {
+      "name": "approveRentLiquidity",
+      "hash": "0xf16b64df0bbd48c1dc6575fe030af8cd744cf5d167f421a989dd2f0774e82a89",
+      "blockNumber": "94097630",
+      "status": "success",
+      "gasUsed": "47217",
+      "effectiveGasPrice": "28931870501",
+      "contractAddress": null,
+      "estimate": "47601"
+    },
+    {
+      "name": "approveCashLiquidity",
+      "hash": "0x37ec5be62b1b3d3ebf32ad942a0887e7dd36e92d74856959b898626a7364e45f",
+      "blockNumber": "94097633",
+      "status": "success",
+      "gasUsed": "66357",
+      "effectiveGasPrice": "28931870501",
+      "contractAddress": null,
+      "estimate": "67203"
+    },
+    {
+      "name": "seedLiquidity",
+      "hash": "0xd8ec73c99bfeaf6970e0462a39acfb9441d8822d26a0b1a47229eb1f6f04ae4b",
+      "blockNumber": "94097637",
+      "status": "success",
+      "gasUsed": "428211",
+      "effectiveGasPrice": "28931870501",
+      "contractAddress": null,
+      "estimate": "463141"
+    },
+    {
+      "name": "smokeBuy",
+      "hash": "0x29c23468aec0726b27d0748c5dccb3835c77267a8dc4f5670832e4eaf31f2375",
+      "blockNumber": "94097640",
+      "status": "success",
+      "gasUsed": "219688",
+      "effectiveGasPrice": "28931870501",
+      "contractAddress": null,
+      "estimate": "244214"
+    },
+    {
+      "name": "approveSmokeSell",
+      "hash": "0xef68b761c813bb4bdc82c0193dcdae95a538f751c1df5f65e80252628e86dfe4",
+      "blockNumber": "94097643",
+      "status": "success",
+      "gasUsed": "29265",
+      "effectiveGasPrice": "28931870501",
+      "contractAddress": null,
+      "estimate": "29614"
+    },
+    {
+      "name": "smokeSell",
+      "hash": "0x5c833dadc9b793f69bc5abcd82f7bd84b05a9e8e85a695621b740ad2ebb8100d",
+      "blockNumber": "94097646",
+      "status": "success",
+      "gasUsed": "208980",
+      "effectiveGasPrice": "28931870501",
+      "contractAddress": null,
+      "estimate": "238870"
+    }
+  ],
+  "totalGasUsed": "20427664",
+  "totalEstimatedGas": "20763115",
+  "actualFee": "591943138073418628",
+  "feeMeasurement": "Actual Polygon PoS receipt fees",
+  "startingRealNativeBalance": "14103244037495444251",
+  "startingRealUsdcBalance": "711006",
+  "endingUsdcBalance": "69930",
+  "capitalSpent": "641076",
+  "collateral": "500000",
+  "liquidity": "264255",
+  "sourceVerification": {
+    "provider": "Sourcify",
+    "oracle": "match",
+    "observationSubmitter": "exact_match",
+    "factory": "exact_match",
+    "hook": "exact_match",
+    "router": "exact_match",
+    "market": "exact_match"
+  },
+  "independentVerification": {
+    "rpc": "https://polygon.drpc.org",
+    "chainId": 137,
+    "successfulReceipts": 15,
+    "escrowUSDCBaseUnits": "500000",
+    "rentSupplyBaseUnits": "500000",
+    "baselineObservationIndex": 0
+  }
+}

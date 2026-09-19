@@ -151,21 +151,21 @@ export function buildDeployments(
 }
 
 /** A test build (anvil deployment merged in) defaults to its local chain;
- * production builds default to Gnosis. */
+ * production builds default to Polygon when configured. */
 export function computeDefaultChainId(
   deployments: Record<number, AppDeployment>,
   testDeployment: AppDeployment | undefined,
 ): number {
   return testDeployment && deployments[testDeployment.chainId]
     ? testDeployment.chainId
-    : GNOSIS_CHAIN_ID;
+    : deployments[POLYGON_CHAIN_ID] ? POLYGON_CHAIN_ID : GNOSIS_CHAIN_ID;
 }
 
 /**
  * Active-chain resolution matrix: an explicit persisted choice wins when it
  * still names a known deployment; otherwise the wallet's chain when IT
  * matches a known deployment; otherwise the default (test chain in e2e
- * builds, else Gnosis). Unknown/stale ids never resolve.
+ * builds, else Polygon). Unknown/stale ids never resolve.
  */
 export function resolveActiveChainId(
   storedChainId: number | null | undefined,

@@ -62,11 +62,11 @@ const testChain: Chain | undefined = TEST_DEPLOYMENT
   : undefined;
 
 export const appChains: readonly [Chain, ...Chain[]] = testChain
-  ? [testChain, gnosisChain, arbitrumChain, polygonChain]
-  : [gnosisChain, arbitrumChain, polygonChain];
+  ? [testChain, polygonChain, gnosisChain, arbitrumChain]
+  : [polygonChain, gnosisChain, arbitrumChain];
 
 /** @deprecated single-chain era export — the DEFAULT chain (test chain in
- * anvil e2e builds, else Gnosis). Multi-chain code should resolve the chain
+ * anvil e2e builds, else Polygon). Multi-chain code should resolve the chain
  * from useActiveDeployment() + chainById() instead. */
 export const appChain: Chain = appChains[0];
 

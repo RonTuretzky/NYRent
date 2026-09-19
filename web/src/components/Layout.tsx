@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAccount, useSwitchChain } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Footer, Logo } from "@decentralpark/ui";
-import { ListIcon, XIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, ListIcon, XIcon } from "@phosphor-icons/react";
 import { DEPLOYMENTS, useActiveDeployment } from "../chain/registry";
 import { NotDeployedBanner, WrongNetworkBanner } from "./Banners";
 import { Toasts } from "./Toasts";
@@ -14,10 +14,14 @@ import { MarketStrip } from "./MarketStrip";
 const SHOW_LEGACY_ROUTES =
   import.meta.env.VITE_SHOW_LEGACY_ROUTES === "1";
 
-const NAV_ITEMS = [
+type NavDestination = { to: string; label: string };
+type NavItem = NavDestination | { label: string; children: NavDestination[] };
+const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Home" },
-  { to: "/renter", label: "Renter" },
-  { to: "/insurer", label: "Insurer" },
+  { label: "For renters / insurers", children: [
+    { to: "/renter", label: "Renter" },
+    { to: "/insurer", label: "Insurer" },
+  ] },
   { to: "/market-view", label: "Market view" },
   ...(SHOW_LEGACY_ROUTES
     ? [
@@ -26,8 +30,10 @@ const NAV_ITEMS = [
         { to: "/choose", label: "Help me choose" },
       ]
     : []),
-  { to: "/settle", label: "Settle" },
-  { to: "/redeem", label: "Redeem" },
+  { label: "Settle / redeem", children: [
+    { to: "/settle", label: "Settle" },
+    { to: "/redeem", label: "Redeem" },
+  ] },
   { to: "/docs", label: "Docs" },
 ];
 
@@ -57,23 +63,105 @@ function usePageTitle() {
   }, [pathname]);
 }
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+const navClass = (active: boolean) =>
+  `font-parkBody text-sm whitespace-nowrap px-1 py-2 border-b-2 transition-colors rounded-t-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-core-green ${
+    active ? "border-core-green text-core-green font-bold" : "border-transparent text-text-standard hover:text-core-green"
+  }`;
+
+function NavDropdown({ label, items, open, onToggle, onClose, onNavigate, mobile }: {
+  label: string;
+  items: NavDestination[];
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onNavigate?: () => void;
+  mobile: boolean;
+}) {
+  const { pathname } = useLocation();
+  const id = useId();
+  const container = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const focusFirst = useRef(false);
+  const active = items.some(({ to }) => pathname === to);
+
+  useEffect(() => {
+    if (!open) return;
+    if (focusFirst.current) {
+      container.current?.querySelector<HTMLAnchorElement>("a")?.focus();
+      focusFirst.current = false;
+    }
+    const dismiss = (event: PointerEvent) => {
+      if (!container.current?.contains(event.target as Node)) onClose();
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [open, onClose]);
+
+  return (
+    <div
+      ref={container}
+      className={mobile ? "w-full" : "relative"}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && open) {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+          trigger.current?.focus();
+        }
+      }}
+    >
+      <button
+        ref={trigger}
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={onToggle}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown") return;
+          event.preventDefault();
+          if (open) container.current?.querySelector<HTMLAnchorElement>("a")?.focus();
+          else { focusFirst.current = true; onToggle(); }
+        }}
+        className={`${navClass(active)} flex items-center gap-1.5 ${mobile ? "w-full justify-between" : ""}`}
+      >
+        {label}
+        <CaretDownIcon size={14} weight="bold" aria-hidden="true" className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open ? (
+        <div id={id} className={mobile
+          ? "mt-2 ml-1 border-l-2 border-paper-2 pl-3 flex flex-col gap-1"
+          : "absolute left-0 top-full mt-2 z-40 min-w-48 rounded-xl border-2 border-paper-2 bg-paper-0 p-2 shadow-lg flex flex-col gap-1"}>
+          {items.map((item) => (
+            <NavLink key={item.to} to={item.to}
+              onClick={() => { onClose(); onNavigate?.(); }}
+              className={({ isActive }) => `rounded-lg px-3 py-2.5 font-parkBody text-sm transition-colors focus-visible:outline-2 focus-visible:outline-core-green ${
+                isActive ? "bg-paper-1 text-core-green font-bold" : "text-text-standard hover:bg-paper-1 hover:text-core-green"
+              }`}>
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function NavLinks({ onNavigate, mobile = false }: { onNavigate?: () => void; mobile?: boolean }) {
+  const [openSection, setOpenSection] = useState<string | null>(null);
   return (
     <>
-      {NAV_ITEMS.map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.to === "/"}
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            `font-parkBody text-sm whitespace-nowrap px-1 py-2 md:py-1 border-b-2 transition-colors ${
-              isActive
-                ? "border-core-green text-core-green font-bold"
-                : "border-transparent text-text-standard hover:text-core-green"
-            }`
-          }
-        >
+      {NAV_ITEMS.map((item) => "children" in item ? (
+        <NavDropdown key={item.label} label={item.label} items={item.children}
+          open={openSection === item.label}
+          onToggle={() => setOpenSection(openSection === item.label ? null : item.label)}
+          onClose={() => setOpenSection(null)} onNavigate={onNavigate} mobile={mobile} />
+      ) : (
+        <NavLink key={item.to} to={item.to} end={item.to === "/"}
+          onClick={() => { setOpenSection(null); onNavigate?.(); }}
+          className={({ isActive }) => navClass(isActive)}>
           {item.label}
         </NavLink>
       ))}
@@ -176,6 +264,13 @@ function AppNavbar() {
   const burgerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1280px)");
+    const closeOnDesktop = () => { if (desktop.matches) setOpen(false); };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     const menu = menuRef.current;
     const burger = burgerRef.current;
@@ -217,7 +312,7 @@ function AppNavbar() {
       </Link>
 
       {/* desktop nav */}
-      <nav className="hidden lg:flex items-center gap-3" aria-label="Main navigation">
+      <nav className="hidden xl:flex items-center gap-3" aria-label="Main navigation">
         <NavLinks />
         <ChainSwitcher />
         <ConnectButton
@@ -228,12 +323,12 @@ function AppNavbar() {
       </nav>
 
       {/* Wallet access remains visible on mobile, as does the menu. */}
-      <div className="flex items-center gap-3 lg:hidden">
+      <div className="flex items-center gap-3 xl:hidden">
         <ConnectButton showBalance={false} chainStatus="none" accountStatus="avatar" />
       <button
         ref={burgerRef}
         onClick={() => setOpen(true)}
-        className="lg:hidden text-primary-green h-11 w-11 -mr-1.5 flex items-center justify-center"
+        className="xl:hidden text-primary-green h-11 w-11 -mr-1.5 flex items-center justify-center"
         aria-label="Open menu"
         aria-expanded={open}
         aria-controls="mobile-menu"
@@ -249,7 +344,7 @@ function AppNavbar() {
           role="dialog"
           aria-modal="true"
           aria-label="Navigation menu"
-          className="bg-paper-main fixed inset-0 z-50 p-6 lg:hidden overflow-y-auto"
+          className="bg-paper-main fixed inset-0 z-50 p-6 xl:hidden overflow-y-auto"
         >
           <div className="flex items-center justify-between mb-8">
             <Logo text="RentSafe" size={24} color="green" />
@@ -262,7 +357,7 @@ function AppNavbar() {
             </button>
           </div>
           <nav className="flex flex-col gap-4">
-            <NavLinks onNavigate={() => setOpen(false)} />
+            <NavLinks mobile onNavigate={() => setOpen(false)} />
             <div className="mt-2">
               <ChainSwitcher />
             </div>

@@ -58,7 +58,7 @@ export const DEPLOYMENTS: Record<number, AppDeployment> = buildDeployments(
 );
 
 /** A test build (VITE_ALLOW_TEST_CHAIN against anvil) defaults to its local
- * chain; production builds default to Gnosis. */
+ * chain; production builds default to Polygon. */
 export const DEFAULT_CHAIN_ID = computeDefaultChainId(
   DEPLOYMENTS,
   TEST_DEPLOYMENT,

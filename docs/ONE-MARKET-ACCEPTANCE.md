@@ -34,7 +34,7 @@ accuracy corrections and the distinction between tested code and deployment.
 | Price .285 → 4.4% | Unit + browser assertions |
 | Two-fixture DKIM settlement demo | Dedicated local v4 browser harness uses explicit test RSA key with signed September baseline and later $97.99 observation; future fixture is never represented as a real newsletter |
 | Real v4 pool, mint, LP, buy/sell, settle, redeem | Actual v4 contracts, canonical Arbitrum PoolManager fork lifecycle, isolated local browser lifecycle |
-| Publish/redeploy | Website published to `rentsafe.nyc` from Pages commit `7edb994`; seven primary routes, default values, mobile layout, legacy recording and HTTPS redirects checked live. V4 mainnet activation remains pending funding |
+| Publish/redeploy | Website published to `rentsafe.nyc` from Pages commit `7edb994`; seven primary routes, default values, mobile layout, legacy recording and HTTPS redirects checked live. Polygon v4 mainnet is now funded and active; see the current launch record below |
 
 ## Corrections made to avoid misleading claims
 
@@ -82,5 +82,26 @@ existing repository and custom domain. A real-browser smoke pass visited all sev
 primary routes, checked the acceptance numbers, found no visible “series” strings on
 those routes, checked four mobile layouts without horizontal overflow, and loaded the
 preserved live Gmail recording in legacy docs. There were no uncaught page errors.
-HTTP and `www` both redirect to the HTTPS apex. The one-market site is a labeled preview
-until a matching on-chain market is configured; the production v4 manifest is empty.
+HTTP and `www` both redirect to the HTTPS apex. At that publication the one-market site
+was a labeled preview and the production v4 manifest was empty. The launch below supersedes
+that earlier status.
+
+
+## Polygon activation and navigation update — 2026-09-19
+
+The production v4 manifest now contains the independently verified Polygon mainnet market.
+All 15 launch transactions succeeded, including authentic DKIM baseline submission, 0.50
+USDC backing, liquidity provisioning, and actual buy/sell. Six application contracts are
+source-verified on Sourcify. [Mainnet launch evidence](V4-ROLLOUT.md#polygon-mainnet-launch--2026-09-19)
+contains addresses, costs, receipt links and the remaining future settlement boundary.
+
+The website defaults to Polygon, supports a direct wallet-connect action and network switch
+on checkout, and starts at 0.01 USDC for the small pilot. Navigation groups Renter and Insurer
+under “For renters / insurers,” and Settle and Redeem under “Settle / redeem.” Dropdowns
+support keyboard focus, Escape, outside click and mobile expansion. The restored animated
+homepage and styled controls remain in place.
+
+Verification for this update: 110 web unit tests, three one-market browser journeys, and
+one isolated wallet-driven v4 lifecycle passed; TypeScript, lint and production build passed.
+The full browser lifecycle proves the UI transaction path locally; the separate mainnet
+receipts prove actual Polygon buy/sell. It does not claim a user wallet has been connected.

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount, usePublicClient, useSwitchChain } from "wagmi";
 import { erc20Abi, formatUnits, parseUnits, type Address, type Abi } from "viem";
 import { Button } from "@decentralpark/ui";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { chainById } from "../chain/wagmi";
 import { Card } from "../components/States";
 import { TxStatus } from "../components/TxStatus";
 import { useTx } from "../chain/useTx";
@@ -38,10 +40,14 @@ function V4Panel({ mode }: { mode: V4Mode }) {
   const m = market.data!;
   const { address, chainId: walletChainId } = useAccount();
   const client = usePublicClient({ chainId: d.chainId });
+  const { openConnectModal } = useConnectModal();
+  const { switchChain, isPending: switchingChain } = useSwitchChain();
+  const networkName = chainById(d.chainId)?.name ?? `Chain ${d.chainId}`;
+  const smallPilot = m.supply < parseUnits("10", d.decimals);
   const queryClient = useQueryClient();
   const tx = useTx();
   const [buyRent, setBuyRent] = useState(true);
-  const [amount, setAmount] = useState("1");
+  const [amount, setAmount] = useState(mode === "trade" && smallPilot ? "0.01" : "1");
   const [rentBudget, setRentBudget] = useState("1");
   const [cashBudget, setCashBudget] = useState("0.285");
   const [error, setError] = useState("");
@@ -138,14 +144,20 @@ function V4Panel({ mode }: { mode: V4Mode }) {
   }
 
   return <div className="max-w-3xl mx-auto space-y-6" data-testid="v4-market-actions">
-    <Card><p className="text-sm font-bold uppercase text-primary-green">Live trading market</p><h1 className="text-3xl font-parkDisplay font-bold mt-2">{mode === "trade" ? "Buy or sell RENT" : mode === "underwrite" ? "Fund cover and provide liquidity" : "Redeem RENT"}</h1>
+    <Card><p className="text-sm font-bold uppercase text-primary-green">Live trading market · {networkName}</p><h1 className="text-3xl font-parkDisplay font-bold mt-2">{mode === "trade" ? "Buy or sell RENT" : mode === "underwrite" ? "Fund cover and provide liquidity" : "Redeem RENT"}</h1>
       <p className="mt-3">Each RENT is backed by one {d.symbol} in escrow and pays the settled ratio. Trading ends before the observation window. Pool liquidity is separate from collateral.</p>
       <p className="mt-3 font-bold">1 RENT ≈ {m.p.toFixed(4)} {d.symbol} · {m.tradingOpen ? "Trading open" : m.settled ? "Settled — trading closed" : "Trading closed"}</p>
       <p className="mt-2 text-sm">{wallet.data ? `Your wallet: ${short(wallet.data.rent, d.decimals)} RENT · ${short(wallet.data.cash, d.decimals)} ${d.symbol}` : "Connect your wallet to see your balances."}</p>
-      {!connected && <p className="mt-3 text-system-warning" role="status">{address ? "Switch your wallet to the selected network to continue." : "Connect your wallet using the button above."}</p>}
+      {!connected && <div className="mt-4">
+        <Button app="fund" isLoading={switchingChain} onClick={() => address ? switchChain({ chainId: d.chainId }) : openConnectModal?.()}>
+          {address ? `Switch to ${networkName}` : "Connect wallet to trade"}
+        </Button>
+        <p className="mt-2 text-sm">Pay with native {d.symbol}; keep {chainById(d.chainId)?.nativeCurrency.symbol ?? "native currency"} for network fees.</p>
+      </div>}
       {market.isError && <p role="alert">Market data is unavailable. Transactions are disabled until it refreshes.</p>}
     </Card>
     {mode === "trade" && <Card>
+      {smallPilot && <p className="mb-4 text-sm">Small pilot: {short(m.supply, d.decimals)} RENT backed by {short(m.escrow, d.decimals)} {d.symbol}. The form starts with a small trade; the quote below reflects the available liquidity.</p>}
       {targetRent > 0n && buyRent && <p className="mb-4">Your calculator target is {short(targetRent, d.decimals)} RENT. {prefilled ? "The spending amount below is estimated for that target; check the current receipt quote before confirming." : targetQuote.isError || m.liquidity === 0n ? "There is not an executable quote for that target. You can choose a smaller spending amount below." : "Estimating its cost…"}</p>}
       <div className="flex gap-3 mb-4"><Button app="fund" variant={buyRent ? "primary" : "secondary"} disabled={busy} onClick={() => setBuyRent(true)}>Buy RENT</Button><Button app="fund" variant={!buyRent ? "primary" : "secondary"} disabled={busy} onClick={() => setBuyRent(false)}>Sell RENT</Button></div>
       <label className="block">You pay ({buyRent ? d.symbol : "RENT"})<input className={inputClass} inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} disabled={busy} /></label>

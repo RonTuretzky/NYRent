@@ -59,6 +59,7 @@ test("forecast discloses clipped payout and mobile views fit", async ({ page }) 
   await page.screenshot({path: ".artifacts/one-market-forecast-mobile.png", fullPage: true});
   await page.getByRole("button", {name: "Open menu"}).click();
   await expect(page.getByRole("dialog", {name: "Navigation menu"})).toBeVisible();
+  await page.getByRole("button", {name: "Settle / redeem", exact: true}).click();
   await page.getByRole("link", {name: "Redeem", exact: true}).click();
   await expect(page).toHaveURL(/#\/redeem$/);
   await expect(page.getByRole("dialog", {name: "Navigation menu"})).not.toBeVisible();

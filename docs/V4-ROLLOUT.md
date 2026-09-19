@@ -2,6 +2,47 @@
 
 Reviewed 2026-09-19. This document separates observed chain state, local/fork verification, and remaining launch work. The target is the single **Manhattan Rent Cover, Sep 2026 → Sep 2027** market from the supplied product specification, using the existing CRE Daily DKIM oracle. Bankr remains on hold.
 
+## Polygon mainnet launch — 2026-09-19
+
+The Polygon PoS market is live on chain **137**. The funded launch completed at
+**20:58:51 UTC**, with **15 successful mainnet transactions**, including a real RENT buy
+and sell through the canonical Uniswap v4 PoolManager. A second public RPC independently
+verified all receipts, contract links, the authentic baseline, escrow and token supply.
+[Machine-readable evidence](evidence/polygon-v4-mainnet.json) records the manifest,
+immutable terms, receipt hashes, gas and funding measurements.
+
+| Contract | Live Polygon address |
+| --- | --- |
+| RENT and isolated escrow | `0x9b6A4C232e31bd04A67D527d21C437269B137880` |
+| Hook | `0x33601915b1912a02f7e64bB12805709C0F8CEa80` |
+| Factory | `0xa4a64d84626134b4719313975cccf4c091e285b3` |
+| Router | `0x83c637c270e47d10b48eed0fcb91c5a40cc92f16` |
+| CRE Daily oracle | `0x7e5339a04b8cdb05e5ec2b06e425bc4df19095ee` |
+| Observation submitter | `0x99c449011904f8f87972fd46493e00a1657aaf3c` |
+
+All six application contracts have verified sources on Sourcify: the unchanged oracle
+returned `match`; the helper, factory, hook, router and market returned `exact_match`.
+Source verification is separate from a security audit.
+
+The user's **0.711006 native USDC** funded a smaller pilot: **0.50 USDC** is escrowed
+against **0.50 RENT**, with separate full-range AMM liquidity. The launch spent a net
+**0.641076 USDC** and **0.591943138073418628 POL** in receipt fees, leaving **0.06993 USDC**
+and **13.511300899422025623 POL** in the deployer at completion. The actual pool is small;
+its executable quotes and price impact, rather than calculator examples, govern purchases.
+No POL-to-USDC conversion was required.
+
+- [Authenticated baseline](https://polygonscan.com/tx/0x6b376af5423ef55f60356472646c19082b48e7b715599df700109faecedd2cb6)
+- [Escrow funding and RENT mint](https://polygonscan.com/tx/0x10c36edb0b986c12ef5774fa3bf4cade18ce0be729322530925024fa738afd58)
+- [Liquidity seed](https://polygonscan.com/tx/0xd8ec73c99bfeaf6970e0462a39acfb9441d8822d26a0b1a47229eb1f6f04ae4b)
+- [Mainnet buy](https://polygonscan.com/tx/0x29c23468aec0726b27d0748c5dccb3835c77267a8dc4f5670832e4eaf31f2375)
+- [Mainnet sell](https://polygonscan.com/tx/0x5c833dadc9b793f69bc5abcd82f7bd84b05a9e8e85a695621b740ad2ebb8100d)
+
+The production v4 registry now contains this verified market. Polygon is the default
+website network; checkout exposes wallet connection, switching and live buy/sell quotes.
+Gnosis fixed-price functionality remains available. Arbitrum remains a separate configured
+target. Future September 2027 settlement is still future work: no future observation was
+submitted on mainnet. The sections below preserve the earlier preparation and fork record.
+
 ## Venue and canonical contracts
 
 Arbitrum One and Polygon PoS are supported v4 deployment targets for this build. The original Arbitrum review follows; see the Polygon section below for its separate addresses and readiness. The [official Uniswap deployment registry](https://developers.uniswap.org/docs/protocols/v4/deployments) lists the following addresses. On 2026-09-19 at Arbitrum block **506883069**, read-only `eth_getCode` independently found nonempty code at all five addresses shown below.
@@ -131,7 +172,7 @@ Production execution is a separate path requiring `--execute`, the exact plan an
 The observation helper is always provisioned even when the baseline is already recorded. `--observation-submitter ADDRESS` can reuse an existing helper only if its runtime matches the reviewed artifact. Every successful manifest includes it for future large signed-email submissions. Manifests remain in the operation's output directory; the scripts never activate fork addresses in the production frontend.
 
 
-## Polygon PoS target — 2026-09-19
+## Polygon PoS target preparation — before mainnet launch
 
 Polygon is now configured in the wallet, RPC fallbacks, network selector, explorer links,
 USDC payment table, deployment preparation, restart-safe launcher and `DeployV4.s.sol`.
@@ -148,8 +189,8 @@ fixed-price deployment; Arbitrum and Polygon are independent v4 targets, not a b
 Sources: [Uniswap's v4 deployment registry](https://developers.uniswap.org/docs/protocols/v4/deployments#polygon-137)
 and [Circle's native USDC registry](https://developers.circle.com/stablecoins/usdc-contract-addresses).
 The preparation command independently verified nonempty on-chain code for these contracts.
-Polygon starts with a fresh oracle pinned to the same authentic CRE Daily key; no oracle
-or RentSafe market is represented as deployed on Polygon in the production app.
+At this preparation stage Polygon was configured to deploy a fresh oracle pinned to the
+same authentic CRE Daily key. The mainnet launch above subsequently deployed it.
 
 Validation:
 
@@ -170,6 +211,6 @@ Validation:
   leaving approximately **0.686090 POL plus 1.2851 native USDC** to fund the one-dollar
   pilot and smoke trade. Fees and nonce must be refreshed before preparing a live proof.
 
-`v4-deployments.json` remains empty. Polygon's frontend entry contains zero RentSafe
-addresses and shows an explicit not-live notice; checkout cannot submit a transaction.
+At the end of this preparation stage `v4-deployments.json` was empty and checkout was
+blocked. The verified mainnet launch above supersedes that earlier deployment status.
 Arbitrum's old version-1 plans must also be regenerated under the multichain version-2 format.
