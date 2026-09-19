@@ -1,7 +1,18 @@
-import { ArrowSquareOutIcon, CheckCircleIcon, EnvelopeSimpleIcon, ShieldCheckIcon } from "@phosphor-icons/react";
+import { ArrowSquareOutIcon, CheckCircleIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { Card } from "../components/States";
 import { BankrAgentViz } from "../components/hiw/BankrAgentViz";
+import { BankrExecutionViz, BankrQuotesViz, BankrResearchViz, BankrSettlementViz } from "../components/hiw/BankrStepViz";
+
+function Step({ number, title, children, visual }: { number: number; title: string; children: ReactNode; visual: ReactNode }) {
+  return <section className="grid items-center gap-8 lg:grid-cols-2 lg:gap-12" aria-labelledby={`bankr-step-${number}`}>
+    <div className={number % 2 === 0 ? "lg:order-2" : undefined}>
+      <div className="flex items-center gap-4"><span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-core-green font-parkDisplay text-lg font-bold text-white">{number}</span><h2 id={`bankr-step-${number}`} className="font-parkDisplay text-xl font-bold sm:text-2xl">{title}</h2></div>
+      <div className="font-parkBody text-surface-grey-2 [&_p]:mt-4 [&_p]:leading-relaxed">{children}</div>
+    </div>
+    <div className={`min-w-0 ${number % 2 === 0 ? "lg:order-1" : ""}`}>{visual}</div>
+  </section>;
+}
 
 const explorer = "https://arbitrum.blockscout.com";
 const evidence = [
@@ -19,33 +30,36 @@ function Pill({ children }: { children: ReactNode }) {
 }
 
 export function BankrDocs() {
-  return <div className="mx-auto max-w-4xl space-y-8">
+  return <div className="mx-auto min-w-0 max-w-6xl space-y-12 sm:space-y-16">
     <header className="space-y-4">
       <div className="flex flex-wrap gap-2"><Pill><CheckCircleIcon weight="fill" /> Live on Arbitrum</Pill><Pill><ShieldCheckIcon weight="fill" /> Bankr custody</Pill></div>
-      <h1 className="font-parkDisplay text-4xl font-bold leading-tight">The Bankr market agent</h1>
-      <p className="max-w-3xl font-parkBody text-lg text-surface-grey-2">A bounded agent researches rent-market context, computes a two-sided price from authenticated oracle data, and uses the Bankr wallet to maintain real Uniswap v4 bid and ask positions. A separate email path can post a signed result and settle after trading has closed.</p>
+      <h1 className="font-parkDisplay text-3xl font-bold leading-tight sm:text-4xl">The Bankr market maker</h1>
+      <p className="max-w-3xl font-parkBody text-lg leading-relaxed text-surface-grey-2">The agent supplies both sides of the RENT market: USDC to buy RENT from sellers, and backed RENT to sell to buyers. It researches market context, estimates a fair price, and uses its Bankr wallet to place and rebalance real Uniswap v4 liquidity positions.</p>
+      <p className="max-w-3xl font-parkBody leading-relaxed text-surface-grey-2">Its aim is to earn a spread and trading fees while managing the inventory left by trades. Both returns and inventory value depend on prices and fills. The pilot has placed live positions; rebalancing runs when an operator invokes the agent, with no unattended schedule enabled.</p>
     </header>
 
-    <BankrAgentViz />
+    <div className="mx-auto max-w-3xl"><BankrAgentViz /></div>
 
-    <div className="grid gap-5 md:grid-cols-2">
-      <Card><h2 className="font-parkDisplay text-xl font-bold">1. Research, then constrain</h2>
-        <p className="mt-3 font-parkBody">The research collector reviews real-estate reporting and prediction-market context. Bankr can flag an inconsistent plan, but prose never becomes a settlement value and the model cannot invent transaction amounts.</p>
-        <p className="mt-3 font-parkBody">The deterministic policy reads the signed rent observations, estimates a Bachelier fair value, adds a sell-side loading, leans for inventory, and signs exact ticks and token maxima.</p>
-      </Card>
-      <Card><h2 className="font-parkDisplay text-xl font-bold">2. Quote the actual market</h2>
-        <p className="mt-3 font-parkBody">The agent posts a USDC-funded bid below fair value and a fully collateralized RENT ask above it. It can remove and replace only its own ranges. Every run rechecks the pool, balances, prior positions, price drift, cutoff, gas and slippage.</p>
-        <p className="mt-3 font-parkBody">Pilot limits cap new collateral, bid cash, acquired RENT and ask inventory at 0.5 units per action. The agent can lose money when its model is wrong or a range fills.</p>
-      </Card>
-      <Card><h2 className="font-parkDisplay text-xl font-bold">3. Bankr signs, contracts enforce</h2>
-        <p className="mt-3 font-parkBody">The API key never enters the site or repository. The runner verifies the live Bankr wallet identity, simulates every call as that wallet, then asks Bankr to sign and broadcast. A distinct <code className="rounded bg-paper-1 px-1.5 py-0.5 text-sm">BANKR_V4_EXECUTE=1</code> gate is required.</p>
-        <p className="mt-3 font-parkBody">The on-chain market—not the agent prompt—enforces collateralization, trading dates, ownership and settlement.</p>
-      </Card>
-      <Card><h2 className="font-parkDisplay text-xl font-bold"><EnvelopeSimpleIcon className="mr-2 inline" />4. Scan and settle safely</h2>
-        <p className="mt-3 font-parkBody">The POC scans a configured local inbox directory for raw <code className="rounded bg-paper-1 px-1.5 py-0.5 text-sm">.eml</code> files. It verifies the pinned CRE Daily DKIM signature, body hash and extracted rent locally, uploads large bodies through the chunk helper, then settles the market idempotently.</p>
-        <p className="mt-3 font-parkBody font-bold">It cannot bundle a trade with known settlement information.</p>
-        <p className="mt-2 font-parkBody">Market terms require sales to close no later than the observation start. The settlement runner also refuses all chain actions while trading is open, and it imports no quote or swap code. Direct Gmail/IMAP polling is not part of this POC; raw email export is the inbox adapter.</p>
-      </Card>
+    <div className="space-y-16 sm:space-y-24">
+      <Step number={1} title="Research, then constrain" visual={<BankrResearchViz />}>
+        <p>The research collector reviews real-estate reporting and prediction-market context. Bankr reviews that context for inconsistencies and risk. The pricing calculation uses authenticated rent observations, with a Bachelier model estimating the value of RENT’s capped payout.</p>
+        <p>The policy adds a margin to the selling price and adjusts quotes for the agent’s inventory. It converts those prices into exact Uniswap ranges and token budgets. Research prose cannot set the settlement value or invent transaction amounts.</p>
+      </Step>
+      <Step number={2} title="Quote and rebalance the market" visual={<BankrQuotesViz />}>
+        <p>A market maker offers to buy and sell. Here, the agent funds a bid range with USDC and an ask range with fully backed RENT. These are Uniswap liquidity positions: when traders reach a range, its assets convert as trades fill and it earns its share of pool fees.</p>
+        <p><strong className="text-text-standard">What is being rebalanced?</strong> The agent’s trading inventory of RENT and USDC, and the price ranges where it offers that inventory. A bid fill spends USDC and adds RENT; an ask fill sells RENT and adds USDC. Those fills can leave the agent with too much or too little RENT for its inventory target.</p>
+        <p>With more RENT, the policy lowers quotes to encourage sales and discourage further purchases. With less RENT, it raises quotes to encourage purchases and conserve the remaining tokens. On a new run, it reads balances and its existing positions, removes its old ranges, and posts fresh quotes within the current limits.</p>
+        <p className="text-sm">Rebalancing does not release the USDC backing locked in escrow. New RENT requires new backing. Pilot limits cap new collateral, bid cash, acquired RENT and ask inventory at 0.5 units per action; a filled range can still lose money. Near the trading cutoff, the agent only unwinds its tracked liquidity positions.</p>
+      </Step>
+      <Step number={3} title="Bankr signs, contracts enforce" visual={<BankrExecutionViz />}>
+        <p>Before submitting a change, the runner checks the wallet, market, balances, existing positions, price movement, trading window and transaction costs. It simulates each call, then asks Bankr to sign and broadcast from the agent’s wallet. Execution requires the operator to enable it explicitly.</p>
+        <p>The contracts enforce full backing, position ownership, trading dates and settlement terms. The runner waits for each transaction receipt before proceeding and stops if a call fails. The API key stays outside the website and repository.</p>
+      </Step>
+      <Step number={4} title="Scan and settle safely" visual={<BankrSettlementViz />}>
+        <p>After trading closes, a separate settlement path scans a local inbox of exported raw .eml newsletters. It verifies CRE Daily’s pinned signature, the complete body and the observation date, then extracts the rent value. Large messages are uploaded in chunks before the complete signed result is verified on-chain.</p>
+        <p>A qualifying observation lets the agent settle the market and fix the payout ratio. Repeat scans check whether the observation is already recorded or the market is already settled, so completed work is not submitted again.</p>
+        <p className="text-sm">Trading closes before the observation window begins, so settlement cannot be bundled with a purchase based on the known result. This pilot reads exported email files; direct Gmail or IMAP polling is not connected.</p>
+      </Step>
     </div>
 
     <Card><h2 className="font-parkDisplay text-xl font-bold">What is live</h2>
@@ -56,18 +70,5 @@ export function BankrDocs() {
       <p className="mt-4 font-parkBody text-sm text-surface-grey-2">No settlement transaction is claimed yet: the September 2027 observation window has not begun. The watcher is implemented and fixture-tested now so that a future qualifying signed email can be posted without reopening trading.</p>
     </Card>
 
-    <Card><h2 className="font-parkDisplay text-xl font-bold">Run the POC</h2>
-      <pre className="mt-3 overflow-x-auto rounded-2xl bg-primary-pine p-4 font-mono text-xs text-white"><code>{`# Read-only quote plan
-npm --prefix agent run v4:bankr -- --target target.json --rpc RPC_URL
-
-# Explicit Bankr custody execution
-BANKR_V4_EXECUTE=1 npm --prefix agent run v4:bankr -- \\
-  --target target.json --rpc RPC_URL --bankr-review --execute
-
-# One settlement-only inbox scan
-npm --prefix agent run v4:settle:bankr -- \\
-  --target target.json --rpc RPC_URL --inbox ./raw-email-inbox`}</code></pre>
-      <p className="mt-3 font-parkBody text-sm text-surface-grey-2">Keep the API key in a secret manager or macOS Keychain and inject it as <code>BANKR_API_KEY</code>. Do not put it in a target file, command history, browser bundle or commit.</p>
-    </Card>
   </div>;
 }
