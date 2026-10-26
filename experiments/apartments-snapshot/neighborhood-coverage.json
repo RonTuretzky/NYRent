@@ -1,0 +1,296 @@
+{
+  "date": "2026-10-26",
+  "status": "discovery; no settlement approval",
+  "totalAdditionalNeighborhoods": 34,
+  "totalDedicatedNeighborhoodsIncludingOriginalPilot": 37,
+  "newAlerts": 34,
+  "totalDedicatedAlertsIncludingOriginalPilot": 40,
+  "neighborhoods": [
+    {
+      "geography": "Williamsburg",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Williamsburg\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Greenpoint",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Greenpoint\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Bushwick",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Bushwick\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Bedford-Stuyvesant",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Bedford-Stuyvesant\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Crown Heights",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Crown Heights\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Prospect Heights",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Prospect Heights\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Fort Greene",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Fort Greene\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Clinton Hill",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Clinton Hill\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Downtown Brooklyn",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Downtown Brooklyn\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "DUMBO",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"DUMBO\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Brooklyn Heights",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Brooklyn Heights\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Boerum Hill",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Boerum Hill\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Cobble Hill",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Cobble Hill\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Carroll Gardens",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Carroll Gardens\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Gowanus",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Gowanus\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Park Slope",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Park Slope\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Sunset Park",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Sunset Park\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Flatbush",
+      "borough": "Brooklyn",
+      "query": "site:apartments.com/rent-market-trends/ \"Flatbush\" \"Brooklyn\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Financial District",
+      "borough": "Manhattan",
+      "query": "site:apartments.com/rent-market-trends/ \"Financial District\" \"New York\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Battery Park City",
+      "borough": "Manhattan",
+      "query": "site:apartments.com/rent-market-trends/ \"Battery Park City\" \"New York\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Tribeca",
+      "borough": "Manhattan",
+      "query": "site:apartments.com/rent-market-trends/ \"Tribeca\" \"New York\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "SoHo",
+      "borough": "Manhattan",
+      "query": "site:apartments.com/rent-market-trends/ \"SoHo\" \"New York\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "West Village",
+      "borough": "Manhattan",
+      "query": "site:apartments.com/rent-market-trends/ \"West Village\" \"New York\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "East Village",
+      "borough": "Manhattan",
+      "query": "site:apartments.com/rent-market-trends/ \"East Village\" \"New York\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Lower East Side",
+      "borough": "Manhattan",
+      "query": "site:apartments.com/rent-market-trends/ \"Lower East Side\" \"New York\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Chelsea",
+      "borough": "Manhattan",
+      "query": "site:apartments.com/rent-market-trends/ \"Chelsea\" \"New York\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Upper West Side",
+      "borough": "Manhattan",
+      "query": "site:apartments.com/rent-market-trends/ \"Upper West Side\" \"New York\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Upper East Side",
+      "borough": "Manhattan",
+      "query": "site:apartments.com/rent-market-trends/ \"Upper East Side\" \"New York\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Long Island City",
+      "borough": "Queens",
+      "query": "site:apartments.com/rent-market-trends/ \"Long Island City\" \"Queens\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Astoria",
+      "borough": "Queens",
+      "query": "site:apartments.com/rent-market-trends/ \"Astoria\" \"Queens\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Sunnyside",
+      "borough": "Queens",
+      "query": "site:apartments.com/rent-market-trends/ \"Sunnyside\" \"Queens\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Ridgewood",
+      "borough": "Queens",
+      "query": "site:apartments.com/rent-market-trends/ \"Ridgewood\" \"Queens\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Jackson Heights",
+      "borough": "Queens",
+      "query": "site:apartments.com/rent-market-trends/ \"Jackson Heights\" \"Queens\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    },
+    {
+      "geography": "Woodside",
+      "borough": "Queens",
+      "query": "site:apartments.com/rent-market-trends/ \"Woodside\" \"Queens\" \"average rent\"",
+      "alertConfigured": true,
+      "growthStatus": "not yet established from comparable received evidence",
+      "settlementEnabled": false
+    }
+  ],
+  "publicGrowthLeads": [
+    {
+      "geography": "Financial District",
+      "yearOverYearPercent": 3.7,
+      "displayedPeriod": "October 2026",
+      "source": "https://www.apartments.com/rent-market-trends/financial-district-new-york-ny/"
+    },
+    {
+      "geography": "Downtown Brooklyn",
+      "yearOverYearPercent": 2.6,
+      "displayedPeriod": "October 2026",
+      "source": "https://www.apartments.com/rent-market-trends/downtown-brooklyn-brooklyn-ny/"
+    }
+  ]
+}

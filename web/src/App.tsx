@@ -19,6 +19,7 @@ import { RenterVisualizer } from "./pages/RenterVisualizer";
 
 // Heavy routes load on demand: Settle drags in the DKIM/RSA emailkit, Docs and
 // the underwriting console are long pages most visitors never open.
+const CreateMarket = lazy(() => import("./pages/CreateMarket").then(m => ({ default: m.CreateMarket })));
 const SeriesDetail = lazy(() =>
   import("./pages/SeriesDetail").then((m) => ({ default: m.SeriesDetail })),
 );
@@ -74,6 +75,7 @@ export default function App() {
                 <Route path="/story/:step" element={suspend(<Story />)} />
                 <Route element={<Layout />}>
                   <Route path="/" element={<MarketOverview />} />
+                  <Route path="/create" element={suspend(<CreateMarket />)} />
                   <Route path="/insurer" element={<InsurerDashboard />} />
                   <Route path="/renter" element={<RenterVisualizer />} />
                   <Route path="/market-view" element={<MarketView />} />

@@ -1,0 +1,22 @@
+[
+  {
+    "chainId": 137,
+    "block": "96213906",
+    "factory": "0xa4a64d84626134b4719313975cccf4c091e285b3",
+    "oracle": "0x7e5339A04B8cdb05E5Ec2b06E425bc4dF19095eE",
+    "baseCents": 9288,
+    "arbitraryCallerSimulation": "passed",
+    "predictedAddress": "0xc8B9E225250C9Ef26ec838475463FdF4525176c8",
+    "broadcast": false
+  },
+  {
+    "chainId": 42161,
+    "block": "518470888",
+    "factory": "0x9ece1a87ef1cb872999f791d49640b7e21d8f986",
+    "oracle": "0x128fF279AbD137DE6e378E8aCcefFe77Ea5259B3",
+    "baseCents": 9288,
+    "arbitraryCallerSimulation": "passed",
+    "predictedAddress": "0x0951D49F60D602d765a1Ef0895f9d6d7aaD0482c",
+    "broadcast": false
+  }
+]

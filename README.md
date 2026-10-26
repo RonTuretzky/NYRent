@@ -8,6 +8,10 @@ immutable pinned key. No committee, no price feed, no trusted server, no ZK cere
 
 **Live app:** https://rentsafe.nyc/
 
+**Residential research:** the [Apartments.com snapshot pilot](experiments/apartments-snapshot/README.md)
+defines a separate residential source architecture, three-area alert experiment and
+offline extractor. It has no settlement-enabled markets and does not change the live office market.
+
 The one-market UI presents September 2026 → September 2027 Manhattan office rent
 protection as **RENT**, with Platform / Insurer / Renter views.
 
@@ -248,3 +252,7 @@ settlement gating and authentic-email preflight; the live identity test self-ski
 `anvil --fork-url https://rpc.gnosischain.com`, impersonates the sponsor, and proves every
 sponsor lever (wrap → exact approve → `fundPool` → `createSeries` → `setSalesPaused` →
 `withdrawExcess`) against the **real forked mainnet contracts** without spending.
+
+### Permissionless creation UI
+
+Use [Create a market](https://rentsafe.nyc/#/create) for the existing office-rent factories or a local residential policy draft. See [release scope and remaining Google Alert verifier work](docs/GOOGLE-ALERT-RELEASE.md). Residential funded policies and Google Alert settlement are not enabled.

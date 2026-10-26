@@ -24,6 +24,7 @@ const NAV_ITEMS: NavItem[] = [
     { to: "/insurer", label: "Insurer" },
   ] },
   { to: "/market-view", label: "Market view" },
+  { to: "/create", label: "Create a market" },
   ...(SHOW_LEGACY_ROUTES
     ? [
         { to: "/markets", label: "Markets" },
@@ -44,6 +45,7 @@ const NAV_ITEMS: NavItem[] = [
 
 /** Route → document title (RentSafe rebrand). */
 const TITLES: [prefix: string, title: string][] = [
+  ["/create", "Create a market or policy"],
   ["/market-view", "Price as a forecast"],
   ["/renter", "For renters"],
   ["/insurer", "For insurers"],
