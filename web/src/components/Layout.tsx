@@ -22,8 +22,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "For renters / insurers", children: [
     { to: "/renter", label: "Renter" },
     { to: "/insurer", label: "Insurer" },
+    { to: "/market-view", label: "Market view" },
   ] },
-  { to: "/market-view", label: "Market view" },
   { to: "/create", label: "Create a market" },
   ...(SHOW_LEGACY_ROUTES
     ? [
