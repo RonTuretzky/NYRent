@@ -125,7 +125,7 @@ export function SubmitAlert() {
                 <StatRow key={r.slug} label={`${neighborhood(r.slug)?.geography ?? r.slug}, ${monthLabel(r.yyyymm)}`} value={`${formatCents(r.cents)}/mo`} />
               ))}
               {outside.length > 0 && <p className="font-parkBody text-xs text-surface-grey-2 mt-2">Skipped (signed outside their month): {outside.map((c) => `${neighborhood(c.slug)?.geography ?? c.slug} ${monthLabel(c.yyyymm)}`).join(", ")}.</p>}
-              {recorded ? (
+              {tx.state.status === "confirmed" ? null : recorded ? (
                 <div className="mt-4"><Notice tone="ok" testId="already-recorded">This exact email is already recorded on-chain. There is nothing to do: the policies for these pages will use it (or an earlier-signed one). <Link className="underline font-bold" to="/policies">Back to policies</Link>.</Notice></div>
               ) : future ? (
                 <div className="mt-4"><Notice tone="warn" testId="future-signature">Google's signing time on this email is more than a day ahead of the network clock, so the contract would reject it as "from the future". Try again after {formatTimestamp(BigInt(prepared.signedAt))}.</Notice></div>
@@ -146,7 +146,7 @@ export function SubmitAlert() {
                       <Notice tone="warn" testId="no-gas">Your wallet has no balance to pay the network fee. Recording costs more than most transactions because the contract checks Google's signature on-chain. <Link className="underline font-bold" to="/policies/guide?tab=renter">How to get a little gas money</Link>.</Notice>
                     ) : (
                       <Button
-                        disabled={!consent || busy || tx.state.status === "confirmed"}
+                        disabled={!consent || busy}
                         isLoading={busy}
                         showChildrenWhenLoading
                         data-testid="alert-submit"
