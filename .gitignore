@@ -13,3 +13,6 @@ e2e/fork/.artifacts/
 e2e/fork-arb/.artifacts/
 out-*/
 cache-*/
+
+# real Google Alert originals: mailbox address + delivery tokens
+fixtures/private/

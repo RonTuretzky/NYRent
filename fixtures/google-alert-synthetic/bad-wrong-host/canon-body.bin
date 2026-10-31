@@ -1,0 +1,29 @@
+--000000000000a9a270065d52604d
+Content-Type: text/plain; charset="UTF-8"; format=flowed; delsp=yes
+
+=== Web - new result for [rent] ===
+
+--000000000000a9a270065d52604d
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+<html> <head> </head> <body> <div> <script data-scope=3D"inboxmarkup" type=
+=3D"application/json">{
+ "api_version": "1.0",
+ "entity": {
+ "title": "Google Alert - rent"
+ },
+ "cards": [ {
+ "title": "Google Alert - rent",
+ "widgets": [ {
+ "type": "LINK",
+ "title": "t",
+ "description": "As of November 2026, the average rent in East Harlem =
+was $3,010/mo.. When you rent an apartment you can expect to pay ...",
+ "url": "https://www.google.com/url?rct=3Dj\u0026sa=3Dt\u0026url=3Dhtt=
+ps://www.apartments.com.evil.example/rent-market-trends/east-harlem-new-yor=
+k-ny/\u0026ct=3Dga\u0026cd=3DSYNTHETIC\u0026usg=3DSYNTHETIC"
+ } ]
+ } ]
+}</script> <div>rent</div> </body> </html>
+--000000000000a9a270065d52604d--
