@@ -108,7 +108,7 @@ contract ApartmentsCoverPoolTest is PoolBase {
 
     function test_cannotBuyOncePolicyMonthStarts() public {
         uint256 id = _create();
-        vm.warp(NOV_START + 1);
+        vm.warp(NOV_START);
         vm.prank(buyer);
         vm.expectRevert(ApartmentsCoverPool.SaleClosed.selector);
         pool.buyProtection(id, 1 ether, type(uint256).max);
@@ -368,7 +368,7 @@ contract PoolHandler is Test {
     }
 
     function buy(uint256 seed, uint128 amount) external {
-        if (ids.length == 0 || block.timestamp > NOV_START) return;
+        if (ids.length == 0 || block.timestamp >= NOV_START) return;
         uint256 id = ids[seed % ids.length];
         ApartmentsCoverPool.Series memory s = pool.series(id);
         if (s.cancelled || s.sold == s.escrow) return;

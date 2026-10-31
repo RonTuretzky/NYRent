@@ -29,7 +29,7 @@ library GoogleAlertParser {
 
     uint256 internal constant MAX_JSON_BYTES = 32 * 1024;
     uint256 internal constant MAX_SLUG_BYTES = 96;
-    uint256 internal constant MAX_WIDGETS = 16;
+    uint256 internal constant MAX_WIDGETS = 32;
 
     bytes internal constant CONTENT_TYPE = 'content-type:multipart/alternative; boundary="';
     bytes internal constant HTML_PART_HEADERS =
@@ -109,8 +109,9 @@ library GoogleAlertParser {
 
         bytes memory next = abi.encodePacked("\r\n--", boundary, "\r\n");
         at = first.length;
-        while (at + next.length <= body.length && !_calldataHasAt(body, at, next)) ++at;
-        if (at + next.length > body.length) revert BadMimeLayout();
+        uint256 last = body.length < next.length ? 0 : body.length - next.length;
+        while (at <= last && (body[at] != 0x0d || !_calldataHasAt(body, at, next))) ++at;
+        if (at > last || body.length < next.length) revert BadMimeLayout();
         at += next.length;
 
         if (!_calldataHasAt(body, at, HTML_PART_HEADERS)) revert BadMimeLayout();
@@ -127,7 +128,7 @@ library GoogleAlertParser {
         return (bytes1(_hex(body[at + 1]) * 16 + _hex(body[at + 2])), at + 3);
     }
 
-    /// @notice Walks the first card's widget array.
+    /// @notice Walks the first card's widget array, reading at most {MAX_WIDGETS}.
     function widgets(bytes memory json) internal pure returns (Result[] memory) {
         uint256 p = _findWidgets(json);
         p = _ws(json, p);
@@ -136,8 +137,7 @@ library GoogleAlertParser {
 
         Result[] memory found = new Result[](MAX_WIDGETS);
         uint256 count;
-        for (uint256 n = 0; ; ++n) {
-            if (n == MAX_WIDGETS) revert MalformedJson();
+        for (uint256 n = 0; n < MAX_WIDGETS; ++n) {
             (bytes memory url, bytes memory description, bool isLink, uint256 afterObject) = _object(json, p);
             (bool ok, Result memory result) = isLink ? _result(url, description) : (false, found[0]);
             if (ok) found[count++] = result;
@@ -384,8 +384,8 @@ library GoogleAlertParser {
 
     function _slice(bytes memory data, uint256 start, uint256 stop) private pure returns (bytes memory out) {
         out = new bytes(stop - start);
-        for (uint256 i = 0; i < out.length; ++i) {
-            out[i] = data[start + i];
+        assembly ("memory-safe") {
+            mcopy(add(out, 0x20), add(add(data, 0x20), start), mload(out))
         }
     }
 }

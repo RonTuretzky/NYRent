@@ -16,3 +16,4 @@ cache-*/
 
 # real Google Alert originals: mailbox address + delivery tokens
 fixtures/private/
+__pycache__/

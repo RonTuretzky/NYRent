@@ -79,6 +79,26 @@ contract GoogleAlertsSyntheticTest is Test {
         assertEq(cents, 250000);
     }
 
+    /// Two different emails signed in one second resolve the same way in either order.
+    function test_sameSecondTieIgnoresSubmissionOrder() public {
+        uint256 snapshot = vm.snapshotState();
+        _submit("ok-single");
+        _submit("ok-same-second");
+        (, uint32 first) = _eh();
+        vm.revertToState(snapshot);
+        _submit("ok-same-second");
+        _submit("ok-single");
+        (, uint32 second) = _eh();
+        assertEq(first, second);
+    }
+
+    /// Only the first 32 widgets are read, and a long email stays recordable.
+    function test_longEmailReadsLeadingWidgets() public {
+        _submit("ok-many-widgets");
+        (, uint32 cents) = _eh();
+        assertEq(cents, 301000);
+    }
+
     function test_multipleWidgetsEachRecordOwnSeries() public {
         _submit("ok-multi");
         (, uint32 eh) = _eh();

@@ -10,8 +10,8 @@ import {YearMonth} from "./YearMonth.sol";
 ///         by on-chain DKIM verification of a Google Alerts email against the pinned
 ///         `20251104._domainkey.google.com` key.
 /// @dev    For every (page, month) only the EARLIEST-signed qualifying value is kept,
-///         so a later email can never replace it and the settlement value does not
-///         depend on submission order. Google's signature attests that Google relayed
+///         with the lower emailId breaking a same-second tie, so a later email can
+///         never replace it and the value does not depend on submission order. Google's signature attests that Google relayed
 ///         a snippet, not that the publisher's figure is true. Key rotation needs a
 ///         new deployment; until then no new email verifies and policies void.
 contract ApartmentsRentOracle {
@@ -106,7 +106,7 @@ contract ApartmentsRentOracle {
 
             bytes32 slugHash = keccak256(r.slug);
             Observation storage o = _earliest[keccak256(abi.encode(slugHash, r.yyyymm))];
-            bool isEarliest = o.t == 0 || tags.t < o.t;
+            bool isEarliest = o.t == 0 || tags.t < o.t || (tags.t == o.t && emailId < o.emailId);
             if (isEarliest) {
                 o.t = tags.t;
                 o.cents = r.cents;

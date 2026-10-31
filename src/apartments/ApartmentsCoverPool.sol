@@ -19,8 +19,8 @@ interface IApartmentsRentOracle {
 ///         {CoverToken} claim units backed by that policy's escrow alone.
 ///
 ///         Lifecycle of a policy on month M:
-///         - sales close at `saleEnd`, on or before the first second of M, so nobody
-///           can buy with a month-M value already published;
+///         - sales close strictly before `saleEnd`, which is at most the first second
+///           of M, so no purchase can share a block second with a month-M signature;
 ///         - any Google Alerts email signed during M and naming M can be recorded in
 ///           {ApartmentsRentOracle} until {SUBMISSION_GRACE} after M ends;
 ///         - then anyone finalizes: the earliest-signed value sets the payout, linear
@@ -144,7 +144,7 @@ contract ApartmentsCoverPool is ReentrancyGuard {
         premium = (maxClaim * s.premiumRateBps) / 1e4;
         rateBps = s.premiumRateBps;
         capacityLeft = s.escrow - s.sold;
-        bool open = !s.cancelled && !seriesPaused[seriesId] && block.timestamp <= s.saleEnd;
+        bool open = !s.cancelled && !seriesPaused[seriesId] && block.timestamp < s.saleEnd;
         issuableNow = open ? capacityLeft : 0;
     }
 
@@ -243,7 +243,7 @@ contract ApartmentsCoverPool is ReentrancyGuard {
         if (msg.sender != s.creator) revert NotCreator();
         if (amount == 0) revert ZeroAmount();
         if (s.cancelled) revert SeriesClosed();
-        if (block.timestamp > s.saleEnd) revert SaleClosed();
+        if (block.timestamp >= s.saleEnd) revert SaleClosed();
         s.escrow += amount;
         currency.safeTransferFrom(msg.sender, address(this), amount);
         emit CapacityAdded(seriesId, msg.sender, amount, s.escrow);
@@ -296,7 +296,7 @@ contract ApartmentsCoverPool is ReentrancyGuard {
         if (maxClaim == 0) revert ZeroAmount();
         if (seriesPaused[seriesId]) revert SalesArePaused();
         if (s.cancelled) revert SeriesClosed();
-        if (block.timestamp > s.saleEnd) revert SaleClosed();
+        if (block.timestamp >= s.saleEnd) revert SaleClosed();
         if (uint256(s.sold) + maxClaim > s.escrow) revert CapacityExceeded();
 
         uint256 premium = (maxClaim * s.premiumRateBps) / 1e4;

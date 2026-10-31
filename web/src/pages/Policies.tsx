@@ -77,7 +77,7 @@ function statusOf(s: SeriesRow, now: bigint) {
   if (s.cancelled) return "Cancelled";
   if (s.settled) return "Settled";
   if (s.voided) return "Void: premiums refundable";
-  if (now <= s.saleEnd) return "On sale";
+  if (now < s.saleEnd) return "On sale";
   if (now > s.redeemEnd) return "Claims closed";
   if (now >= s.finalizeAt) return "Ready to finalize";
   return "Awaiting rent data";
@@ -380,7 +380,7 @@ export function PolicyDetail() {
   const entry = neighborhood(slug);
   const maxClaim = parseCurrency(amount, CURRENCY_DECIMALS) ?? 0n;
   const premium = (maxClaim * BigInt(series.premiumRateBps)) / 10_000n;
-  const onSale = !series.cancelled && now <= series.saleEnd;
+  const onSale = !series.cancelled && now < series.saleEnd;
   const held = claims.data ?? 0n;
   const finalized = series.settled || series.voided;
   const claimable = now >= series.finalizeAt && now <= series.redeemEnd && !series.cancelled;

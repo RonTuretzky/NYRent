@@ -26,8 +26,9 @@ Google Alerts emails verified on-chain. Contracts are ownerless, unupgradeable a
 
 ## Which value counts
 
-For each page and month the **earliest-signed** qualifying email wins. Submission order
-does not matter and a later email cannot replace it. Different values inside a month are
+For each page and month the **earliest-signed** qualifying email wins, and the lower
+body hash breaks a same-second tie. Submission order does not matter and a later email
+cannot replace it. Different values inside a month are
 expected because the page is a rolling snapshot; the first signed value is the rule, not a
 conflict, so a losing side cannot force a void by submitting a second email.
 
@@ -63,8 +64,16 @@ skipped. In the October 2026 archive 30 of 40 Apartments.com results qualified.
   *submitted* email need not be the earliest *sent*. Anyone who cares should run their own
   alert for the page and submit within the seven-day window.
 - **Privacy.** Verification needs the signed headers and whole body, so submitting publishes
-  the recipient address, the alert query and the links in the email, including the
-  unsubscribe link, permanently. Use a mailbox dedicated to these alerts.
+  the recipient address, the alert query and the links in the email permanently. That
+  includes the unsubscribe link, so anyone can then cancel that alert. Use a mailbox
+  dedicated to these alerts and keep more than one running.
+- **Soft deadline.** An earlier-signed email can still change the outcome after `finalizeAt`
+  until someone finalizes. Either side can lock the result from that moment.
+- **Early publication.** If Apartments.com shows a new month before that month starts, buyers
+  can trade on it until sales close. Creators can pause sales or set an earlier close.
+- **Page names.** A sentence naming an area with `'` or `.` cannot match its page, so a
+  policy on such a page voids. Each email is read up to its first 32 results, and very
+  large digests can exceed the block gas limit. Use As-it-happens alerts.
 - **Curated list.** The contract accepts any page slug. The app labels pages outside its
   catalog. Check the page before buying.
 
