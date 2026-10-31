@@ -1,7 +1,7 @@
 # Neighborhood rent policies
 
-Permissionless rent protection on Apartments.com neighborhood pages, settled by
-Google Alerts emails verified on-chain. Contracts are ownerless, unupgradeable and
+Permissionless rent protection on Apartments.com neighborhood pages on Arbitrum One, paid
+in native USDC and settled by Google Alerts emails verified on-chain. Contracts are ownerless, unupgradeable and
 **unaudited**.
 
 | Contract | Role |
@@ -82,7 +82,7 @@ skipped. In the October 2026 archive 30 of 40 Apartments.com results qualified.
 ```sh
 python3 scripts/make-google-alert-fixtures.py ~/path/to/eml-archive   # private fixtures
 forge test --match-path 'test/apartments/*'
-forge script script/DeployApartments.s.sol --rpc-url gnosis --broadcast
+forge script script/DeployApartments.s.sol --rpc-url arbitrum --broadcast
 ```
 
 Addresses live in `web/src/chain/apartments-deployment.json`. Real emails under

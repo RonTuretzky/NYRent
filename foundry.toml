@@ -27,3 +27,4 @@ int_types = "long"
 
 [rpc_endpoints]
 gnosis = "${GNOSIS_RPC_URL}"
+arbitrum = "https://arb1.arbitrum.io/rpc"

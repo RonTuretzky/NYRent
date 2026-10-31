@@ -8,17 +8,17 @@ import {ApartmentsRentOracle} from "../src/apartments/ApartmentsRentOracle.sol";
 import {CoverToken} from "../src/CoverToken.sol";
 import {GoogleAlertKey} from "../src/gen/GoogleAlertKey.sol";
 
-/// @notice Deploys the ownerless Apartments.com oracle, claim token and pool on Gnosis.
-/// @dev    Env: PRIVATE_KEY or DEPLOYER_PRIVATE_KEY. CURRENCY overrides WXDAI for forks.
+/// @notice Deploys the ownerless Apartments.com oracle, claim token and pool on Arbitrum One.
+/// @dev    Env: PRIVATE_KEY or DEPLOYER_PRIVATE_KEY. CURRENCY overrides native USDC for forks.
 contract DeployApartments is Script {
-    address internal constant WXDAI = 0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d;
-    uint8 internal constant DECIMALS = 18;
+    address internal constant NATIVE_USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+    uint8 internal constant DECIMALS = 6;
 
     function run() external returns (ApartmentsRentOracle oracle, CoverToken token, ApartmentsCoverPool pool) {
-        require(block.chainid == 100 || block.chainid == 31337, "gnosis only");
+        require(block.chainid == 42161 || block.chainid == 31337, "arbitrum only");
         uint256 pk = vm.envOr("PRIVATE_KEY", vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0)));
         require(pk != 0, "no deployer key");
-        address currency = vm.envOr("CURRENCY", WXDAI);
+        address currency = vm.envOr("CURRENCY", NATIVE_USDC);
         address deployer = vm.addr(pk);
 
         vm.startBroadcast(pk);

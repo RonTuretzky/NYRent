@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { decodeEventLog, type Address } from "viem";
-import { useAccount, useBalance, useReadContract, useReadContracts } from "wagmi";
+import { useAccount, useReadContract, useReadContracts } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { Button } from "@decentralpark/ui";
 import {
@@ -10,9 +10,9 @@ import {
   APARTMENTS_POOL,
   APARTMENTS_TOKEN,
   CURRENCY_DECIMALS,
-  WRAPPED_NATIVE,
+  POLICY_CURRENCY,
   claimTokenAbi,
-  wrappedNativeAbi,
+  policyCurrencyAbi,
 } from "../chain/apartments";
 import { apartmentsOracleAbi, apartmentsPoolAbi } from "../chain/apartmentsAbi";
 import { DEPLOYMENTS } from "../chain/registry";
@@ -97,45 +97,28 @@ function WalletGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/** Wraps and approves as needed, then shows `children` once `need` is spendable. */
+/** Approves as needed, then shows `children` once `need` is spendable. */
 function FundedAction({ need, children }: { need: bigint; children: React.ReactNode }) {
   const { address } = useAccount();
-  const wrap = useTx({ label: `Wrap ${symbol}` });
   const approve = useTx({ label: `Approve ${symbol}` });
-  const native = useBalance({ address, chainId });
   const balance = useReadContract({
-    address: WRAPPED_NATIVE, abi: wrappedNativeAbi, chainId, functionName: "balanceOf", args: address ? [address] : undefined,
+    address: POLICY_CURRENCY, abi: policyCurrencyAbi, chainId, functionName: "balanceOf", args: address ? [address] : undefined,
   });
   const allowance = useReadContract({
-    address: WRAPPED_NATIVE, abi: wrappedNativeAbi, chainId, functionName: "allowance", args: address ? [address, pool] : undefined,
+    address: POLICY_CURRENCY, abi: policyCurrencyAbi, chainId, functionName: "allowance", args: address ? [address, pool] : undefined,
   });
   const shortfall = need - (balance.data ?? 0n);
   if (need === 0n) return <>{children}</>;
   if (balance.data === undefined || allowance.data === undefined) return <LoadingSkeleton lines={1} />;
   if (shortfall > 0n) {
-    const enough = (native.data?.value ?? 0n) >= shortfall;
-    return (
-      <div className="space-y-2">
-        <p className="font-parkBody text-sm">You need {money(shortfall)} more wrapped balance.</p>
-        <Button
-          disabled={!enough}
-          onClick={async () => {
-            await wrap.send({ abi: wrappedNativeAbi, address: WRAPPED_NATIVE, chainId, functionName: "deposit", value: shortfall, account: address });
-            await balance.refetch();
-          }}
-        >
-          {enough ? "Wrap funds" : "Insufficient balance"}
-        </Button>
-        <TxStatus state={wrap.state} />
-      </div>
-    );
+    return <p className="font-parkBody text-sm" role="alert">You need {money(shortfall)} more in this wallet.</p>;
   }
   if (allowance.data < need) {
     return (
       <div className="space-y-2">
         <Button
           onClick={async () => {
-            await approve.send({ abi: wrappedNativeAbi, address: WRAPPED_NATIVE, chainId, functionName: "approve", args: [pool, need], account: address });
+            await approve.send({ abi: policyCurrencyAbi, address: POLICY_CURRENCY, chainId, functionName: "approve", args: [pool, need], account: address });
             await allowance.refetch();
           }}
         >
