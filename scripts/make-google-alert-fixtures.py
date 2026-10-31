@@ -125,7 +125,7 @@ def synthetic():
     w_mh = widget("Rental Market Trends in Mott Haven - Apartments.com",
                   sentence("November", 2026, "Mott Haven", "2,800"), apt_url(MH))
     w_other = widget("NYC rents - Realtor.com", "Rents in NYC keep rising.", apt_url("nyc", host="www.realtor.com"))
-    fake_json = '"widgets": [ ' + w_eh.replace("3,010", "9,999") + " ]"
+    fake_json = re.sub(r"\s*\n\s*", " ", '"widgets": [ ' + w_eh.replace("3,010", "9,999") + " ]")
     cases = {
         "ok-single": dict(w=[w_eh], t=NOV_T),
         "ok-later-different": dict(w=[w_eh.replace("3,010", "3,500")], t=NOV_T + 86400),

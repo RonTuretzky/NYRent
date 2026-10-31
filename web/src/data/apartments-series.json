@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "status": "research only",
+  "status": "live",
   "series": [
     {
       "seriesId": "apartments-headline-v1:east-harlem-new-york-ny",
@@ -8,11 +8,12 @@
       "url": "https://www.apartments.com/rent-market-trends/east-harlem-new-york-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": true,
-      "settlementEnabled": false
+      "slug": "east-harlem-new-york-ny",
+      "october2026Cents": 295200
     },
     {
       "seriesId": "apartments-headline-v1:mott-haven-bronx-ny",
@@ -20,11 +21,12 @@
       "url": "https://www.apartments.com/rent-market-trends/mott-haven-bronx-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": true,
-      "settlementEnabled": false
+      "slug": "mott-haven-bronx-ny",
+      "october2026Cents": 274700
     },
     {
       "seriesId": "apartments-headline-v1:rego-park-queens-ny",
@@ -32,11 +34,12 @@
       "url": "https://www.apartments.com/rent-market-trends/rego-park-queens-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": true,
-      "settlementEnabled": false
+      "slug": "rego-park-queens-ny",
+      "october2026Cents": 230100
     },
     {
       "seriesId": "apartments-headline-v1:kew-gardens-queens-ny",
@@ -44,11 +47,12 @@
       "url": "https://www.apartments.com/rent-market-trends/kew-gardens-queens-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "kew-gardens-queens-ny",
+      "october2026Cents": 208200
     },
     {
       "seriesId": "apartments-headline-v1:bayside-queens-ny",
@@ -56,11 +60,12 @@
       "url": "https://www.apartments.com/rent-market-trends/bayside-queens-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "bayside-queens-ny",
+      "october2026Cents": 265500
     },
     {
       "seriesId": "apartments-headline-v1:manhattan-valley-new-york-ny",
@@ -68,11 +73,12 @@
       "url": "https://www.apartments.com/rent-market-trends/manhattan-valley-new-york-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "manhattan-valley-new-york-ny",
+      "october2026Cents": 264900
     },
     {
       "seriesId": "apartments-headline-v1:upper-manhattan-new-york-ny",
@@ -80,11 +86,12 @@
       "url": "https://www.apartments.com/rent-market-trends/upper-manhattan-new-york-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "upper-manhattan-new-york-ny",
+      "october2026Cents": 123400
     },
     {
       "seriesId": "apartments-headline-v1:jamaica-estates-queens-ny",
@@ -92,11 +99,12 @@
       "url": "https://www.apartments.com/rent-market-trends/jamaica-estates-queens-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "jamaica-estates-queens-ny",
+      "october2026Cents": 204600
     },
     {
       "seriesId": "apartments-headline-v1:fordham-heights-bronx-ny",
@@ -104,11 +112,12 @@
       "url": "https://www.apartments.com/rent-market-trends/fordham-heights-bronx-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "fordham-heights-bronx-ny",
+      "october2026Cents": 155500
     },
     {
       "seriesId": "apartments-headline-v1:morningside-heights-new-york-ny",
@@ -116,11 +125,12 @@
       "url": "https://www.apartments.com/rent-market-trends/morningside-heights-new-york-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "morningside-heights-new-york-ny",
+      "october2026Cents": 387600
     },
     {
       "seriesId": "apartments-headline-v1:harlem-new-york-ny",
@@ -128,11 +138,12 @@
       "url": "https://www.apartments.com/rent-market-trends/harlem-new-york-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "harlem-new-york-ny",
+      "october2026Cents": 150600
     },
     {
       "seriesId": "apartments-headline-v1:washington-heights-new-york-ny",
@@ -140,11 +151,12 @@
       "url": "https://www.apartments.com/rent-market-trends/washington-heights-new-york-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "washington-heights-new-york-ny",
+      "october2026Cents": 199900
     },
     {
       "seriesId": "apartments-headline-v1:parkchester-bronx-ny",
@@ -152,11 +164,12 @@
       "url": "https://www.apartments.com/rent-market-trends/parkchester-bronx-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "parkchester-bronx-ny",
+      "october2026Cents": 145000
     },
     {
       "seriesId": "apartments-headline-v1:fort-greene-brooklyn-ny",
@@ -164,11 +177,12 @@
       "url": "https://www.apartments.com/rent-market-trends/fort-greene-brooklyn-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "fort-greene-brooklyn-ny",
+      "october2026Cents": 438800
     },
     {
       "seriesId": "apartments-headline-v1:bronx-park-bronx-ny",
@@ -176,11 +190,12 @@
       "url": "https://www.apartments.com/rent-market-trends/bronx-park-bronx-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "bronx-park-bronx-ny",
+      "october2026Cents": 167400
     },
     {
       "seriesId": "apartments-headline-v1:sunset-park-brooklyn-ny",
@@ -188,11 +203,12 @@
       "url": "https://www.apartments.com/rent-market-trends/sunset-park-brooklyn-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "sunset-park-brooklyn-ny",
+      "october2026Cents": 157300
     },
     {
       "seriesId": "apartments-headline-v1:bay-ridge-brooklyn-ny",
@@ -200,11 +216,12 @@
       "url": "https://www.apartments.com/rent-market-trends/bay-ridge-brooklyn-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "bay-ridge-brooklyn-ny",
+      "october2026Cents": 183100
     },
     {
       "seriesId": "apartments-headline-v1:fordham-manor-bronx-ny",
@@ -212,11 +229,12 @@
       "url": "https://www.apartments.com/rent-market-trends/fordham-manor-bronx-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "fordham-manor-bronx-ny",
+      "october2026Cents": 139600
     },
     {
       "seriesId": "apartments-headline-v1:carroll-gardens-brooklyn-ny",
@@ -224,11 +242,12 @@
       "url": "https://www.apartments.com/rent-market-trends/carroll-gardens-brooklyn-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "carroll-gardens-brooklyn-ny",
+      "october2026Cents": 340500
     },
     {
       "seriesId": "apartments-headline-v1:gowanus-brooklyn-ny",
@@ -236,11 +255,12 @@
       "url": "https://www.apartments.com/rent-market-trends/gowanus-brooklyn-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "gowanus-brooklyn-ny",
+      "october2026Cents": 394900
     },
     {
       "seriesId": "apartments-headline-v1:coney-island-brooklyn-ny",
@@ -248,11 +268,12 @@
       "url": "https://www.apartments.com/rent-market-trends/coney-island-brooklyn-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "coney-island-brooklyn-ny",
+      "october2026Cents": 296400
     },
     {
       "seriesId": "apartments-headline-v1:prospect-heights-brooklyn-ny",
@@ -260,11 +281,12 @@
       "url": "https://www.apartments.com/rent-market-trends/prospect-heights-brooklyn-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "prospect-heights-brooklyn-ny",
+      "october2026Cents": 358600
     },
     {
       "seriesId": "apartments-headline-v1:queens-village-queens-ny",
@@ -272,11 +294,12 @@
       "url": "https://www.apartments.com/rent-market-trends/queens-village-queens-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "queens-village-queens-ny",
+      "october2026Cents": 157900
     },
     {
       "seriesId": "apartments-headline-v1:flatbush-ditmas-park-brooklyn-ny",
@@ -284,11 +307,12 @@
       "url": "https://www.apartments.com/rent-market-trends/flatbush-ditmas-park-brooklyn-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "flatbush-ditmas-park-brooklyn-ny",
+      "october2026Cents": 201900
     },
     {
       "seriesId": "apartments-headline-v1:sunnyside-staten-island-staten-island-ny",
@@ -296,11 +320,12 @@
       "url": "https://www.apartments.com/rent-market-trends/sunnyside-staten-island-staten-island-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "sunnyside-staten-island-staten-island-ny",
+      "october2026Cents": 112000
     },
     {
       "seriesId": "apartments-headline-v1:kensington-brooklyn-ny",
@@ -308,11 +333,12 @@
       "url": "https://www.apartments.com/rent-market-trends/kensington-brooklyn-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false
+      "slug": "kensington-brooklyn-ny",
+      "october2026Cents": 201800
     },
     {
       "seriesId": "apartments-headline-v1:financial-district-new-york-ny",
@@ -320,13 +346,13 @@
       "url": "https://www.apartments.com/rent-market-trends/financial-district-new-york-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false,
       "publicPageVerifiedOn": "2026-10-26",
-      "receivedObservationVerified": false
+      "receivedObservationVerified": false,
+      "slug": "financial-district-new-york-ny"
     },
     {
       "seriesId": "apartments-headline-v1:downtown-brooklyn-brooklyn-ny",
@@ -334,13 +360,13 @@
       "url": "https://www.apartments.com/rent-market-trends/downtown-brooklyn-brooklyn-ny/",
       "metric": "publisher headline average rent",
       "periodConvention": "rolling as-of month; not calendar-month average",
-      "currency": "USD (profile assumption; requires approval)",
+      "currency": "USD",
       "unit": "per month",
-      "cohort": "unresolved; do not relabel as all-bedroom or one-bedroom",
+      "cohort": "not specified by the publisher headline",
       "pilot": false,
-      "settlementEnabled": false,
       "publicPageVerifiedOn": "2026-10-26",
-      "receivedObservationVerified": false
+      "receivedObservationVerified": false,
+      "slug": "downtown-brooklyn-brooklyn-ny"
     }
   ]
 }

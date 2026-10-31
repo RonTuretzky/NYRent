@@ -24,6 +24,7 @@ const NAV_ITEMS: NavItem[] = [
     { to: "/insurer", label: "Insurer" },
     { to: "/market-view", label: "Market view" },
   ] },
+  { to: "/policies", label: "Neighborhood policies" },
   { to: "/create", label: "Create a market" },
   ...(SHOW_LEGACY_ROUTES
     ? [

@@ -23,8 +23,8 @@ export async function runPreflight(bytes: Uint8Array): Promise<PreflightReport> 
 }
 
 /** Parse only (throws for non-emails) — used where we need the byte triplet. */
-export async function parseEmailBytes(bytes: Uint8Array): Promise<ParsedEmail> {
-  return parseEml(bytes);
+export async function parseEmailBytes(bytes: Uint8Array, opts: { domain?: string } = {}): Promise<ParsedEmail> {
+  return parseEml(bytes, opts);
 }
 
 export function toHex(bytes: Uint8Array): `0x${string}` {

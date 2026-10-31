@@ -8,7 +8,6 @@ import { V4_DEPLOYMENTS } from "../chain/v4";
 import { RentV4FactoryAbi } from "../chain/v4Abi";
 import { useTx } from "../chain/useTx";
 import { creationTerms, type CreationInput } from "../lib/createMarket";
-import catalog from "../data/apartments-series.json";
 
 const inputClass = "w-full border rounded-lg p-3 bg-white text-black";
 const buttonClass = "border-2 rounded-lg px-5 py-3 font-bold disabled:opacity-40";
@@ -21,16 +20,11 @@ export function CreateMarket() {
   const account = useAccount();
   const tx = useTx({ label: "Create permissionless market" });
   const [mode, setMode] = useState("residential");
-  const [seriesId, setSeriesId] = useState(catalog.series[0].seriesId);
-  const [period, setPeriod] = useState("2026-11");
-  const [hash, setHash] = useState("");
-  const [fileName, setFileName] = useState("");
   const [error, setError] = useState("");
   const [market, setMarket] = useState<{ address: string; chain: number }>();
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [terms, setTerms] = useState<CreationInput>({ low: "95.67", high: "100.32", saleEnd: "2027-08-30", obsStart: "2027-09-01", obsEnd: "2027-10-01", redeemEnd: "2027-10-08" });
-  const series = catalog.series.find(s => s.seriesId === seriesId)!;
   const pending = busy || ["simulating", "wallet", "pending", "stillPending"].includes(tx.state.status);
 
   async function create() {
@@ -57,32 +51,10 @@ export function CreateMarket() {
     finally { setBusy(false); }
   }
 
-  function exportDraft() {
-    const document = { schema: "rentsafe-residential-policy-draft-v1", status: "DRAFT_NOT_DEPLOYED", settlementEnabled: false, series, asOfMonth: period, evidence: hash ? { sha256: hash, authentication: "NOT_VERIFIED" } : null, proposedFinalization: "All accepted submissions for this series and month must agree by a fixed deadline. Conflicts or absent data prevent price finalization.", unresolved: ["Production Google DKIM verifier and key policy", "Cohort definition", "Commitment and challenge deadlines", "No-data and conflict payout rules, including secondary holders"] };
-    const url = URL.createObjectURL(new Blob([JSON.stringify(document, null, 2)], { type: "application/json" }));
-    const a = window.document.createElement("a"); a.href = url; a.download = "rentsafe-policy-draft.json"; a.click(); URL.revokeObjectURL(url);
-  }
-
   return <div className="max-w-3xl mx-auto space-y-6 pb-12">
-    <div><p className="font-bold">Permissionless participation</p><h1 className="text-4xl font-bold mt-2">Create a market or policy</h1><p className="mt-4">Anyone can create an onchain office-rent market. Residential Google Alert policies are currently drafts while their settlement verifier is being built.</p></div>
-    <label className="block">Market type<select className={inputClass} value={mode} onChange={e => { setMode(e.target.value); setAccepted(false); setError(""); }}><option value="residential">Residential · Google Alerts · draft</option><option value="office">Office · CRE Daily · live contracts</option></select></label>
-    {mode === "residential" ? <>
-      <Card><h2 className="text-2xl font-bold">Neighborhood policy builder</h2><p className="my-3">Choose a publisher series, then prepare a policy and evidence commitment. This does not create a funded policy or publish your email.</p>
-      <label className="block my-4">Neighborhood<select className={inputClass} value={seriesId} onChange={e => setSeriesId(e.target.value)}>{catalog.series.map(s => <option key={s.seriesId} value={s.seriesId}>{s.geography} · {s.seriesId.split(":")[1]}</option>)}</select></label>
-      <a href={series.url} target="_blank" rel="noreferrer" className="underline">Apartments.com source page</a>
-      <p className="my-3">Metric: publisher headline average rent. Rolling as-of month; not a calendar-month average. Bedroom cohort remains unresolved.</p>
-      <label className="block my-4">As-of month<input className={inputClass} type="month" value={period} onChange={e => setPeriod(e.target.value)} /></label>
-      <label className="block my-4">Original Google Alert (.eml)<input className={inputClass} type="file" accept=".eml,message/rfc822" onChange={async e => {
-        const file = e.target.files?.[0]; setHash(""); setFileName(""); setError("");
-        if (!file) return;
-        if (file.size > 10 * 1024 * 1024) { setError("Choose an original smaller than 10 MB."); return; }
-        try { const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer()); setHash(Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("")); setFileName(file.name); }
-        catch { setError("Could not fingerprint this file. No proof was submitted."); }
-      }} /></label>
-      {hash && <p className="break-all text-sm">Local fingerprint for {fileName}: {hash}<br /><strong>Authentication not verified. Nothing uploaded.</strong></p>}
-      <button className={buttonClass} disabled={!/^20\d\d-(0[1-9]|1[0-2])$/.test(period)} onClick={exportDraft}>Download policy draft</button></Card>
-      <Card><h2 className="text-2xl font-bold">Who can submit proof?</h2><p className="mt-3">The intended protocol accepts submissions from anyone. A valid Google signature alone is insufficient: the accepted result must bind the exact publisher URL, neighborhood, month, statistic and value required by the policy. Alert queries and titles cannot supply a price.</p><p className="mt-3">Google authenticates the relay email, not the publisher’s own signature or the truth of its data. Production proof submission and residential settlement are not enabled in this release.</p></Card>
-    </> : <Card><h2 className="text-2xl font-bold">Create an office-rent market</h2><p className="my-3">This uses the existing ownerless factory on {chainId === 137 ? "Polygon" : chainId === 42161 ? "Arbitrum" : "the selected network"}. No allowlist or operator approval. Its oracle measures Manhattan office effective rent in dollars per square foot, from CRE Daily / CompStak. Google Alerts cannot settle this market.</p>
+    <div><p className="font-bold">Permissionless participation</p><h1 className="text-4xl font-bold mt-2">Create a market or policy</h1><p className="mt-4">Anyone can create an onchain office-rent market. Residential Google Alert policies are funded separately while their settlement verifier is being built.</p></div>
+    <label className="block">Market type<select className={inputClass} value={mode} onChange={e => { setMode(e.target.value); setAccepted(false); setError(""); }}><option value="residential">Residential · Google Alerts</option><option value="office">Office · CRE Daily · live contracts</option></select></label>
+    {mode === "residential" ? <Card><h2 className="text-2xl font-bold">Neighborhood rent policies</h2><p className="my-3">Create a funded policy on an Apartments.com neighborhood page. The first Google-signed alert in the policy month decides the payout, and with no alert premiums and escrow are returned.</p><Link className="underline font-bold" to="/policies/new">Create a neighborhood policy</Link></Card> : <Card><h2 className="text-2xl font-bold">Create an office-rent market</h2><p className="my-3">This uses the existing ownerless factory on {chainId === 137 ? "Polygon" : chainId === 42161 ? "Arbitrum" : "the selected network"}. No allowlist or operator approval. Its oracle measures Manhattan office effective rent in dollars per square foot, from CRE Daily / CompStak. Google Alerts cannot settle this market.</p>
       <div className="grid sm:grid-cols-2 gap-4">{([ ["low", "Zero payout strike ($/SF)"], ["high", "Full payout strike ($/SF)"], ["saleEnd", "Trading closes (UTC)"], ["obsStart", "Observation starts (UTC)"], ["obsEnd", "Observation ends (UTC)"], ["redeemEnd", "Redemption ends (UTC)"] ] as [keyof CreationInput, string][]).map(([key, label]) => <label key={key}>{label}<input className={inputClass} type={key === "low" || key === "high" ? "text" : "date"} value={terms[key]} onChange={e => { setTerms({ ...terms, [key]: e.target.value }); setAccepted(false); }} /></label>)}</div>
       <p className="my-4">The first eligible oracle observation fixes a linear payout between the strikes. If no observation arrives, holders receive no payout; after redemption closes, residual collateral belongs to the original depositors. Creation initializes an empty pool at 1 USDC per RENT; this is not an executable quote. Funding and liquidity require separate transactions.</p>
       <label className="flex gap-3 my-4"><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />I reviewed these immutable terms, the office-only data source and the no-observation outcome.</label>
