@@ -31,9 +31,9 @@ for (const width of WIDTHS) {
       await expectNoHorizontalScroll(page);
 
       const small = await page.evaluate(() => {
-        const sel = "main button, main a[data-testid], main input:not([type=checkbox]), main select, main [role=tab], main label:has(input[type=checkbox])";
+        const sel = "main button, main a[data-testid], main input:not([type=checkbox]), main select, main [role=tab], main label:has(input[type=checkbox]), header nav a, header nav button";
         return Array.from(document.querySelectorAll<HTMLElement>(sel))
-          .filter((el) => el.offsetParent !== null)
+          .filter((el) => el.offsetParent !== null && !el.closest('[data-testid^="rk-"]'))
           .map((el) => ({ tag: el.tagName, text: (el.textContent ?? "").trim().slice(0, 40), h: el.getBoundingClientRect().height, w: el.getBoundingClientRect().width }))
           .filter((r) => r.h < 44 || r.w < 44);
       });
@@ -51,6 +51,7 @@ for (const width of WIDTHS) {
       // Live regions are real roles, not just styling: the risk notice on the create page is one.
       if (name === "create") expect(await page.locator("main [role=alert], main [role=status]").count()).toBeGreaterThan(0);
 
+      await expect(page.getByRole("region", { name: /newsletters/i })).toHaveCount(0);
       await shot(page, `r-${width}-${name}`);
     }
 

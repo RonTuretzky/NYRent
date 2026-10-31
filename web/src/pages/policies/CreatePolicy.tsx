@@ -1,72 +1,96 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { decodeEventLog } from "viem";
 import { Button } from "@decentralpark/ui";
 import { APARTMENTS_POOL, CURRENCY_DECIMALS } from "../../chain/apartments";
 import { apartmentsPoolAbi } from "../../chain/apartmentsAbi";
-import { formatCents, formatTimestamp } from "../../chain/format";
-import { useTx } from "../../chain/useTx";
+import { formatCents, formatTimestamp, nowSec } from "../../chain/format";
 import { Card, StatRow } from "../../components/States";
 import { TxStatus } from "../../components/TxStatus";
-import { DEFAULT_CLAIM_SECONDS, SUBMISSION_GRACE_SECONDS, monthBounds, monthLabel } from "../../lib/googleAlert";
-import { CREATOR_STEPS, buyExample, creatorExample, pageUrl, parseAmount, parsePremiumPercent, parseRentDollars } from "../../lib/policy";
+import { DEFAULT_CLAIM_SECONDS, SUBMISSION_GRACE_SECONDS, monthLabel } from "../../lib/googleAlert";
+import {
+  CREATOR_STEPS, TWO_DAYS, buyExample, creatorExample, defaultMonth, humanDelta, monthBoundsOf, monthOptions, pageUrl, parseAmount,
+  parsePremiumPercent, parseRentDollars, premiumProblem,
+} from "../../lib/policy";
 import catalog from "../../data/apartments-series.json";
 import {
-  ActionFailureHint, FundedAction, KeyDates, NotDeployed, Notice, RiskNotice, StepBar, WalletGate, chainId, inputClass, money, neighborhood,
-  networkName, pool, symbol, txBusy, txOpts, useLock, useNow, useWalletFunds,
+  ActionFailureHint, FundedAction, KeyDates, NotDeployed, Notice, PrimaryLink, RiskNotice, StepBar, WalletGate, chainId, inputClass, money,
+  neighborhood, networkName, pool, symbol, txBusy, txOpts, useLock, useNow, usePolicyTx, useResumedTxs, useWalletFunds, type ReceiptLike,
 } from "./shared";
 
 type Entry = (typeof catalog.series)[number] & { october2026Cents?: number };
 
-function nextMonths(count: number, now: bigint) {
-  const d0 = new Date(Number(now) * 1000);
-  return Array.from({ length: count }, (_, i) => {
-    const d = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + 1 + i, 1));
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-  });
+function createdId(logs: ReceiptLike["logs"]): bigint | undefined {
+  for (const log of logs) {
+    try {
+      const event = decodeEventLog({ abi: apartmentsPoolAbi, data: log.data, topics: log.topics as [`0x${string}`] });
+      if (event.eventName === "SeriesCreated" && event.args) return (event.args as { seriesId: bigint }).seriesId;
+    } catch {
+      // not a pool event
+    }
+  }
+  return undefined;
 }
+
+const RESUME_KEYS = ["create"];
 
 export function CreatePolicy() {
   const navigate = useNavigate();
   const now = useNow();
-  const tx = useTx({ label: "Create policy" });
+  const tx = usePolicyTx({ label: "Create policy", key: "create" });
   const lock = useLock();
-  const months = useMemo(() => nextMonths(6, now), [now]);
+  const options = useMemo(() => monthOptions(now), [now]);
   const first = catalog.series[0] as Entry;
   const baseline = (c?: number) => Math.round((c ?? 0) / 100);
   const [slug, setSlug] = useState(first.slug);
-  const [month, setMonth] = useState(months[0]);
+  const [month, setMonth] = useState(() => defaultMonth(monthOptions(nowSec())));
   const [low, setLow] = useState(String(Math.round(baseline(first.october2026Cents) * 1.03)));
   const [high, setHigh] = useState(String(Math.round(baseline(first.october2026Cents) * 1.1)));
   const [premium, setPremium] = useState("10");
   const [capacity, setCapacity] = useState("100");
   const [accepted, setAccepted] = useState(false);
   const [touched, setTouched] = useState(false);
+  const resumed = useResumedTxs(RESUME_KEYS, (_key, status, receipt) => {
+    const created = status === "confirmed" && receipt ? createdId(receipt.logs) : undefined;
+    if (created !== undefined) navigate(`/policies/${created}`);
+  });
+
+  // The month list rolls over as time passes: never leave a month selected
+  // that the dropdown no longer offers.
+  useEffect(() => {
+    if (!options.some((o) => o.value === month)) setMonth(defaultMonth(options));
+  }, [options, month]);
 
   const entry = neighborhood(slug) as Entry | undefined;
   const lowP = parseRentDollars(low, "starting rent");
   const highP = parseRentDollars(high, "full-payout rent");
   const premP = parsePremiumPercent(premium);
   const capP = parseAmount(capacity, CURRENCY_DECIMALS, "escrow");
-  const obsMonth = Number(month.replace("-", ""));
-  const { start, end } = monthBounds(obsMonth);
+  const selected = options.find((o) => o.value === month) ?? options[0];
+  const obsMonth = selected.yyyymm;
+  const { start, end } = monthBoundsOf(obsMonth);
   const problems: string[] = [];
   if (!lowP.ok) problems.push(lowP.error);
   if (!highP.ok) problems.push(highP.error);
   if (lowP.ok && highP.ok && highP.value <= lowP.value) problems.push("The full-payout rent must be above the starting rent.");
   if (!premP.ok) problems.push(premP.error);
   if (!capP.ok) problems.push(capP.error);
-  if (BigInt(start) <= now) problems.push("That month has already started, so sales could never open. Choose a later month.");
+  if (premP.ok && capP.ok) {
+    const rounding = premiumProblem(capP.value, premP.value);
+    if (rounding) problems.push(rounding);
+  }
+  if (start <= now) problems.push("That month has already started, so sales could never open. Choose a later month.");
   const valid = problems.length === 0 && lowP.ok && highP.ok && premP.ok && capP.ok;
   const capacityWei = capP.ok ? capP.value : 0n;
-  const finalizeAt = end + 1 + SUBMISSION_GRACE_SECONDS;
-  const terms = { saleEnd: BigInt(start), finalizeAt: BigInt(finalizeAt), redeemEnd: BigInt(finalizeAt + DEFAULT_CLAIM_SECONDS), obsMonth };
+  const premiumPct = premP.ok ? premP.value / 100 : 0;
+  const finalizeAt = end + 1n + BigInt(SUBMISSION_GRACE_SECONDS);
+  const terms = { saleEnd: start, finalizeAt, redeemEnd: finalizeAt + BigInt(DEFAULT_CLAIM_SECONDS), obsMonth };
   const funds = useWalletFunds(accepted && valid ? capacityWei : 0n);
-  const busy = txBusy(tx.state);
+  const busy = txBusy(tx.state) || resumed.busy;
+  const shortSale = selected.salesLeft < TWO_DAYS;
 
-  const step = !accepted ? (touched ? 2 : 1)
+  const current = !accepted ? (touched ? 2 : 1)
     : funds.stage === "connect" || funds.stage === "network" || funds.stage === "noGas" || funds.stage === "noFunds" ? 3
-    : funds.stage === "approve" ? 4
     : tx.state.status === "confirmed" ? 5 : 4;
 
   function pick(next: string) {
@@ -88,14 +112,8 @@ export function CreatePolicy() {
       await funds.refetch();
       return;
     }
-    for (const log of result.receipt?.logs ?? []) {
-      try {
-        const event = decodeEventLog({ abi: apartmentsPoolAbi, data: log.data, topics: log.topics as [`0x${string}`] });
-        if (event.eventName === "SeriesCreated" && event.args) navigate(`/policies/${event.args.seriesId}`, { state: { created: true } });
-      } catch {
-        // not a pool event
-      }
-    }
+    const created = createdId(result.receipt.logs);
+    if (created !== undefined) navigate(`/policies/${created}`, { state: { created: true } });
   }
 
   if (!APARTMENTS_POOL) return <NotDeployed />;
@@ -106,9 +124,10 @@ export function CreatePolicy() {
       <div>
         <p className="font-parkBody font-bold">For underwriters</p>
         <h1 className="font-parkHeading text-3xl sm:text-4xl mt-2">Create a rent policy</h1>
-        <p className="font-parkBody text-sm mt-2">You put up the money renters can claim and earn a premium on every sale. <Link className="underline font-bold text-core-green" to="/policies/guide?tab=creator">Read the creator guide</Link> first if this is new to you.</p>
+        <p className="font-parkBody text-sm mt-2">You put up the money renters can claim and earn a premium on every sale. <PrimaryLink to="/policies/guide?tab=creator">Read the creator guide</PrimaryLink> first if this is new to you.</p>
       </div>
-      <Card><StepBar steps={CREATOR_STEPS} current={step} title="Create a policy" /></Card>
+      {resumed.node}
+      <Card><StepBar steps={CREATOR_STEPS} view={{ current }} title="Create a policy" /></Card>
       <Card>
         <h2 className="font-parkHeading text-2xl mb-3">1. Terms</h2>
         <label className="block font-parkBody mb-4">
@@ -124,11 +143,16 @@ export function CreatePolicy() {
         <label className="block font-parkBody my-4">
           Policy month
           <select className={inputClass} value={month} onChange={(e) => setMonth(e.target.value)} data-testid="policy-month">
-            {months.map((m) => <option key={m} value={m}>{monthLabel(Number(m.replace("-", "")))}</option>)}
+            {options.map((m) => <option key={m.value} value={m.value}>{monthLabel(m.yyyymm)}</option>)}
           </select>
-          <span className="block font-parkBody text-xs text-surface-grey-2 mt-1">The first Google Alert signed during this month that names it sets the rent. Sales close when the month starts.</span>
+          <span className="block font-parkBody text-xs text-surface-grey-2 mt-1">The first Google Alert signed during this month that names it sets the rent. Sales close when the month starts: {formatTimestamp(selected.start)} ({humanDelta(selected.start, now)}).</span>
         </label>
-        <div className="grid sm:grid-cols-2 gap-4">
+        {shortSale && (
+          <Notice tone="warn" testId="short-sale-warning">
+            Sales for {monthLabel(obsMonth)} close {humanDelta(selected.start, now)}. Few people may be able to buy before then; a later month gives the policy time to sell.
+          </Notice>
+        )}
+        <div className="grid sm:grid-cols-2 gap-4 mt-4">
           <label className="block font-parkBody">Payout starts above ($/mo)<input className={inputClass} inputMode="decimal" value={low} onChange={(e) => { setLow(e.target.value); setTouched(true); }} data-testid="policy-low" aria-invalid={!lowP.ok} /></label>
           <label className="block font-parkBody">Full payout at ($/mo)<input className={inputClass} inputMode="decimal" value={high} onChange={(e) => { setHigh(e.target.value); setTouched(true); }} data-testid="policy-high" aria-invalid={!highP.ok} /></label>
           <label className="block font-parkBody">Premium (% of max payout)<input className={inputClass} inputMode="decimal" value={premium} onChange={(e) => { setPremium(e.target.value); setTouched(true); }} data-testid="policy-premium" aria-invalid={!premP.ok} /></label>
@@ -141,11 +165,17 @@ export function CreatePolicy() {
 
       <Card>
         <h2 className="font-parkHeading text-2xl mb-3">2. What you are offering</h2>
-        {example && creator && lowP.ok && highP.ok ? (
+        {example && creator && lowP.ok && highP.ok && premP.ok ? (
           <div className="space-y-3" data-testid="worked-example">
-            <p className="font-parkBody text-sm leading-relaxed">
-              Buyers pay <strong>{money(example.premium)}</strong> in total if all {money(capacityWei)} sells ({premium || 0}% of their maximum payout). Then, once the {monthLabel(obsMonth)} rent is recorded:
-            </p>
+            {premP.value === 0 ? (
+              <Notice tone="warn" testId="zero-premium">
+                Premium is <strong>0%</strong>: buyers pay nothing and you earn nothing. You would be giving away up to {money(capacityWei)} of protection for free and only take on the risk.
+              </Notice>
+            ) : (
+              <p className="font-parkBody text-sm leading-relaxed">
+                Buyers pay <strong>{money(example.premium)}</strong> in total if all {money(capacityWei)} sells ({premiumPct}% of their maximum payout). Then, once the {monthLabel(obsMonth)} rent is recorded:
+              </p>
+            )}
             <ul className="font-parkBody text-sm list-disc pl-5 space-y-1 leading-relaxed">
               <li>Rent at or above <strong>{formatCents(highP.value)}</strong>: buyers claim the full {money(capacityWei)}.</li>
               <li>Rent of <strong>{formatCents(example.midCents)}</strong>: buyers claim {money(example.midPayout)}; the rest comes back to you.</li>
@@ -178,11 +208,11 @@ export function CreatePolicy() {
                 <Button
                   data-testid="policy-create"
                   disabled={busy || tx.state.status === "confirmed"}
-                  isLoading={busy}
+                  isLoading={txBusy(tx.state)}
                   showChildrenWhenLoading
                   onClick={() => void lock(create)}
                 >
-                  {busy ? "Creating…" : `Create and escrow ${money(capacityWei)}`}
+                  {txBusy(tx.state) ? "Creating…" : `Create and escrow ${money(capacityWei)}`}
                 </Button>
               </FundedAction>
             ) : (

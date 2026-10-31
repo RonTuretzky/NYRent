@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { type Address } from "viem";
 import { useReadContract } from "wagmi";
@@ -6,13 +6,15 @@ import { Button } from "@decentralpark/ui";
 import { APARTMENTS_ORACLE, APARTMENTS_POOL } from "../../chain/apartments";
 import { apartmentsOracleAbi } from "../../chain/apartmentsAbi";
 import { formatCents, formatTimestamp } from "../../chain/format";
-import { useTx } from "../../chain/useTx";
 import { Card, StatRow } from "../../components/States";
 import { TxStatus } from "../../components/TxStatus";
 import { parseEmailBytes, toHex } from "../../emailkit/bridge";
 import { extractAlertCandidates, monthLabel, publishedRecipient, signedInsideMonth, type AlertResult } from "../../lib/googleAlert";
-import { RECORDER_STEPS, fileProblem } from "../../lib/policy";
-import { ActionFailureHint, NotDeployed, Notice, StepBar, WalletGate, chainId, inputClass, neighborhood, txBusy, txOpts, useLock, useNow, useWalletFunds } from "./shared";
+import { RECORDER_STEPS, fileProblem, policiesFor, recorderStep, type PolicyRef } from "../../lib/policy";
+import {
+  ActionFailureHint, NotDeployed, Notice, PrimaryLink, StepBar, WalletGate, chainId, inputClass, neighborhood, txBusy, txOpts, useLock, useNow,
+  usePolicyRefs, usePolicyTx, useResumedTxs, useWalletFunds,
+} from "./shared";
 
 interface Prepared {
   fileName: string;
@@ -25,21 +27,26 @@ interface Prepared {
   candidates: AlertResult[];
 }
 
+const RESUME_KEYS = ["record"];
+
 export function SubmitAlert() {
   const now = useNow();
   const funds = useWalletFunds(0n);
-  const tx = useTx({ label: "Record rent" });
+  const tx = usePolicyTx({ label: "Record rent", key: "record" });
   const lock = useLock();
   const input = useRef<HTMLInputElement>(null);
   const [prepared, setPrepared] = useState<Prepared>();
   const [error, setError] = useState("");
   const [reading, setReading] = useState(false);
   const [consent, setConsent] = useState(false);
-  useEffect(() => setConsent(false), [prepared]);
+  const [publishAnyway, setPublishAnyway] = useState(false);
+  useEffect(() => { setConsent(false); setPublishAnyway(false); }, [prepared]);
   const already = useReadContract({
     address: APARTMENTS_ORACLE as Address, abi: apartmentsOracleAbi, chainId, functionName: "recorded",
     args: prepared ? [prepared.emailId] : undefined, query: { enabled: Boolean(prepared && APARTMENTS_ORACLE) },
   });
+  const policies = usePolicyRefs();
+  const resumed = useResumedTxs(RESUME_KEYS, () => void already.refetch());
 
   async function load(file: File | undefined) {
     setPrepared(undefined);
@@ -70,13 +77,23 @@ export function SubmitAlert() {
     }
   }
 
-  if (!APARTMENTS_POOL) return <NotDeployed />;
-  const qualifying = prepared?.candidates.filter((c) => signedInsideMonth(c.yyyymm, prepared.signedAt)) ?? [];
+  const qualifying = useMemo(() => prepared?.candidates.filter((c) => signedInsideMonth(c.yyyymm, prepared.signedAt)) ?? [], [prepared]);
   const outside = prepared?.candidates.filter((c) => !signedInsideMonth(c.yyyymm, prepared.signedAt)) ?? [];
+  const matches = useMemo(() => {
+    if (!policies.refs) return undefined;
+    const seen = new Map<string, PolicyRef & { result: AlertResult }>();
+    for (const r of qualifying) for (const p of policiesFor(r, policies.refs)) seen.set(String(p.id), { ...p, result: r });
+    return [...seen.values()].sort((a, b) => Number(a.id - b.id));
+  }, [policies.refs, qualifying]);
+
+  if (!APARTMENTS_POOL) return <NotDeployed />;
   const future = prepared ? prepared.signedAt > Number(now) + 86_400 : false;
   const recorded = already.data === true;
-  const step = tx.state.status === "confirmed" ? 5 : prepared && qualifying.length > 0 ? (consent ? 4 : 3) : 2;
-  const busy = txBusy(tx.state);
+  const confirmed = tx.state.status === "confirmed";
+  const view = recorderStep({ hasFile: Boolean(prepared) || Boolean(error), parseFailed: Boolean(error), qualifying: qualifying.length > 0, consent, confirmed });
+  const busy = txBusy(tx.state) || resumed.busy;
+  const noneMatch = matches !== undefined && matches.length === 0;
+  const canPublish = consent && (!noneMatch || publishAnyway) && matches !== undefined;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12 min-w-0">
@@ -84,10 +101,11 @@ export function SubmitAlert() {
         <p className="font-parkBody font-bold">For anyone</p>
         <h1 className="font-parkHeading text-3xl sm:text-4xl mt-2">Record a month's rent</h1>
         <p className="font-parkBody text-sm mt-2 leading-relaxed">
-          Upload the original Google Alert email (.eml) for an Apartments.com neighborhood page. Your browser reads it here first and shows what the contract would record; nothing leaves your computer until you click publish. <Link className="underline font-bold text-core-green" to="/policies/guide?tab=record">Set up the alert and download the .eml</Link>.
+          Upload the original Google Alert email (.eml) for an Apartments.com neighborhood page. Your browser reads it here first and shows what the contract would record; nothing leaves your computer until you click publish. <PrimaryLink to="/policies/guide?tab=record">Set up the alert and download the .eml</PrimaryLink>.
         </p>
       </div>
-      <Card><StepBar steps={RECORDER_STEPS} current={step} title="Record a rent" /></Card>
+      {resumed.node}
+      <Card><StepBar steps={RECORDER_STEPS} view={view} title="Record a rent" /></Card>
       <Card>
         <h2 className="font-parkHeading text-2xl mb-3">Upload the .eml</h2>
         <label className="block font-parkBody">
@@ -125,8 +143,31 @@ export function SubmitAlert() {
                 <StatRow key={r.slug} label={`${neighborhood(r.slug)?.geography ?? r.slug}, ${monthLabel(r.yyyymm)}`} value={`${formatCents(r.cents)}/mo`} />
               ))}
               {outside.length > 0 && <p className="font-parkBody text-xs text-surface-grey-2 mt-2">Skipped (signed outside their month): {outside.map((c) => `${neighborhood(c.slug)?.geography ?? c.slug} ${monthLabel(c.yyyymm)}`).join(", ")}.</p>}
-              {tx.state.status === "confirmed" ? null : recorded ? (
-                <div className="mt-4"><Notice tone="ok" testId="already-recorded">This exact email is already recorded on-chain. There is nothing to do: the policies for these pages will use it (or an earlier-signed one). <Link className="underline font-bold" to="/policies">Back to policies</Link>.</Notice></div>
+              <div className="mt-3">
+                {matches === undefined ? (
+                  <p className="font-parkBody text-sm" role="status">{policies.failed ? "Could not check which policies this settles; the network is unreachable." : "Checking which policies this would settle…"}</p>
+                ) : matches.length > 0 ? (
+                  <Notice tone="info" testId="matching-policies">
+                    <p className="font-bold">This rent would settle {matches.length === 1 ? "one policy" : `${matches.length} policies`}:</p>
+                    <ul className="list-disc pl-5 mt-1">
+                      {matches.map((m) => (
+                        <li key={String(m.id)}>
+                          <Link className="underline font-bold inline-flex min-h-11 items-center" to={`/policies/${m.id}`} data-testid={`matching-policy-${m.id}`}>
+                            Policy #{String(m.id)}: {neighborhood(m.result.slug)?.geography ?? m.result.slug}, {monthLabel(m.obsMonth)}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </Notice>
+                ) : (
+                  <Notice tone="warn" testId="no-matching-policies">
+                    <p className="font-bold">No policy here uses {qualifying.map((r) => `${neighborhood(r.slug)?.geography ?? r.slug} for ${monthLabel(r.yyyymm)}`).join(" or ")}.</p>
+                    <p className="mt-1">Recording this helps no one yet: it only publishes the email permanently. Someone could still open a matching policy later, but there is no reason to publish now unless you want the value on record anyway.</p>
+                  </Notice>
+                )}
+              </div>
+              {confirmed ? null : recorded ? (
+                <div className="mt-4"><Notice tone="ok" testId="already-recorded">This exact email is already recorded on-chain. There is nothing to do: the policies for these pages will use it (or an earlier-signed one). <PrimaryLink to="/policies">Back to policies</PrimaryLink>.</Notice></div>
               ) : future ? (
                 <div className="mt-4"><Notice tone="warn" testId="future-signature">Google's signing time on this email is more than a day ahead of the network clock, so the contract would reject it as "from the future". Try again after {formatTimestamp(BigInt(prepared.signedAt))}.</Notice></div>
               ) : (
@@ -141,12 +182,18 @@ export function SubmitAlert() {
                     <input type="checkbox" className="h-5 w-5 shrink-0" checked={consent} onChange={(e) => setConsent(e.target.checked)} data-testid="alert-consent" />
                     <span>I understand this publishes the email permanently and I want to record this rent.</span>
                   </label>
+                  {noneMatch && (
+                    <label className="flex gap-3 my-4 font-parkBody min-h-11 items-center">
+                      <input type="checkbox" className="h-5 w-5 shrink-0" checked={publishAnyway} onChange={(e) => setPublishAnyway(e.target.checked)} data-testid="publish-anyway" />
+                      <span>I know no policy uses this rent yet and I want to publish anyway.</span>
+                    </label>
+                  )}
                   <WalletGate why="to pay the network fee for recording">
                     {funds.stage === "noGas" ? (
-                      <Notice tone="warn" testId="no-gas">Your wallet has no balance to pay the network fee. Recording costs more than most transactions because the contract checks Google's signature on-chain. <Link className="underline font-bold" to="/policies/guide?tab=renter">How to get a little gas money</Link>.</Notice>
+                      <Notice tone="warn" testId="no-gas">Your wallet has no balance to pay the network fee. Recording costs more than most transactions because the contract checks Google's signature on-chain. <PrimaryLink to="/policies/guide?tab=renter">How to get a little gas money</PrimaryLink>.</Notice>
                     ) : (
                       <Button
-                        disabled={!consent || busy}
+                        disabled={!canPublish || busy}
                         isLoading={busy}
                         showChildrenWhenLoading
                         data-testid="alert-submit"
@@ -169,8 +216,8 @@ export function SubmitAlert() {
           <div className="mt-3 space-y-2">
             <TxStatus state={tx.state} />
             <ActionFailureHint state={tx.state} />
-            {tx.state.status === "confirmed" && (
-              <Notice tone="ok" testId="recorded-ok">Recorded. If an earlier-signed email for the same page and month exists, that one wins instead. Seven days after the month ends, anyone can finalize from the <Link className="underline font-bold" to="/policies">policy page</Link>; claiming finalizes automatically.</Notice>
+            {confirmed && (
+              <Notice tone="ok" testId="recorded-ok">Recorded. If an earlier-signed email for the same page and month exists, that one wins instead. Seven days after the month ends, anyone can finalize from the {matches && matches.length > 0 ? <Link className="underline font-bold" to={`/policies/${matches[0].id}`}>policy page</Link> : <Link className="underline font-bold" to="/policies">policy page</Link>}; claiming finalizes automatically.</Notice>
             )}
           </div>
         </Card>

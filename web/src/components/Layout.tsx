@@ -5,6 +5,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Footer, Logo } from "@decentralpark/ui";
 import { CaretDownIcon, ListIcon, XIcon } from "@phosphor-icons/react";
 import { DEPLOYMENTS, useActiveDeployment } from "../chain/registry";
+import { APARTMENTS_CHAIN_ID } from "../chain/apartments";
 import { NotDeployedBanner, WrongNetworkBanner } from "./Banners";
 import { Toasts } from "./Toasts";
 import { SourceGallery } from "./SourceGallery";
@@ -86,7 +87,7 @@ function usePageTitle() {
 }
 
 const navClass = (active: boolean, mobile = false) =>
-  `font-parkBody ${mobile ? "text-base px-3 py-3 min-h-12" : "text-sm px-1 py-2"} whitespace-nowrap border-b-2 transition-colors rounded-t-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-core-green ${
+  `font-parkBody ${mobile ? "text-base px-3 py-3 min-h-12" : "text-sm px-1 py-2 min-h-11 min-w-11 inline-flex items-center justify-center"} whitespace-nowrap border-b-2 transition-colors rounded-t-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-core-green ${
     active ? "border-core-green text-core-green font-bold" : "border-transparent text-text-standard hover:text-core-green"
   }`;
 
@@ -234,12 +235,15 @@ function ChainLogo({ chainId }: { chainId: number }) {
  * when a wallet is connected, a wallet switchChain to match. A native select
  * keeps it fully keyboard- and screen-reader-accessible.
  */
-function ChainSwitcher() {
-  const { chainId, setChainId } = useActiveDeployment();
+function ChainSwitcher({ pinned }: { pinned?: number }) {
+  const { chainId: active, setChainId } = useActiveDeployment();
   const { isConnected, chainId: walletChainId } = useAccount();
   const { switchChain } = useSwitchChain();
 
-  const options = Object.values(DEPLOYMENTS).sort(
+  // Neighborhood policies live on one chain: there the switcher shows that
+  // chain and cannot be changed, so the header never contradicts the page.
+  const chainId = pinned ?? active;
+  const options = (pinned !== undefined ? [DEPLOYMENTS[pinned]] : Object.values(DEPLOYMENTS)).sort(
     (a, b) => a.chainId - b.chainId,
   );
 
@@ -259,8 +263,10 @@ function ChainSwitcher() {
       <select
         value={chainId}
         onChange={(e) => onChange(Number(e.target.value))}
-        aria-label="Network"
+        aria-label={pinned !== undefined ? "Network (fixed for neighborhood policies)" : "Network"}
+        disabled={pinned !== undefined}
         data-testid="chain-switcher"
+        data-pinned={pinned !== undefined || undefined}
         className="font-parkBody text-base sm:text-sm bg-transparent outline-none min-h-11 sm:min-h-0 py-1 pr-1 cursor-pointer"
       >
         {options.map((d) => (
@@ -282,7 +288,7 @@ const FOCUSABLE =
  * ConnectButton instead of the kit AccountSection (which hard-requires the
  * Privy SDK at runtime — see final report deviation note).
  */
-function AppNavbar() {
+function AppNavbar({ pinnedChainId }: { pinnedChainId?: number }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const burgerRef = useRef<HTMLButtonElement>(null);
@@ -341,7 +347,7 @@ function AppNavbar() {
       {/* desktop nav */}
       <nav className="hidden xl:flex flex-wrap justify-end items-center gap-x-2 gap-y-1 min-w-0" aria-label="Main navigation">
         <NavLinks />
-        <ChainSwitcher />
+        <ChainSwitcher pinned={pinnedChainId} />
         {/* The row wraps onto a second line between 1280 and ~1500px instead
             of pushing the page wider than the viewport (pre-existing
             overflow of ~90px at 1280). */}
@@ -390,7 +396,7 @@ function AppNavbar() {
           <nav className="flex flex-col gap-4">
             <NavLinks mobile onNavigate={() => setOpen(false)} />
             <div className="mt-2">
-              <ChainSwitcher />
+              <ChainSwitcher pinned={pinnedChainId} />
             </div>
             <div className="mt-2">
               <ConnectButton showBalance={false} chainStatus="icon" />
@@ -404,19 +410,23 @@ function AppNavbar() {
 
 export function Layout() {
   usePageTitle();
+  const { pathname } = useLocation();
+  const onPolicies = pathname.startsWith("/policies");
+  const pinnedChainId = onPolicies ? APARTMENTS_CHAIN_ID : undefined;
   return (
     <div className="min-h-screen flex flex-col">
       <NotDeployedBanner />
-      <WrongNetworkBanner />
+      <WrongNetworkBanner chainId={pinnedChainId} />
       <div className="max-w-6xl w-full mx-auto px-4 sm:px-6">
-        <AppNavbar />
+        <AppNavbar pinnedChainId={pinnedChainId} />
       </div>
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-8">
         <Outlet />
       </main>
       <Toasts />
       <div className="mt-10">
-        <div className="max-w-6xl w-full mx-auto px-4 sm:px-6"><SourceGallery /></div>
+        {/* The office-newsletter gallery is about the other product. */}
+        {onPolicies ? null : <div className="max-w-6xl w-full mx-auto px-4 sm:px-6"><SourceGallery /></div>}
         <p className="font-parkBody text-xs text-surface-grey-2 text-center max-w-6xl w-full mx-auto px-4 sm:px-6 pb-4">
           RentSafe is built by Decentral Park. The contracts have not been audited.
         </p>

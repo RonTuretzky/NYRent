@@ -96,7 +96,13 @@ test("Journey A: a renter buys protection (approve, then buy; a double-click sen
   const before = await usdcBalance(BUYER);
   await openAs(page, BUYER, `/policies/${id}`);
   await expect(page.getByTestId("status-next")).toContainText("Buy protection until the policy month starts");
-  await expect(page.getByTestId("step-bar")).toContainText("Step 3 of 6");
+  // Funds in place, approval still needed: that is step 4, "Approve, then buy".
+  await expect(page.getByTestId("step-bar")).toContainText("Step 4 of 6");
+  await expect(page.getByTestId("key-dates")).toContainText("until");
+  // The header is pinned to the policy chain and the office gallery is gone.
+  await expect(page.getByTestId("chain-switcher").first()).toHaveValue("42161");
+  await expect(page.getByTestId("chain-switcher").first()).toBeDisabled();
+  await expect(page.getByRole("region", { name: /newsletters/i })).toHaveCount(0);
   await page.getByTestId("buy-amount").fill("20");
   await expect(page.getByText("You pay now (premium)").locator("..")).toContainText("2 USDC");
   const example = page.getByTestId("worked-example");
@@ -111,10 +117,18 @@ test("Journey A: a renter buys protection (approve, then buy; a double-click sen
   await expect(page.getByTestId("approved-ok")).toBeVisible();
   await expect(page.getByTestId("step-bar")).toContainText("Step 4 of 6");
   await page.getByTestId("buy-submit").dblclick();
-  await expect(page.getByTestId("bought-ok")).toBeVisible();
+  const ok = page.getByTestId("bought-ok");
+  await expect(ok).toContainText("You bought 20 USDC of protection for 2 USDC");
+  // No approve step above the success message, no second purchase without a deliberate click.
+  await expect(page.getByTestId("buy-amount")).toHaveCount(0);
+  await expect(page.getByTestId("approve-step")).toHaveCount(0);
+  await expect(page.getByTestId("buy-submit")).toHaveCount(0);
   await expect(page.getByTestId("claim-card")).toContainText("20 USDC");
   await expect(page.getByTestId("step-bar")).toContainText("Step 5 of 6");
   await shot(page, "04-bought");
+  await page.getByTestId("buy-more").click();
+  await expect(page.getByTestId("buy-amount")).toHaveValue("10");
+  await expect(page.getByTestId("bought-ok")).toHaveCount(0);
   expect(await claimBalance(BUYER, id)).toBe(parseUnits("20", 6));
   expect((await readSeries(id)).sold).toBe(parseUnits("20", 6));
   expect(await usdcBalance(BUYER)).toBe(before - parseUnits("2", 6));

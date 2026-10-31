@@ -1,13 +1,24 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { keccak256, toBytes } from "viem";
 import {
   CREATOR_STEPS,
   POLICY_ERROR_COPY,
   RECORDER_STEPS,
   RENTER_STEPS,
   WAD,
+  WEEK,
   alertRecipe,
+  clearPendingTx,
+  defaultMonth,
+  loadPendingTx,
+  monthOptions,
+  policiesFor,
+  premiumProblem,
+  recorderStep,
+  renterStep,
+  savePendingTx,
   buyExample,
   creatorExample,
   fileProblem,
@@ -76,9 +87,12 @@ test("human deltas", () => {
   assert.equal(humanDelta(120n, 0n), "in 2 minutes");
 });
 
-test("key dates are ordered and explained", () => {
+test("key dates are ordered and explained; the record window is a range", () => {
   const dates = policyDates(base);
   assert.deepEqual(dates.map((d) => d.label), ["Sales close", "Record window", "Claims open", "Claims close"]);
+  assert.equal(dates[1].from, NOV_START);
+  assert.equal(dates[1].at, FINALIZE);
+  assert.equal(dates[0].from, undefined);
   for (let i = 1; i < dates.length; i++) assert.ok(dates[i].at >= dates[i - 1].at);
   for (const d of dates) assert.ok(d.note.length > 10);
 });
@@ -177,4 +191,85 @@ test("journeys have the required shape", () => {
   }
   assert.match(RECORDER_STEPS[0].detail, /As-it-happens/);
   assert.match(RECORDER_STEPS[1].detail, /Download message/);
+});
+
+test("month options default to the first month with a week of sales left and warn on short ones", () => {
+  const nov30 = NOV_START + 29n * 86400n; // Nov 30: December starts tomorrow
+  const options = monthOptions(nov30, 3);
+  assert.deepEqual(options.map((o) => o.value), ["2026-12", "2027-01", "2027-02"]);
+  assert.equal(options[0].salesLeft, 86400n);
+  assert.ok(options[1].salesLeft >= WEEK);
+  assert.equal(defaultMonth(options), "2027-01");
+  assert.equal(defaultMonth(monthOptions(NOV_START + 86400n, 3)), "2026-12");
+  // Dropdown and dates can never disagree: every option's start is after `now`.
+  for (const o of options) assert.ok(o.start > nov30);
+});
+
+test("premium that rounds to zero is refused; 0% is allowed", () => {
+  assert.equal(premiumProblem(100_000000n, 1000), null);
+  assert.match(premiumProblem(100n, 1) ?? "", /rounds to zero/);
+  assert.equal(premiumProblem(100n, 0), null);
+});
+
+test("pending transactions round-trip through storage and reject garbage", () => {
+  const mem = new Map<string, string>();
+  const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) };
+  const tx = { hash: `0x${"ab".repeat(32)}` as const, label: "Buy protection", chainId: 42161, at: 1 };
+  savePendingTx(storage, "buy:0", tx);
+  assert.deepEqual(loadPendingTx(storage, "buy:0"), tx);
+  assert.equal(loadPendingTx(storage, "buy:1"), null);
+  storage.setItem("rentsafe.policies.pending:buy:2", "{\"hash\":\"0x12\"}");
+  assert.equal(loadPendingTx(storage, "buy:2"), null);
+  storage.setItem("rentsafe.policies.pending:buy:3", "not json");
+  assert.equal(loadPendingTx(storage, "buy:3"), null);
+  clearPendingTx(storage, "buy:0");
+  assert.equal(loadPendingTx(storage, "buy:0"), null);
+});
+
+test("policiesFor matches page hash and month only", () => {
+  const slugHash = "0x" + "11".repeat(32) as `0x${string}`;
+  const refs = [
+    { id: 0n, slugHash: "0x4f5e3a5c7f3f7d3b5b6c2a9e0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c" as `0x${string}`, obsMonth: 202611 },
+    { id: 1n, slugHash, obsMonth: 202611 },
+  ];
+  assert.deepEqual(policiesFor({ slug: "nowhere", yyyymm: 202611 }, refs), []);
+  // keccak of the slug has to match.
+  const eh = { id: 7n, slugHash: keccak256(toBytes("east-harlem-new-york-ny")), obsMonth: 202612 };
+  assert.deepEqual(policiesFor({ slug: "east-harlem-new-york-ny", yyyymm: 202612 }, [...refs, eh]), [eh]);
+  assert.deepEqual(policiesFor({ slug: "east-harlem-new-york-ny", yyyymm: 202611 }, [...refs, eh]), []);
+});
+
+test("renter step follows what the visitor can do now", () => {
+  const b = { phase: "onSale" as const, held: 0n, claimWindow: false, fundsStage: "ready" as const, amountValid: true, justBought: false, justClaimed: false };
+  assert.equal(renterStep(b).current, 4);
+  assert.equal(renterStep({ ...b, fundsStage: "approve" }).current, 4);
+  assert.equal(renterStep({ ...b, fundsStage: "connect" }).current, 3);
+  assert.equal(renterStep({ ...b, fundsStage: "network" }).current, 3);
+  assert.equal(renterStep({ ...b, fundsStage: "noFunds" }).current, 2);
+  assert.equal(renterStep({ ...b, fundsStage: "noGas" }).current, 2);
+  assert.equal(renterStep({ ...b, amountValid: false }).current, 1);
+  assert.equal(renterStep({ ...b, justBought: true }).current, 5);
+  assert.equal(renterStep({ ...b, held: 1n }).current, 5);
+  assert.equal(renterStep({ ...b, held: 1n, phase: "readyToFinalize", claimWindow: true }).current, 6);
+  assert.equal(renterStep({ ...b, held: 1n, phase: "settled", claimWindow: true }).current, 6);
+  assert.match(renterStep({ ...b, held: 1n, phase: "claimsClosed" }).terminal ?? "", /closed/);
+  assert.match(renterStep({ ...b, held: 1n, phase: "void", claimWindow: false }).terminal ?? "", /claim window closed/);
+  assert.match(renterStep({ ...b, held: 1n, phase: "settled", claimWindow: false }).terminal ?? "", /claim window closed/);
+  assert.equal(renterStep({ ...b, held: 1n, phase: "void", claimWindow: true }).terminal, undefined);
+  assert.match(renterStep({ ...b, justClaimed: true }).done ?? "", /claimed/);
+  assert.match(renterStep({ ...b, phase: "settled" }).terminal ?? "", /holds no protection/);
+  assert.match(renterStep({ ...b, phase: "void" }).terminal ?? "", /holds no protection/);
+  assert.match(renterStep({ ...b, phase: "soldOut" }).terminal ?? "", /Sold out/);
+  assert.match(renterStep({ ...b, phase: "cancelled" }).terminal ?? "", /cancelled/);
+});
+
+test("recorder step starts at 1 and only advances when done", () => {
+  assert.equal(recorderStep({ hasFile: false, parseFailed: false, qualifying: false, consent: false, confirmed: false }).current, 1);
+  assert.equal(recorderStep({ hasFile: true, parseFailed: true, qualifying: false, consent: false, confirmed: false }).current, 2);
+  assert.equal(recorderStep({ hasFile: true, parseFailed: false, qualifying: false, consent: false, confirmed: false }).current, 2);
+  assert.equal(recorderStep({ hasFile: true, parseFailed: false, qualifying: true, consent: false, confirmed: false }).current, 3);
+  assert.equal(recorderStep({ hasFile: true, parseFailed: false, qualifying: true, consent: true, confirmed: false }).current, 4);
+  const done = recorderStep({ hasFile: true, parseFailed: false, qualifying: true, consent: true, confirmed: true });
+  assert.equal(done.current, 5);
+  assert.ok(done.done);
 });

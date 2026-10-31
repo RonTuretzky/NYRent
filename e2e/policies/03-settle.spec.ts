@@ -11,6 +11,27 @@ import {
 test.describe.configure({ mode: "serial" });
 const WAD = 10n ** 18n;
 
+test("36 hours before the month: the create page defaults to a later month and warns about the short one", async ({ browser }) => {
+  const { month } = readState();
+  const { start } = monthBounds(yyyymm(month));
+  await warpTo(start - 36n * 3600n);
+  const page = await (await browser.newContext()).newPage();
+  await openAs(page, CREATOR, "/policies/new");
+  const select = page.getByTestId("policy-month");
+  await expect(select).not.toHaveValue(month);
+  await expect(page.getByTestId("short-sale-warning")).toHaveCount(0);
+  await select.selectOption(month);
+  const warning = page.getByTestId("short-sale-warning");
+  await expect(warning).toContainText("Few people may be able to buy");
+  // The warning and the key dates quote the same remaining time (≤ 36 h: the
+  // run may already start closer to the month than the warp above).
+  const remaining = /close (in [^.]+)\./.exec(await warning.innerText())?.[1];
+  expect(remaining, "warning quotes the remaining time").toBeTruthy();
+  expect(remaining).toMatch(/hour|minute/);
+  await expect(page.getByTestId("key-dates")).toContainText(`(${remaining})`);
+  await shot(page, "05b-short-sale-warning");
+});
+
 test("the sale closes while a page is open: plain copy, nothing charged", async ({ page }) => {
   const { ids, month } = readState();
   const { start } = monthBounds(yyyymm(month));
@@ -39,8 +60,18 @@ test("shared step: anyone records the month's alert; a second copy is refused; a
   await warpTo(t + 3600n);
   const good = makeEml("good", { slug: "east-harlem-new-york-ny", label: "East Harlem", dollars: "3,010", month, t });
   await openAs(page, BUYER2, "/policies/submit");
+  // A rent nobody has a policy on needs a separate "publish anyway" acknowledgement.
+  await page.getByTestId("alert-file").setInputFiles(makeEml("orphan", { slug: "rego-park-queens-ny", label: "Rego Park", dollars: "2,301", month, t }));
+  await expect(page.getByTestId("no-matching-policies")).toBeVisible();
+  await page.getByTestId("alert-consent").check();
+  await expect(page.getByTestId("alert-submit")).toBeDisabled();
+  await page.getByTestId("publish-anyway").check();
+  await expect(page.getByTestId("alert-submit")).toBeEnabled();
+  await shot(page, "07a-publish-anyway");
+
   await page.getByTestId("alert-file").setInputFiles(good);
   await expect(page.getByTestId("step-bar")).toContainText("Step 3 of 5");
+  await expect(page.getByTestId("matching-policies").getByTestId(`matching-policy-${readState().ids.settled}`)).toBeVisible();
   const preview = page.getByTestId("preview-card");
   await expect(preview).toContainText(`East Harlem, ${monthLabel(ym)}`);
   await expect(preview).toContainText("$3010.00/mo");
@@ -51,7 +82,7 @@ test("shared step: anyone records the month's alert; a second copy is refused; a
   await shot(page, "07-record-ready");
   await page.getByTestId("alert-submit").click();
   await expect(page.getByTestId("recorded-ok")).toContainText("Recorded");
-  await expect(page.getByTestId("step-bar")).toContainText("Step 5 of 5");
+  await expect(page.getByTestId("step-bar")).toContainText("All 5 steps done");
   await shot(page, "08-recorded");
   const [obsT, cents] = await earliest("east-harlem-new-york-ny", ym);
   expect(obsT).toBe(t);
@@ -60,7 +91,7 @@ test("shared step: anyone records the month's alert; a second copy is refused; a
   // Coming back later (fresh visit) with the same file: told it is already recorded, no publish button.
   const again = await (await browser.newContext()).newPage();
   await openAs(again, BUYER2, "/policies/submit");
-  await expect(again.getByTestId("step-bar")).toContainText("Step 2 of 5");
+  await expect(again.getByTestId("step-bar")).toContainText("Step 1 of 5");
   await again.getByTestId("alert-file").setInputFiles(good);
   await expect(again.getByTestId("already-recorded")).toContainText("already recorded");
   await expect(again.getByTestId("alert-submit")).toHaveCount(0);
@@ -90,10 +121,14 @@ test("Journey A, last step: finalize and claim a settled payout", async ({ page,
   await expect(page.getByTestId("policy-status")).toHaveText("Settled");
   await expect(page.getByText("Final payout").locator("..")).toContainText("55% of each claim");
   const expected = (held * (WAD * 55n / 100n)) / WAD;
+  const ok = page.getByTestId("claimed-ok");
+  await expect(ok).toContainText(`You received ${Number(expected) / 1e6} USDC as a claim on the recorded rent`);
+  await expect(ok).toContainText("done for you");
+  await expect(page.getByTestId("step-bar")).toContainText("All 6 steps done");
+  await expect(page.getByTestId("nothing-to-claim")).toHaveCount(0);
+  await expect(page.getByTestId("redeem")).toHaveCount(0);
   expect(await usdcBalance(BUYER)).toBe(before + expected);
   expect(await claimBalance(BUYER, ids.settled)).toBe(0n);
-  await expect(page.getByTestId("claim-card")).toHaveCount(0);
-  await expect(page.getByTestId("nothing-to-claim")).toBeVisible();
   await shot(page, "11-settled-claimed");
 
   // The second renter claims against the settled ratio.
@@ -116,6 +151,8 @@ test("void policy: the premium comes back as a refund", async ({ page }) => {
   await page.getByTestId("redeem").click();
   await expect(page.getByTestId("policy-status")).toHaveText("Void: premiums refundable");
   await expect(page.getByTestId("status-next")).toContainText("buyers take their premium back");
+  await expect(page.getByTestId("claimed-ok")).toContainText("You received 1 USDC as a refund of your premium");
+  await expect(page.getByTestId("claimed-ok")).toContainText("not a payout");
   expect(await usdcBalance(BUYER)).toBe(before + parseUnits("1", 6));
   await shot(page, "12-void-refunded");
 });
@@ -125,6 +162,8 @@ test("nothing to claim is said plainly", async ({ page }) => {
   await openAs(page, POOR, `/policies/${ids.settled}`);
   await expect(page.getByTestId("nothing-to-claim")).toContainText("holds no protection");
   await expect(page.getByTestId("redeem")).toHaveCount(0);
+  await expect(page.getByTestId("step-bar")).toContainText("Stopped here");
+  await expect(page.getByTestId("step-bar")).toContainText("holds no protection");
 });
 
 test("after claims close: a late holder is told, and the creator withdraws what remains (Journey B, last step)", async ({ page, browser }) => {
@@ -135,6 +174,7 @@ test("after claims close: a late holder is told, and the creator withdraws what 
   await expect(page.getByTestId("policy-status")).toHaveText("Void: premiums refundable");
   await expect(page.getByTestId("claim-timing")).toContainText("Claims closed");
   await expect(page.getByTestId("redeem")).toHaveCount(0);
+  await expect(page.getByTestId("step-bar")).toContainText("claim window closed");
   await shot(page, "13-claims-closed");
 
   const fresh = await readSeries(ids.settled);
@@ -143,6 +183,7 @@ test("after claims close: a late holder is told, and the creator withdraws what 
   const page2 = await (await browser.newContext()).newPage();
   await openAs(page2, CREATOR, `/policies/${ids.settled}`);
   await expect(page2.getByTestId("creator-card")).toContainText("is yours to withdraw");
+  await expect(page2.getByTestId("add-escrow-card")).toHaveCount(0); // sales closed long ago
   await expect(page2.getByTestId("withdraw")).toContainText(`Withdraw ${Number(residual) / 1e6} USDC`);
   await page2.getByTestId("withdraw").click();
   await expect(page2.getByTestId("creator-card")).toContainText("You withdrew the remaining funds");

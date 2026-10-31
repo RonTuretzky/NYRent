@@ -4,6 +4,7 @@
  * checks and the policy-specific copy for every contract error. No React, no
  * JSON imports, so `node --test` covers all of it (policy.test.ts).
  */
+import { keccak256, toBytes } from "viem";
 import type { DecodedTxError } from "../chain/errors.ts";
 
 export const WAD = 10n ** 18n;
@@ -106,6 +107,8 @@ export function humanDelta(at: bigint, now: bigint): string {
 
 export interface KeyDate {
   label: string;
+  /** Start of a window, when the entry is a range rather than a moment. */
+  from?: bigint;
   at: bigint;
   /** What this date means for the reader. */
   note: string;
@@ -113,12 +116,56 @@ export interface KeyDate {
 
 /** Every date a buyer or creator needs, in order. */
 export function policyDates(s: Pick<PolicyRow, "saleEnd" | "finalizeAt" | "redeemEnd" | "obsMonth">): KeyDate[] {
+  const { start } = monthBoundsOf(s.obsMonth);
   return [
     { label: "Sales close", at: s.saleEnd, note: "Last moment to buy protection. The policy month starts right after." },
-    { label: "Record window", at: s.finalizeAt, note: "Until this time, anyone can record the month's alert email. The earliest-signed one counts." },
+    { label: "Record window", from: start, at: s.finalizeAt, note: "Anyone can record the month's alert email between these times. The earliest-signed one counts." },
     { label: "Claims open", at: s.finalizeAt, note: "From this time anyone can finalize, and buyers can claim." },
     { label: "Claims close", at: s.redeemEnd, note: "Unclaimed money returns to the creator after this." },
   ];
+}
+
+export function monthBoundsOf(yyyymm: number): { start: bigint; end: bigint } {
+  const year = Math.floor(yyyymm / 100);
+  const month = yyyymm % 100;
+  return { start: BigInt(Date.UTC(year, month - 1, 1) / 1000), end: BigInt(Date.UTC(year, month, 1) / 1000 - 1) };
+}
+
+export interface MonthOption {
+  /** YYYY-MM */
+  value: string;
+  yyyymm: number;
+  start: bigint;
+  /** Seconds of sales left at `now`. */
+  salesLeft: bigint;
+}
+
+export const WEEK = 7n * 86400n;
+export const TWO_DAYS = 2n * 86400n;
+
+/** The next `count` calendar months whose sales have not closed, from `now`. */
+export function monthOptions(now: bigint, count = 6): MonthOption[] {
+  const d = new Date(Number(now) * 1000);
+  return Array.from({ length: count }, (_, i) => {
+    const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1 + i, 1));
+    const yyyymm = m.getUTCFullYear() * 100 + m.getUTCMonth() + 1;
+    const start = BigInt(m.getTime() / 1000);
+    return { value: `${m.getUTCFullYear()}-${String(m.getUTCMonth() + 1).padStart(2, "0")}`, yyyymm, start, salesLeft: start - now };
+  });
+}
+
+/** First month with at least a week of sales left, so a policy has time to sell. */
+export function defaultMonth(options: MonthOption[]): string {
+  return (options.find((o) => o.salesLeft >= WEEK) ?? options[options.length - 1]).value;
+}
+
+/** Why a (capacity, premium) pair cannot be created, or null. */
+export function premiumProblem(capacity: bigint, premiumRateBps: number): string | null {
+  if (premiumRateBps === 0) return null;
+  if ((capacity * BigInt(premiumRateBps)) / 10_000n === 0n) {
+    return "At this escrow and premium the premium rounds to zero, so every purchase would be refused. Raise the escrow or the premium.";
+  }
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -369,4 +416,126 @@ export function policyError(decoded: DecodedTxError, nativeSymbol = "ETH"): Deco
     return { ...decoded, name: "Allowance", message: "The approval no longer covers this amount. Approve again, then retry." };
   }
   return decoded;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pending transactions that survive a reload
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface PendingTx {
+  hash: `0x${string}`;
+  label: string;
+  chainId: number;
+  /** Unix seconds when it was sent. */
+  at: number;
+}
+
+export interface KeyValueStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
+const PENDING_PREFIX = "rentsafe.policies.pending:";
+
+export function savePendingTx(storage: KeyValueStorage, key: string, tx: PendingTx): void {
+  try {
+    storage.setItem(PENDING_PREFIX + key, JSON.stringify(tx));
+  } catch {
+    /* storage full or unavailable: the page still works, just without resume */
+  }
+}
+
+export function loadPendingTx(storage: KeyValueStorage, key: string): PendingTx | null {
+  try {
+    const raw = storage.getItem(PENDING_PREFIX + key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PendingTx>;
+    if (typeof parsed.hash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(parsed.hash)) return null;
+    if (typeof parsed.label !== "string" || typeof parsed.chainId !== "number" || typeof parsed.at !== "number") return null;
+    return parsed as PendingTx;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingTx(storage: KeyValueStorage, key: string): void {
+  try {
+    storage.removeItem(PENDING_PREFIX + key);
+  } catch {
+    /* nothing to clear */
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Which policies an email would settle
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface PolicyRef {
+  id: bigint;
+  slugHash: `0x${string}`;
+  obsMonth: number;
+}
+
+/** Policies whose page and month match a recorded result. */
+export function policiesFor(result: { slug: string; yyyymm: number }, policies: PolicyRef[]): PolicyRef[] {
+  const hash = keccak256(toBytes(result.slug));
+  return policies.filter((p) => p.slugHash.toLowerCase() === hash.toLowerCase() && p.obsMonth === result.yyyymm);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step bars
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface StepView {
+  /** 1-based current step. */
+  current: number;
+  /** Set when the journey is complete: shown instead of "Next". */
+  done?: string;
+  /** Set when the journey cannot continue for this visitor. */
+  terminal?: string;
+}
+
+export type FundsStageLike = "connect" | "network" | "loading" | "noGas" | "noFunds" | "approve" | "ready";
+
+/** The renter's step on a policy page, from what they can actually do now. */
+export function renterStep(input: {
+  phase: PolicyPhase;
+  held: bigint;
+  claimWindow: boolean;
+  fundsStage: FundsStageLike;
+  amountValid: boolean;
+  justBought: boolean;
+  justClaimed: boolean;
+}): StepView {
+  const { phase, held, claimWindow, fundsStage } = input;
+  if (input.justClaimed) return { current: 6, done: "You claimed. Nothing more to do on this policy." };
+  if (held > 0n) {
+    if (phase === "cancelled") return { current: 5, terminal: "This policy was cancelled." };
+    // A settled or void policy outranks "claims closed" in the status badge, so
+    // a finalized policy outside the claim window is the closed case too.
+    if (phase === "claimsClosed" || ((phase === "settled" || phase === "void") && !claimWindow)) {
+      return { current: 6, terminal: "The claim window closed with protection unclaimed; the money returned to the creator." };
+    }
+    if (phase === "settled" || phase === "void" || claimWindow) return { current: 6 };
+    return { current: 5 };
+  }
+  if (input.justBought) return { current: 5 };
+  if (phase === "onSale") {
+    if (!input.amountValid) return { current: 1 };
+    if (fundsStage === "connect" || fundsStage === "network" || fundsStage === "loading") return { current: 3 };
+    if (fundsStage === "noGas" || fundsStage === "noFunds") return { current: 2 };
+    return { current: 4 };
+  }
+  if (phase === "paused" || phase === "soldOut") return { current: 1, terminal: phase === "paused" ? "Sales are paused; pick another policy or come back later." : "Sold out; pick another policy or come back if the creator adds escrow." };
+  if (phase === "cancelled") return { current: 1, terminal: "This policy was cancelled before anything sold." };
+  return { current: 1, terminal: "Sales are closed and this wallet holds no protection here. Pick another policy." };
+}
+
+/** The recorder's step on the submit page. */
+export function recorderStep(input: { hasFile: boolean; parseFailed: boolean; qualifying: boolean; consent: boolean; confirmed: boolean }): StepView {
+  if (input.confirmed) return { current: 5, done: "Recorded. Seven days after the month ends anyone can finalize; claiming does it automatically." };
+  if (!input.hasFile) return { current: 1 };
+  if (input.parseFailed || !input.qualifying) return { current: 2 };
+  return { current: input.consent ? 4 : 3 };
 }

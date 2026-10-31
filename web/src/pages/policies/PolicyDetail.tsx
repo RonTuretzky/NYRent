@@ -1,24 +1,38 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { type Address } from "viem";
+import { useCallback, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
+import { decodeEventLog, type Address } from "viem";
 import { useReadContract } from "wagmi";
 import { Button } from "@decentralpark/ui";
 import { APARTMENTS_ORACLE, APARTMENTS_POOL, CURRENCY_DECIMALS } from "../../chain/apartments";
 import { apartmentsOracleAbi, apartmentsPoolAbi } from "../../chain/apartmentsAbi";
 import { formatCents, formatDate, formatTimestamp, truncateAddress } from "../../chain/format";
-import { useTx } from "../../chain/useTx";
 import { Card, EmptyState, RpcDownState, RpcStaleBanner, StatRow } from "../../components/States";
 import { TxStatus } from "../../components/TxStatus";
 import { monthLabel } from "../../lib/googleAlert";
-import { RENTER_STEPS, WAD, buyExample, humanDelta, pageUrl, parseAmount, parsePolicyId, policyStatus, ratioPercent } from "../../lib/policy";
+import { RENTER_STEPS, WAD, buyExample, humanDelta, pageUrl, parseAmount, parsePolicyId, policyStatus, ratioPercent, renterStep } from "../../lib/policy";
 import {
-  ActionFailureHint, FundedAction, KeyDates, NotDeployed, Notice, REFETCH_MS, RiskNotice, SkeletonCard, StepBar, WalletGate, chainId, explorerBase,
-  inputClass, money, neighborhood, networkName, pool, symbol, txBusy, txOpts, useClaims, useLock, useNow, useSeries, useWalletFunds,
+  ActionFailureHint, FundedAction, KeyDates, NotDeployed, Notice, PrimaryLink, REFETCH_MS, RiskNotice, SkeletonCard, StepBar, WalletGate, chainId,
+  explorerBase, inputClass, money, neighborhood, networkName, pool, symbol, txBusy, txOpts, useClaims, useLock, useNow, usePolicyTx, useResumedTxs,
+  useSeries, useWalletFunds, type ReceiptLike,
 } from "./shared";
+
+/** Payout paid by a Redeemed event in `logs`, if any. */
+function redeemedPayout(logs: ReceiptLike["logs"]): bigint | undefined {
+  for (const log of logs) {
+    try {
+      const event = decodeEventLog({ abi: apartmentsPoolAbi, data: log.data, topics: log.topics as [`0x${string}`] });
+      if (event.eventName === "Redeemed" && event.args) return (event.args as { payout: bigint }).payout;
+    } catch {
+      // not a pool event
+    }
+  }
+  return undefined;
+}
 
 export function PolicyDetail() {
   const params = useParams();
   const id = parsePolicyId(params.id);
+  const idText = String(id ?? 0n);
   const now = useNow();
   const { series, slug, paused, notFound, refetch, isLoading, rpcDown, stale } = useSeries(id);
   const claims = useClaims(id);
@@ -28,20 +42,41 @@ export function PolicyDetail() {
     query: { enabled: Boolean(series && APARTMENTS_ORACLE), refetchInterval: REFETCH_MS },
   });
   const [amount, setAmount] = useState("10");
-  const buy = useTx({ label: "Buy protection" });
-  const action = useTx({ label: "Policy action" });
+  const [addAmount, setAddAmount] = useState("");
+  const [bought, setBought] = useState<{ maxClaim: bigint; premium: bigint }>();
+  const [received, setReceived] = useState<bigint>();
+  const [added, setAdded] = useState<bigint>();
+  const buy = usePolicyTx({ label: "Buy protection", key: `buy:${idText}` });
+  const action = usePolicyTx({ label: "Policy action", key: `act:${idText}` });
+  const add = usePolicyTx({ label: "Add escrow", key: `add:${idText}` });
   const lock = useLock();
 
   const amountP = parseAmount(amount, CURRENCY_DECIMALS, "payout amount");
   const maxClaim = amountP.ok ? amountP.value : 0n;
   const premium = series ? (maxClaim * BigInt(series.premiumRateBps)) / 10_000n : 0n;
   const funds = useWalletFunds(premium);
+  const addP = parseAmount(addAmount, CURRENCY_DECIMALS, "escrow amount");
+  const addWei = addP.ok ? addP.value : 0n;
+  const addFunds = useWalletFunds(addWei);
+
+  const refreshAll = useCallback(
+    () => Promise.all([refetch(), claims.refetch(), funds.refetch(), earliest.refetch()]),
+    [refetch, claims, funds, earliest],
+  );
+  const resumedKeys = useMemo(() => [`buy:${idText}`, `act:${idText}`, `add:${idText}`], [idText]);
+  const resumed = useResumedTxs(resumedKeys, (key, status, receipt) => {
+    void refreshAll();
+    if (status === "confirmed" && key.startsWith("act:") && receipt) {
+      const payout = redeemedPayout(receipt.logs);
+      if (payout !== undefined) setReceived(payout);
+    }
+  });
 
   if (!APARTMENTS_POOL) return <NotDeployed />;
   if (id === null) {
     return (
       <EmptyState title="That is not a policy link">
-        <p>Policy links look like <code>/policies/12</code>. <Link className="underline font-bold text-core-green" to="/policies">See all policies</Link>.</p>
+        <p>Policy links look like <code>/policies/12</code>. <PrimaryLink to="/policies">See all policies</PrimaryLink>.</p>
       </EmptyState>
     );
   }
@@ -50,7 +85,7 @@ export function PolicyDetail() {
   if (notFound || !series || !slug) {
     return (
       <EmptyState title="Policy not found">
-        <p>There is no policy #{String(id)} on {networkName}. The link may be wrong or the policy may be on a newer deployment. <Link className="underline font-bold text-core-green" to="/policies">See all policies</Link>.</p>
+        <p>There is no policy #{String(id)} on {networkName}. The link may be wrong or the policy may be on a newer deployment. <PrimaryLink to="/policies">See all policies</PrimaryLink>.</p>
       </EmptyState>
     );
   }
@@ -67,19 +102,23 @@ export function PolicyDetail() {
   const available = series.escrow - series.sold;
   const tooMuch = amountP.ok && maxClaim > available;
   const roundsToZero = amountP.ok && series.premiumRateBps > 0 && premium === 0n;
+  const amountValid = amountP.ok && !tooMuch && !roundsToZero;
   const example = buyExample(amountP.ok ? maxClaim : 0n, series.premiumRateBps, series.strikeLowCents, series.strikeHighCents);
-  const busy = txBusy(buy.state) || txBusy(action.state);
+  const busy = txBusy(buy.state) || txBusy(action.state) || txBusy(add.state) || resumed.busy;
+  const salesOpenForCreator = now < series.saleEnd && !series.cancelled;
+  const residual = series.escrow + series.premiumsAccrued - series.paidOut;
 
-  const step = held > 0n
-    ? (status.phase === "settled" || status.phase === "void" || claimWindow ? 6 : 5)
-    : !onSale ? 1
-    : funds.stage === "connect" || funds.stage === "network" || funds.stage === "noGas" || funds.stage === "noFunds" ? 2
-    : funds.stage === "approve" ? 3
-    : funds.stage === "ready" ? 4 : 1;
+  const step = renterStep({
+    phase: status.phase, held, claimWindow, fundsStage: funds.stage, amountValid,
+    justBought: Boolean(bought), justClaimed: received !== undefined,
+  });
 
-  const refreshAll = () => Promise.all([refetch(), claims.refetch(), funds.refetch(), earliest.refetch()]);
   const run = (functionName: string, args: readonly unknown[]) => lock(async () => {
-    await action.send({ abi: apartmentsPoolAbi, address: pool, chainId, account: funds.address, functionName, args }, txOpts);
+    const result = await action.send({ abi: apartmentsPoolAbi, address: pool, chainId, account: funds.address, functionName, args }, txOpts);
+    if (result.status === "confirmed" && functionName === "redeem") {
+      const payout = redeemedPayout(result.receipt.logs);
+      setReceived(payout ?? 0n);
+    }
     await refreshAll();
   });
 
@@ -93,7 +132,8 @@ export function PolicyDetail() {
         {!entry && <Notice tone="warn">This page is not in the app's list of known neighborhoods. Open the link above and make sure it is the page you expect before buying.</Notice>}
       </div>
       {stale && <RpcStaleBanner />}
-      <Card><StepBar steps={RENTER_STEPS} current={step} title="Buy protection" /></Card>
+      {resumed.node}
+      <Card><StepBar steps={RENTER_STEPS} view={step} title="Buy protection" /></Card>
 
       <Card>
         <h2 className="font-parkHeading text-2xl mb-2">Terms</h2>
@@ -110,12 +150,27 @@ export function PolicyDetail() {
         <KeyDates series={series} now={now} />
       </Card>
 
-      {onSale && (
+      {onSale && bought && (
+        <Card data-testid="buy-card">
+          <h2 className="font-parkHeading text-2xl mb-3">Bought</h2>
+          <Notice tone="ok" testId="bought-ok">
+            <p className="font-bold">Done. You bought {money(bought.maxClaim)} of protection for {money(bought.premium)}.</p>
+            <p className="mt-1">It is listed under "Your protection" below. Nothing else to do until {formatDate(series.finalizeAt)}, when claims open.</p>
+          </Notice>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <TxStatus state={buy.state} />
+          </div>
+          <div className="mt-3">
+            <Button variant="secondary" data-testid="buy-more" onClick={() => { setBought(undefined); buy.reset(); setAmount("10"); }}>Buy more protection</Button>
+          </div>
+        </Card>
+      )}
+      {onSale && !bought && (
         <Card data-testid="buy-card">
           <h2 className="font-parkHeading text-2xl mb-3">Buy protection</h2>
           <label className="block font-parkBody mb-2">
             Maximum payout you want ({symbol})
-            <input className={inputClass} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} data-testid="buy-amount" aria-invalid={!amountP.ok || tooMuch || roundsToZero} aria-describedby="buy-help" />
+            <input className={inputClass} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} data-testid="buy-amount" aria-invalid={!amountValid} aria-describedby="buy-help" />
           </label>
           <p id="buy-help" className="font-parkBody text-xs text-surface-grey-2 mb-3">This is the most you can receive. The premium is {series.premiumRateBps / 100}% of it, paid now, and is not returned unless the policy voids.</p>
           {!amountP.ok ? <Notice tone="error" testId="buy-validation">{amountP.error}</Notice>
@@ -124,7 +179,7 @@ export function PolicyDetail() {
             : null}
           <StatRow label="You pay now (premium)" value={money(premium)} />
           <StatRow label="Sales close" value={`${formatTimestamp(series.saleEnd)} (${humanDelta(series.saleEnd, now)})`} />
-          {amountP.ok && !tooMuch && (
+          {amountValid && (
             <div className="my-3" data-testid="worked-example">
               <p className="font-parkBody text-sm font-bold">What {money(premium)} buys you</p>
               <ul className="font-parkBody text-sm list-disc pl-5 mt-1 space-y-1 leading-relaxed">
@@ -139,7 +194,9 @@ export function PolicyDetail() {
           <div className="space-y-3 mt-3">
             <RiskNotice side="buy" />
             <WalletGate why={`to pay the premium in ${symbol} on ${networkName}`}>
-              {amountP.ok && !tooMuch && !roundsToZero ? (
+              {resumed.busy ? (
+                <Notice tone="info" testId="held-back">Waiting for your transaction in progress to finish before offering this again.</Notice>
+              ) : amountValid ? (
                 <FundedAction need={premium} funds={funds} what="the premium">
                   <Button
                     data-testid="buy-submit"
@@ -147,7 +204,11 @@ export function PolicyDetail() {
                     isLoading={txBusy(buy.state)}
                     showChildrenWhenLoading
                     onClick={() => void lock(async () => {
-                      await buy.send({ abi: apartmentsPoolAbi, address: pool, chainId, account: funds.address, functionName: "buyProtection", args: [id, maxClaim, premium] }, txOpts);
+                      const result = await buy.send({ abi: apartmentsPoolAbi, address: pool, chainId, account: funds.address, functionName: "buyProtection", args: [id, maxClaim, premium] }, txOpts);
+                      if (result.status === "confirmed") {
+                        setBought({ maxClaim, premium });
+                        setAmount("");
+                      }
                       await refreshAll();
                     })}
                   >
@@ -158,23 +219,44 @@ export function PolicyDetail() {
             </WalletGate>
             <TxStatus state={buy.state} />
             <ActionFailureHint state={buy.state} />
-            {buy.state.status === "confirmed" && <Notice tone="ok" testId="bought-ok">Done. Your protection is listed below; nothing else to do until {formatDate(series.finalizeAt)}.</Notice>}
           </div>
         </Card>
       )}
-      {!onSale && buy.state.status !== "idle" && (
+      {!onSale && buy.state.status !== "idle" && !bought && (
         // The sale state changed under a click: keep the outcome of that click
         // on screen even though the buy card is gone.
         <div className="space-y-2"><TxStatus state={buy.state} /><ActionFailureHint state={buy.state} /></div>
       )}
       {status.phase === "paused" && <Notice tone="warn" testId="paused-notice">Sales are paused by the creator, so nothing can be bought right now. Protection already bought is unaffected.</Notice>}
-      {status.phase === "soldOut" && <Notice tone="info" testId="sold-out-notice">Sold out: all {money(series.escrow)} of escrow is spoken for. Try another policy or ask the creator to add capacity.</Notice>}
+      {status.phase === "soldOut" && (
+        <Notice tone="info" testId="sold-out-notice">
+          Sold out: all {money(series.escrow)} of escrow is spoken for. {now < series.saleEnd ? "The creator can add escrow until sales close; check back, or try another policy." : "Sales are closed."}
+        </Notice>
+      )}
 
-      {funds.address && held === 0n && !onSale && status.phase !== "cancelled" && (
+      {received !== undefined && (
+        <Card data-testid="claim-card">
+          <h2 className="font-parkHeading text-2xl mb-2">{series.voided ? "Refunded" : "Claimed"}</h2>
+          <Notice tone="ok" testId="claimed-ok">
+            <p className="font-bold">You received {money(received)}{series.voided ? " as a refund of your premium" : " as a claim on the recorded rent"}.</p>
+            <p className="mt-1">
+              {series.voided
+                ? "No qualifying email was recorded for this month, so the policy voided: this is your premium back, not a payout."
+                : received === 0n
+                  ? `The recorded rent stayed at or below ${formatCents(series.strikeLowCents)}, so the claim paid $0 and your protection was closed out.`
+                  : `The recorded rent paid ${ratioPercent(series.payoutRatioWad)}% of each unit you held.`}
+              {" "}This policy is done for you.
+            </p>
+          </Notice>
+          <div className="mt-3"><TxStatus state={action.state} /></div>
+        </Card>
+      )}
+
+      {received === undefined && funds.address && held === 0n && !onSale && status.phase !== "cancelled" && (
         <Notice tone="info" testId="nothing-to-claim">This wallet holds no protection on this policy, so there is nothing to claim here.</Notice>
       )}
 
-      {held > 0n && (
+      {held > 0n && received === undefined && (
         <Card data-testid="claim-card">
           <h2 className="font-parkHeading text-2xl mb-2">Your protection</h2>
           <StatRow label="Maximum payout you hold" value={money(held)} />
@@ -215,7 +297,7 @@ export function PolicyDetail() {
       {status.phase === "awaitingData" && (
         <Notice tone="info" testId="awaiting-data">
           Sales are closed. {observed ? `The earliest signed alert so far says ${formatCents(observed[1])}/mo.` : "No alert email has been recorded for this month yet."}{" "}
-          <Link className="underline font-bold text-core-green" to="/policies/submit">Record this month's Google Alert</Link> if you have it; the earliest-signed one wins, until {formatTimestamp(series.finalizeAt)}.
+          <PrimaryLink to="/policies/submit">Record this month's Google Alert</PrimaryLink> if you have it; the earliest-signed one wins, until {formatTimestamp(series.finalizeAt)}.
         </Notice>
       )}
 
@@ -229,7 +311,7 @@ export function PolicyDetail() {
               <p className="font-parkBody text-sm leading-relaxed">
                 Share the link to this page. Premiums so far: <strong>{money(series.premiumsAccrued)}</strong>.{" "}
                 {series.sold === 0n && !finalized ? "Nothing has sold, so you can still cancel and take the escrow back."
-                  : now > series.redeemEnd ? `Claims closed; ${money(series.escrow + series.premiumsAccrued - series.paidOut)} is yours to withdraw.`
+                  : now > series.redeemEnd ? `Claims closed; ${money(residual)} is yours to withdraw.`
                   : `Your remaining funds unlock after ${formatDate(series.redeemEnd)} (${humanDelta(series.redeemEnd, now)}).`}
               </p>
               <WalletGate why="to manage this policy">
@@ -237,20 +319,57 @@ export function PolicyDetail() {
                   {series.sold === 0n && !finalized && (
                     <Button variant="secondary" data-testid="cancel" disabled={busy} isLoading={txBusy(action.state)} showChildrenWhenLoading onClick={() => void run("cancelSeries", [id])}>Cancel and take back {money(series.escrow)}</Button>
                   )}
-                  {now < series.saleEnd && (
+                  {salesOpenForCreator && (
                     <Button variant="secondary" data-testid="pause" disabled={busy} onClick={() => void run("setSeriesPaused", [id, !paused])}>{paused ? "Resume sales" : "Pause sales"}</Button>
                   )}
                   {now > series.redeemEnd && (
-                    <Button data-testid="withdraw" disabled={busy} isLoading={txBusy(action.state)} showChildrenWhenLoading onClick={() => void run("withdrawResidual", [id])}>Withdraw {money(series.escrow + series.premiumsAccrued - series.paidOut)}</Button>
+                    <Button data-testid="withdraw" disabled={busy} isLoading={txBusy(action.state)} showChildrenWhenLoading onClick={() => void run("withdrawResidual", [id])}>Withdraw {money(residual)}</Button>
                   )}
                 </div>
+                {salesOpenForCreator && (
+                  <div className="mt-4 space-y-2" data-testid="add-escrow-card">
+                    <h3 className="font-parkBody font-bold">Add escrow</h3>
+                    <p className="font-parkBody text-sm">More escrow means more protection for sale{available === 0n ? " (this policy is sold out)" : ""}. Terms stay the same; you can add until sales close {formatTimestamp(series.saleEnd)}.</p>
+                    <label className="block font-parkBody text-sm">
+                      Amount to add ({symbol})
+                      <input className={inputClass} inputMode="decimal" value={addAmount} onChange={(e) => { setAddAmount(e.target.value); setAdded(undefined); }} data-testid="add-amount" aria-invalid={addAmount !== "" && !addP.ok} />
+                    </label>
+                    {addAmount !== "" && !addP.ok && <Notice tone="error" testId="add-validation">{addP.error}</Notice>}
+                    {added !== undefined && <Notice tone="ok" testId="added-ok">Added {money(added)}. The policy now escrows {money(series.escrow)} with {money(available)} still for sale.</Notice>}
+                    {addP.ok && (
+                      <FundedAction need={addWei} funds={addFunds} what="the extra escrow">
+                        <Button
+                          data-testid="add-escrow"
+                          disabled={busy}
+                          isLoading={txBusy(add.state)}
+                          showChildrenWhenLoading
+                          onClick={() => void lock(async () => {
+                            const result = await add.send({ abi: apartmentsPoolAbi, address: pool, chainId, account: funds.address, functionName: "addCapacity", args: [id, addWei] }, txOpts);
+                            if (result.status === "confirmed") {
+                              setAdded(addWei);
+                              setAddAmount("");
+                            }
+                            await Promise.all([refreshAll(), addFunds.refetch()]);
+                          })}
+                        >
+                          {txBusy(add.state) ? "Adding…" : `Add ${money(addWei)} of escrow`}
+                        </Button>
+                      </FundedAction>
+                    )}
+                    <TxStatus state={add.state} />
+                    <ActionFailureHint state={add.state} />
+                  </div>
+                )}
               </WalletGate>
             </div>
           )}
         </Card>
       )}
-      <TxStatus state={action.state} />
+      {received === undefined && <TxStatus state={action.state} />}
       <ActionFailureHint state={action.state} />
+      {held === 0n && received === undefined && !onSale && !isCreator && status.phase !== "cancelled" && (
+        <p className="font-parkBody text-sm"><PrimaryLink to="/policies">See other policies</PrimaryLink></p>
+      )}
     </div>
   );
 }

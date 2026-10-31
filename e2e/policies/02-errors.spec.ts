@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { test, type Page } from "@playwright/test";
+import { connectWallet } from "../support/helpers";
 import { parseUnits } from "viem";
 import {
   ART_DIR, BROKE, BUYER, BUYER2, CREATOR, CREDAILY_EML, DAY, POOR, approveAs, blockRpc, buyAs, ensureApproved, claimBalance, expect, fundUsdc, makeEml, monthBounds, openAs,
@@ -31,9 +32,12 @@ test("wrong network: an inline switch button fixes it", async ({ page }) => {
   await openAs(page, BUYER, `/policies/${ids.settled}`, { walletChainId: 100 });
   const gate = page.getByTestId("wallet-gate-network");
   await expect(gate).toContainText("Policies live on Arbitrum One");
+  await expect(page.getByTestId("wrong-network-banner")).toContainText("Arbitrum One");
+  await expect(page.getByTestId("chain-switcher").first()).toHaveValue("42161");
   await shot(page, "e-wrong-network");
   await page.getByTestId("switch-network").click();
   await expect(gate).toBeHidden();
+  await expect(page.getByTestId("wrong-network-banner")).toBeHidden();
   await expect(page.getByTestId("approve-step").or(page.getByTestId("buy-submit"))).toBeVisible();
 });
 
@@ -105,6 +109,43 @@ test("every invalid create input is explained and blocks the button", async ({ p
   await shot(page, "e-create-validation");
   await set("policy-capacity", "10");
   await expect(page.getByTestId("form-errors")).toHaveCount(0);
+  // A typed percent sign is not doubled, 0% is stated plainly, and a premium that rounds to zero is refused.
+  await set("policy-premium", "10%");
+  await expect(page.getByTestId("worked-example")).toContainText("(10% of their maximum payout)");
+  await expect(page.getByTestId("worked-example")).not.toContainText("%%");
+  await set("policy-premium", "0");
+  await expect(page.getByTestId("zero-premium")).toContainText("buyers pay nothing and you earn nothing");
+  await expect(page.getByTestId("form-errors")).toHaveCount(0);
+  await set("policy-premium", "1");
+  await set("policy-capacity", "0.00001"); // 10 units at 1% = 0.1 unit, which the contract rounds to zero
+  await expect(page.getByTestId("form-errors")).toContainText("rounds to zero");
+  await expect(page.getByTestId("policy-create")).toHaveCount(0);
+});
+
+test("a pending transaction survives a reload and is not offered twice", async ({ page }) => {
+  const { ids } = readState();
+  const held = await claimBalance(BUYER, ids.settled);
+  await openAs(page, BUYER, `/policies/${ids.settled}`);
+  await page.getByTestId("buy-amount").fill("2");
+  await ensureApproved(page);
+  await rpc("anvil_setAutomine", [false]);
+  await page.getByTestId("buy-submit").click();
+  await expect(page.getByTestId("tx-pending")).toBeVisible();
+  await page.reload();
+  await connectWallet(page); // the shim wallet starts disconnected after a reload
+  const resumed = page.getByTestId("resumed-tx");
+  await expect(resumed).toContainText("You have a transaction in progress: Buy protection");
+  await expect(page.getByTestId("held-back")).toBeVisible();
+  await expect(page.getByTestId("buy-submit")).toHaveCount(0);
+  await expect(page.getByTestId("approve-button")).toHaveCount(0);
+  await shot(page, "e-resumed-pending");
+  await rpc("evm_mine");
+  await rpc("anvil_setAutomine", [true]);
+  await expect(resumed).toContainText("went through");
+  await expect(page.getByTestId("held-back")).toHaveCount(0);
+  await expect(page.getByTestId("approve-button").or(page.getByTestId("buy-submit"))).toBeVisible();
+  await expect.poll(() => claimBalance(BUYER, ids.settled)).toBe(held + parseUnits("2", 6));
+  await expect(page.getByTestId("claim-card")).toContainText(`${Number(held + parseUnits("2", 6)) / 1e6} USDC`);
 });
 
 test("approval: pending feedback, stale allowance after changing the amount", async ({ page }) => {
@@ -174,6 +215,7 @@ test("a transaction stuck pending is reported as still pending, not failed, and 
   await rpc("anvil_setAutomine", [true]);
   await expect.poll(() => claimBalance(BUYER, ids.settled)).toBe(held + parseUnits("1", 6));
   await page.reload();
+  await connectWallet(page);
   await expect(page.getByTestId("claim-card")).toContainText(`${Number(held + parseUnits("1", 6)) / 1e6} USDC`);
 });
 
@@ -219,12 +261,35 @@ test("capacity changes underneath: decoded, explained, numbers refreshed", async
   await shot(page, "e-capacity-race");
 });
 
-test("sold out and premium-rounds-to-zero", async ({ page }) => {
+test("sold out, then the creator adds escrow and sales reopen", async ({ page, browser }) => {
   const { ids } = readState();
   await openAs(page, BUYER, `/policies/${ids.soldOut}`);
-  await expect(page.getByTestId("sold-out-notice")).toContainText("Sold out");
+  await expect(page.getByTestId("sold-out-notice")).toContainText("The creator can add escrow until sales close");
   await expect(page.getByTestId("buy-card")).toHaveCount(0);
+  await expect(page.getByTestId("step-bar")).toContainText("Sold out");
   await shot(page, "e-sold-out");
+
+  const creator = await (await browser.newContext()).newPage();
+  const before = await usdcBalance(CREATOR);
+  await openAs(creator, CREATOR, `/policies/${ids.soldOut}`);
+  const card = creator.getByTestId("add-escrow-card");
+  await expect(card).toContainText("this policy is sold out");
+  await creator.getByTestId("add-amount").fill("abc");
+  await expect(creator.getByTestId("add-validation")).toContainText("digits only");
+  await creator.getByTestId("add-amount").fill("10");
+  await expect(creator.getByTestId("approve-button")).toContainText("Approve 10 USDC");
+  await creator.getByTestId("approve-button").click();
+  await expect(creator.getByTestId("approved-ok")).toBeVisible();
+  await creator.getByTestId("add-escrow").click();
+  await expect(creator.getByTestId("added-ok")).toContainText("Added 10 USDC");
+  await expect(creator.getByTestId("policy-status")).toHaveText("On sale");
+  await expect(creator.getByText("Still available").locator("..")).toContainText("10 USDC");
+  expect(await usdcBalance(CREATOR)).toBe(before - parseUnits("10", 6));
+  await shot(creator, "e-escrow-added");
+
+  // The renter's page catches up on its own.
+  await expect(page.getByTestId("buy-card")).toBeVisible({ timeout: 40000 });
+  await expect(page.getByTestId("sold-out-notice")).toHaveCount(0);
 });
 
 test("unknown and malformed policy ids never crash the page", async ({ page }) => {
@@ -282,11 +347,12 @@ test("upload failures: wrong type, huge file, non-Google email, no qualifying re
   const { month } = readState();
   const { start } = monthBounds(yyyymm(month));
   await openAs(page, BUYER, "/policies/submit");
-  await expect(page.getByTestId("step-bar")).toContainText("Step 2 of 5");
+  await expect(page.getByTestId("step-bar")).toContainText("Step 1 of 5");
   const input = page.getByTestId("alert-file");
 
   await input.setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });
   await expect(page.getByTestId("file-error")).toContainText("not an email file");
+  await expect(page.getByTestId("step-bar")).toContainText("Step 2 of 5");
 
   await input.setInputFiles({ name: "huge.eml", mimeType: "message/rfc822", buffer: Buffer.alloc(2 * 1024 * 1024, 65) });
   await expect(page.getByTestId("file-error")).toContainText("2.0 MB");
@@ -311,9 +377,15 @@ test("upload failures: wrong type, huge file, non-Google email, no qualifying re
   const good = makeEml("good", { slug: "east-harlem-new-york-ny", label: "East Harlem", dollars: "3,010", month, t });
   await input.setInputFiles(good);
   await expect(page.getByTestId("preview-card")).toContainText("$3010.00/mo");
+  await expect(page.getByTestId("matching-policies")).toContainText(`Policy #${readState().ids.settled}`);
   await expect(page.getByTestId("future-signature")).toContainText("from the future");
   await expect(page.getByTestId("alert-submit")).toHaveCount(0);
   await shot(page, "e-upload-future");
+
+  // A page nobody has a policy on: said plainly before any publish step.
+  await input.setInputFiles(makeEml("orphan", { slug: "rego-park-queens-ny", label: "Rego Park", dollars: "2,301", month, t }));
+  await expect(page.getByTestId("no-matching-policies")).toContainText("Recording this helps no one yet");
+  await shot(page, "e-upload-no-policy");
   fs.writeFileSync(path.join(ART_DIR, "good.path"), good);
 });
 
@@ -330,6 +402,11 @@ test("a real alert, when provided, previews locally and fails on-chain against t
   }
   await expect(page.getByTestId("publish-warning")).toContainText("permanently");
   await page.getByTestId("alert-consent").check();
+  // A real alert is for a month no policy here covers: the separate acknowledgement is required.
+  if (await page.getByTestId("publish-anyway").count()) {
+    await expect(page.getByTestId("alert-submit")).toBeDisabled();
+    await page.getByTestId("publish-anyway").check();
+  }
   // The fork's oracle pins the TEST key, so a genuine Google signature must be refused with plain copy.
   await page.getByTestId("alert-submit").click();
   await expect(page.getByTestId("tx-reverted")).toContainText("Google's signature does not verify");

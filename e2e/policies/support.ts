@@ -201,6 +201,8 @@ export async function openAs(page: Page, address: string | null, hashPath: strin
       address,
       chainId: opts.walletChainId ?? CHAIN_ID,
       knownChainIds: opts.knownChainIds ?? [CHAIN_ID, 100],
+      // Reloads (pending-transaction resume) must come back connected without a race.
+      preauthorized: true,
     });
   }
   // A hash-only change would not reload (and would keep an older clock offset).

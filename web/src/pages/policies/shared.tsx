@@ -4,10 +4,10 @@
  * inline network switch), the funded-action step (balance, gas, approve) and
  * the small explanatory components every page repeats.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { type Address } from "viem";
-import { useAccount, useBalance, useReadContract, useReadContracts, useSwitchChain } from "wagmi";
+import { useAccount, useBalance, useReadContract, useReadContracts, useSwitchChain, useWaitForTransactionReceipt } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { Button } from "@decentralpark/ui";
 import { CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react";
@@ -28,7 +28,11 @@ import { formatCurrency, formatTimestamp, nowSec } from "../../chain/format";
 import { useTx, type TxState } from "../../chain/useTx";
 import { Card, EmptyState, LoadingSkeleton } from "../../components/States";
 import { TxStatus } from "../../components/TxStatus";
-import { humanDelta, policyDates, policyError, type JourneyStep, type PolicyRow } from "../../lib/policy";
+import {
+  clearPendingTx, humanDelta, loadPendingTx, policyDates, policyError, savePendingTx,
+  type JourneyStep, type PendingTx, type PolicyRef, type PolicyRow, type StepView,
+} from "../../lib/policy";
+import { nowSec as nowSeconds } from "../../chain/format";
 import catalog from "../../data/apartments-series.json";
 
 export const chainId = APARTMENTS_CHAIN_ID;
@@ -195,18 +199,19 @@ export function NotDeployed() {
   return <EmptyState title="Not deployed yet">Neighborhood policies open once the contracts are live.</EmptyState>;
 }
 
-/** "You are on step N of M" with every step named. */
-export function StepBar({ steps, current, title }: { steps: JourneyStep[]; current: number; title: string }) {
-  const idx = Math.min(Math.max(current, 1), steps.length);
+/** "You are on step N of M" with every step named; `done`/`terminal` end the journey. */
+export function StepBar({ steps, view, title }: { steps: JourneyStep[]; view: StepView; title: string }) {
+  const idx = Math.min(Math.max(view.current, 1), steps.length);
+  const finished = Boolean(view.done);
   return (
-    <nav aria-label={`${title} progress`} className="min-w-0" data-testid="step-bar" data-step={idx}>
+    <nav aria-label={`${title} progress`} className="min-w-0" data-testid="step-bar" data-step={idx} data-done={finished || undefined} data-terminal={view.terminal ? true : undefined}>
       <p className="font-parkBody text-sm">
-        <span className="font-bold">Step {idx} of {steps.length}:</span> {steps[idx - 1].title}
+        {finished ? <span className="font-bold">All {steps.length} steps done.</span> : <><span className="font-bold">Step {idx} of {steps.length}:</span> {steps[idx - 1].title}</>}
       </p>
       <ol className="mt-2 flex gap-1.5" aria-label="Steps">
         {steps.map((s, i) => {
           const n = i + 1;
-          const state = n < idx ? "done" : n === idx ? "current" : "todo";
+          const state = finished || n < idx ? "done" : n === idx && !view.terminal ? "current" : "todo";
           return (
             <li
               key={s.title}
@@ -220,10 +225,17 @@ export function StepBar({ steps, current, title }: { steps: JourneyStep[]; curre
         })}
       </ol>
       <p className="font-parkBody text-sm text-surface-grey-2 mt-2" data-testid="step-next">
-        <span className="font-bold text-text-standard">Next:</span> {steps[idx - 1].detail}
+        {view.done ? <>{view.done}</>
+          : view.terminal ? <><span className="font-bold text-text-standard">Stopped here:</span> {view.terminal}</>
+          : <><span className="font-bold text-text-standard">Next:</span> {steps[idx - 1].detail}</>}
       </p>
     </nav>
   );
+}
+
+/** An inline link that is a primary action: full-height tap target. */
+export function PrimaryLink({ to, children, testId = "primary-link" }: { to: string; children: ReactNode; testId?: string }) {
+  return <Link className="underline font-bold text-core-green inline-flex min-h-11 items-center" to={to} data-testid={testId}>{children}</Link>;
 }
 
 export function Notice({ children, tone = "info", testId }: { children: ReactNode; tone?: "info" | "warn" | "error" | "ok"; testId?: string }) {
@@ -260,7 +272,10 @@ export function KeyDates({ series, now }: { series: Pick<PolicyRow, "saleEnd" | 
       {policyDates(series).map((d) => (
         <li key={d.label} className="grid grid-cols-[auto_1fr] gap-x-3 items-baseline">
           <span className="font-parkBody text-sm font-bold whitespace-nowrap">{d.label}</span>
-          <span className="font-parkBody text-sm break-words">{formatTimestamp(d.at)} <span className="text-surface-grey-2">({humanDelta(d.at, now)})</span></span>
+          <span className="font-parkBody text-sm break-words">
+            {d.from !== undefined ? <>{formatTimestamp(d.from)} <span className="text-surface-grey-2">({humanDelta(d.from, now)})</span> until </> : null}
+            {formatTimestamp(d.at)} <span className="text-surface-grey-2">({humanDelta(d.at, now)})</span>
+          </span>
           <span className="col-start-2 font-parkBody text-xs text-surface-grey-2 leading-relaxed">{d.note}</span>
         </li>
       ))}
@@ -387,4 +402,121 @@ export function ActionFailureHint({ state }: { state: TxState }) {
     return <p className="font-parkBody text-xs text-surface-grey-2" data-testid="still-pending-hint">Your wallet already sent this. Do not send it again: open the link to watch it, then refresh this page.</p>;
   }
   return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Transactions that survive a reload
+// ─────────────────────────────────────────────────────────────────────────────
+
+const session: Storage | undefined = typeof window !== "undefined" ? window.sessionStorage : undefined;
+
+/**
+ * useTx whose in-flight hash is mirrored into sessionStorage under `key`, so
+ * a reload shows "you have a transaction in progress" instead of offering the
+ * same action again.
+ */
+export function usePolicyTx(opts: { label: string; key: string }) {
+  const tx = useTx({ label: opts.label });
+  const { state } = tx;
+  useEffect(() => {
+    if (!session) return;
+    if ((state.status === "pending" || state.status === "stillPending") && state.hash) {
+      savePendingTx(session, opts.key, { hash: state.hash, label: opts.label, chainId, at: Number(nowSeconds()) });
+    } else if (state.status === "confirmed" || state.status === "reverted") {
+      clearPendingTx(session, opts.key);
+    }
+  }, [state, opts.key, opts.label]);
+  return tx;
+}
+
+export type ResumedStatus = "pending" | "confirmed" | "reverted";
+
+function ResumedTx({ txKey, onChange }: { txKey: string; onChange: (key: string, status: ResumedStatus | null, receipt?: ReceiptLike) => void }) {
+  const [pending] = useState<PendingTx | null>(() => (session ? loadPendingTx(session, txKey) : null));
+  const wait = useWaitForTransactionReceipt({ hash: pending?.hash, chainId, query: { enabled: Boolean(pending) } });
+  const [status, setStatus] = useState<ResumedStatus>("pending");
+  useEffect(() => {
+    if (!pending) return;
+    onChange(txKey, "pending");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txKey]);
+  useEffect(() => {
+    if (!pending || !wait.data) return;
+    const next: ResumedStatus = wait.data.status === "success" ? "confirmed" : "reverted";
+    if (session) clearPendingTx(session, txKey);
+    setStatus(next);
+    onChange(txKey, next, { logs: wait.data.logs });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wait.data, txKey]);
+  if (!pending) return null;
+  const link = <a className="underline" href={`${explorerBase}/tx/${pending.hash}`} target="_blank" rel="noreferrer">{pending.hash.slice(0, 10)}…{pending.hash.slice(-6)}</a>;
+  if (status === "pending") {
+    return (
+      <Notice tone="warn" testId="resumed-tx">
+        <p className="font-bold">You have a transaction in progress: {pending.label}.</p>
+        <p className="mt-1">Sent {humanDelta(BigInt(pending.at), nowSeconds())} ({link}). This page is waiting for it to finish; do not send it again.</p>
+      </Notice>
+    );
+  }
+  return (
+    <Notice tone={status === "confirmed" ? "ok" : "error"} testId="resumed-tx">
+      {status === "confirmed"
+        ? <>Your earlier transaction ({pending.label}, {link}) went through. The numbers below are up to date.</>
+        : <>Your earlier transaction ({pending.label}, {link}) failed on-chain, so nothing changed. You can try again.</>}
+    </Notice>
+  );
+}
+
+export interface ReceiptLike {
+  logs: { address: Address; data: `0x${string}`; topics: readonly `0x${string}`[] }[];
+}
+
+/**
+ * Shows every unresolved transaction saved under `keys` and reports whether any
+ * is still pending, so the page can hold back the same action meanwhile.
+ */
+export function useResumedTxs(keys: string[], onResolved?: (key: string, status: ResumedStatus, receipt?: ReceiptLike) => void) {
+  const [pendingKeys, setPendingKeys] = useState<Set<string>>(() => new Set());
+  const resolvedRef = useRef(onResolved);
+  resolvedRef.current = onResolved;
+  const onChange = useCallback((key: string, status: ResumedStatus | null, receipt?: ReceiptLike) => {
+    setPendingKeys((prev) => {
+      const next = new Set(prev);
+      if (status === "pending") next.add(key);
+      else next.delete(key);
+      return next;
+    });
+    if (status && status !== "pending") resolvedRef.current?.(key, status, receipt);
+  }, []);
+  const node = useMemo(() => <div className="space-y-2">{keys.map((k) => <ResumedTx key={k} txKey={k} onChange={onChange} />)}</div>, [keys, onChange]);
+  return { node, busy: pendingKeys.size > 0 };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Every policy's page and month (for the record page)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function usePolicyRefs() {
+  const count = useReadContract({
+    address: pool, abi: apartmentsPoolAbi, chainId, functionName: "seriesCount",
+    query: { enabled: Boolean(APARTMENTS_POOL), refetchInterval: REFETCH_MS },
+  });
+  const ids = useMemo(() => Array.from({ length: Number(count.data ?? 0n) }, (_, i) => BigInt(i)), [count.data]);
+  const rows = useReadContracts({
+    contracts: ids.map((id) => ({ address: pool, abi: apartmentsPoolAbi, chainId, functionName: "series", args: [id] } as const)),
+    query: { enabled: ids.length > 0, refetchInterval: REFETCH_MS },
+  });
+  const refs = useMemo<PolicyRef[] | undefined>(() => {
+    if (count.data === undefined) return undefined;
+    if (ids.length === 0) return [];
+    if (!rows.data) return undefined;
+    const out: PolicyRef[] = [];
+    rows.data.forEach((r, i) => {
+      if (r.status !== "success") return;
+      const row = r.result as unknown as PolicyRow;
+      out.push({ id: ids[i], slugHash: row.slugHash, obsMonth: row.obsMonth });
+    });
+    return out;
+  }, [count.data, ids, rows.data]);
+  return { refs, loading: refs === undefined && !(count.isError || rows.isError), failed: refs === undefined && (count.isError || rows.isError) };
 }
