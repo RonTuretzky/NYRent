@@ -31,7 +31,7 @@ test("the sale closes while a page is open: plain copy, nothing charged", async 
   await expect(page.getByTestId("buy-card")).toHaveCount(0);
 });
 
-test("shared step: anyone records the month's alert; a second copy is refused; a later email cannot replace it", async ({ page }) => {
+test("shared step: anyone records the month's alert; a second copy is refused; a later email cannot replace it", async ({ page, browser }) => {
   const { month } = readState();
   const ym = yyyymm(month);
   const { start } = monthBounds(ym);
@@ -57,19 +57,20 @@ test("shared step: anyone records the month's alert; a second copy is refused; a
   expect(obsT).toBe(t);
   expect(cents).toBe(301000);
 
-  // Coming back later with the same file: told it is already recorded, no publish button.
-  await page.reload();
-  await expect(page.getByTestId("step-bar")).toContainText("Step 2 of 5");
-  await page.getByTestId("alert-file").setInputFiles(good);
-  await expect(page.getByTestId("already-recorded")).toContainText("already recorded");
-  await expect(page.getByTestId("alert-submit")).toHaveCount(0);
-  await shot(page, "09-already-recorded");
+  // Coming back later (fresh visit) with the same file: told it is already recorded, no publish button.
+  const again = await (await browser.newContext()).newPage();
+  await openAs(again, BUYER2, "/policies/submit");
+  await expect(again.getByTestId("step-bar")).toContainText("Step 2 of 5");
+  await again.getByTestId("alert-file").setInputFiles(good);
+  await expect(again.getByTestId("already-recorded")).toContainText("already recorded");
+  await expect(again.getByTestId("alert-submit")).toHaveCount(0);
+  await shot(again, "09-already-recorded");
 
   const later = makeEml("later", { slug: "east-harlem-new-york-ny", label: "East Harlem", dollars: "3,500", month, t: t + 1800n });
-  await page.getByTestId("alert-file").setInputFiles(later);
-  await page.getByTestId("alert-consent").check();
-  await page.getByTestId("alert-submit").click();
-  await expect(page.getByTestId("recorded-ok")).toContainText("earlier-signed email");
+  await again.getByTestId("alert-file").setInputFiles(later);
+  await again.getByTestId("alert-consent").check();
+  await again.getByTestId("alert-submit").click();
+  await expect(again.getByTestId("recorded-ok")).toContainText("earlier-signed email");
   expect((await earliest("east-harlem-new-york-ny", ym))[1]).toBe(301000);
 });
 
