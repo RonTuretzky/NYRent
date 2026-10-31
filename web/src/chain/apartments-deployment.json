@@ -1,1 +1,6 @@
-{ "chainId": 42161, "oracle": null, "token": null, "pool": null }
+{
+  "chainId": 42161,
+  "oracle": "0x235281E05c1F155068A73BF48B43ac1C79a9c855",
+  "token": "0x67214a5dA4C99aA11Bd709cf22aAAF98972C5471",
+  "pool": "0xa59b195135D5220c82d2C19270CadC392585F30A"
+}
