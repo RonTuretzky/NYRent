@@ -57,6 +57,9 @@ test("shared step: anyone records the month's alert; a second copy is refused; a
   expect(obsT).toBe(t);
   expect(cents).toBe(301000);
 
+  // Coming back later with the same file: told it is already recorded, no publish button.
+  await page.reload();
+  await expect(page.getByTestId("step-bar")).toContainText("Step 2 of 5");
   await page.getByTestId("alert-file").setInputFiles(good);
   await expect(page.getByTestId("already-recorded")).toContainText("already recorded");
   await expect(page.getByTestId("alert-submit")).toHaveCount(0);
