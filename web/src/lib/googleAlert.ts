@@ -24,8 +24,13 @@ export function monthBounds(yyyymm: number): { start: number; end: number } {
   return { start: Date.UTC(year, month - 1, 1) / 1000, end: Date.UTC(year, month, 1) / 1000 - 1 };
 }
 
-/** Results the oracle would record for a canonical body signed at `t`. */
-export function extractAlertResults(canonBody: Uint8Array, t: number): AlertResult[] {
+/**
+ * Every Apartments.com rent sentence in a canonical body that matches the
+ * contract's template, BEFORE the signature-time check. The UI uses this to
+ * explain a rejection ("names December, signed in November") instead of a
+ * bare "nothing qualifies".
+ */
+export function extractAlertCandidates(canonBody: Uint8Array): AlertResult[] {
   const raw = new TextDecoder("latin1").decode(canonBody);
   const delimiter = raw.slice(0, raw.indexOf("\r\n"));
   const htmlPart = raw.indexOf(`\r\n${delimiter}\r\n`);
@@ -50,11 +55,20 @@ export function extractAlertResults(canonBody: Uint8Array, t: number): AlertResu
     const monthIndex = MONTHS.indexOf(sentence[1]);
     if (monthIndex < 0 || !url[1].startsWith(`${sentence[3].toLowerCase().replace(/ /g, "-")}-`)) continue;
     const yyyymm = Number(sentence[2]) * 100 + monthIndex + 1;
-    const { start: from, end } = monthBounds(yyyymm);
-    if (t < from || t > end) continue;
     results.push({ slug: url[1], yyyymm, cents: Number(sentence[4].replace(/,/g, "")) * 100 });
   }
   return results;
+}
+
+/** True when a signature at `t` falls inside the month a result names. */
+export function signedInsideMonth(yyyymm: number, t: number): boolean {
+  const { start, end } = monthBounds(yyyymm);
+  return t >= start && t <= end;
+}
+
+/** Results the oracle would record for a canonical body signed at `t`. */
+export function extractAlertResults(canonBody: Uint8Array, t: number): AlertResult[] {
+  return extractAlertCandidates(canonBody).filter((r) => signedInsideMonth(r.yyyymm, t));
 }
 
 /** Headers published permanently when an email is submitted. */

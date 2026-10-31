@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { extractAlertResults, monthBounds, payoutFraction, policyTerms, publishedRecipient } from "./googleAlert.ts";
+import { extractAlertCandidates, extractAlertResults, monthBounds, payoutFraction, policyTerms, publishedRecipient, signedInsideMonth } from "./googleAlert.ts";
 
 const fixture = (name: string, file: string) =>
   new Uint8Array(readFileSync(new URL(`../../../fixtures/google-alert-synthetic/${name}/${file}`, import.meta.url)));
@@ -23,6 +23,15 @@ test("ignores injected queries and bad templates", () => {
 
 test("rejects a signature outside the named month", () => {
   assert.deepEqual(extractAlertResults(fixture("ok-single", "canon-body.bin"), monthBounds(202610).end), []);
+});
+
+test("candidates survive the month check so the UI can explain it", () => {
+  const body = fixture("bad-month-mismatch", "canon-body.bin");
+  assert.deepEqual(extractAlertResults(body, T), []);
+  assert.deepEqual(extractAlertCandidates(body), [{ slug: "east-harlem-new-york-ny", yyyymm: 202612, cents: 301000 }]);
+  assert.equal(signedInsideMonth(202612, T), false);
+  assert.equal(signedInsideMonth(202611, T), true);
+  assert.deepEqual(extractAlertCandidates(fixture("bad-bedroom-text", "canon-body.bin")), []);
 });
 
 test("surfaces the recipient that will be published", () => {

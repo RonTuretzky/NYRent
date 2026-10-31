@@ -24,7 +24,12 @@ const NAV_ITEMS: NavItem[] = [
     { to: "/insurer", label: "Insurer" },
     { to: "/market-view", label: "Market view" },
   ] },
-  { to: "/policies", label: "Neighborhood policies" },
+  { label: "Neighborhood policies", children: [
+    { to: "/policies", label: "Browse policies" },
+    { to: "/policies/new", label: "Create a policy" },
+    { to: "/policies/submit", label: "Record a rent" },
+    { to: "/policies/guide", label: "Step-by-step guide" },
+  ] },
   { to: "/create", label: "Create a market" },
   ...(SHOW_LEGACY_ROUTES
     ? [
@@ -46,6 +51,10 @@ const NAV_ITEMS: NavItem[] = [
 
 /** Route → document title (RentSafe rebrand). */
 const TITLES: [prefix: string, title: string][] = [
+  ["/policies/new", "Create a neighborhood policy"],
+  ["/policies/submit", "Record a rent"],
+  ["/policies/guide", "Neighborhood policies guide"],
+  ["/policies", "Neighborhood policies"],
   ["/create", "Create a market or policy"],
   ["/market-view", "Price as a forecast"],
   ["/renter", "For renters"],
@@ -330,9 +339,12 @@ function AppNavbar() {
       </Link>
 
       {/* desktop nav */}
-      <nav className="hidden xl:flex items-center gap-3" aria-label="Main navigation">
+      <nav className="hidden xl:flex flex-wrap justify-end items-center gap-x-2 gap-y-1 min-w-0" aria-label="Main navigation">
         <NavLinks />
         <ChainSwitcher />
+        {/* The row wraps onto a second line between 1280 and ~1500px instead
+            of pushing the page wider than the viewport (pre-existing
+            overflow of ~90px at 1280). */}
         <ConnectButton
           showBalance={false}
           chainStatus="icon"

@@ -5,7 +5,7 @@ export default defineConfig({
   testDir: ".",
   // The mainnet-fork suites have their own configs/stacks (fork/ on 8549,
   // fork-arb/ on 8550); never run them as part of the local-chain suite.
-  testIgnore: ["**/fork/**", "**/fork-arb/**"],
+  testIgnore: ["**/fork/**", "**/fork-arb/**", "**/policies/**"],
   timeout: 90000,
   expect: { timeout: 15000 },
   fullyParallel: false,

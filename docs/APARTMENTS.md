@@ -83,7 +83,11 @@ skipped. In the October 2026 archive 30 of 40 Apartments.com results qualified.
 python3 scripts/make-google-alert-fixtures.py ~/path/to/eml-archive   # private fixtures
 forge test --match-path 'test/apartments/*'
 forge script script/DeployApartments.s.sol --rpc-url arbitrum --broadcast
+npm --prefix e2e run e2e:policies   # browser journeys on an Arbitrum fork, see e2e/policies/README.md
 ```
+
+The app's user journeys (renter, creator, recorder) are explained at `/policies/guide`
+and stepped through on every page.
 
 Addresses live in `web/src/chain/apartments-deployment.json`. Real emails under
 `fixtures/private/` hold a mailbox address and delivery tokens, and stay gitignored.

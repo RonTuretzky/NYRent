@@ -24,6 +24,7 @@ const PolicyList = lazy(() => import("./pages/Policies").then(m => ({ default: m
 const CreatePolicy = lazy(() => import("./pages/Policies").then(m => ({ default: m.CreatePolicy })));
 const PolicyDetail = lazy(() => import("./pages/Policies").then(m => ({ default: m.PolicyDetail })));
 const SubmitAlert = lazy(() => import("./pages/Policies").then(m => ({ default: m.SubmitAlert })));
+const PolicyGuide = lazy(() => import("./pages/Policies").then(m => ({ default: m.PolicyGuide })));
 const SeriesDetail = lazy(() =>
   import("./pages/SeriesDetail").then((m) => ({ default: m.SeriesDetail })),
 );
@@ -83,6 +84,7 @@ export default function App() {
                   <Route path="/policies" element={suspend(<PolicyList />)} />
                   <Route path="/policies/new" element={suspend(<CreatePolicy />)} />
                   <Route path="/policies/submit" element={suspend(<SubmitAlert />)} />
+                  <Route path="/policies/guide" element={suspend(<PolicyGuide />)} />
                   <Route path="/policies/:id" element={suspend(<PolicyDetail />)} />
                   <Route path="/insurer" element={<InsurerDashboard />} />
                   <Route path="/renter" element={<RenterVisualizer />} />
