@@ -4,12 +4,15 @@ Permissionless rent protection on Apartments.com neighborhood pages on Arbitrum 
 in native USDC and settled by Google Alerts emails verified on-chain. Contracts are ownerless, unupgradeable and
 **unaudited**.
 
-| Contract | Role |
-| --- | --- |
-| `src/apartments/ApartmentsCoverPool.sol` | Policies: escrow, premiums, finalize, claims |
-| `src/apartments/ApartmentsRentOracle.sol` | DKIM verification, earliest-signed log |
-| `src/apartments/GoogleAlertParser.sol` | Strict extraction from the signed email |
-| `src/CoverToken.sol` | Soulbound claim units |
+| Contract | Role | Arbitrum One |
+| --- | --- | --- |
+| `src/apartments/ApartmentsCoverPool.sol` | Policies: escrow, premiums, finalize, claims | [`0xa59b195135D5220c82d2C19270CadC392585F30A`](https://arbiscan.io/address/0xa59b195135D5220c82d2C19270CadC392585F30A) |
+| `src/apartments/ApartmentsRentOracle.sol` | DKIM verification, earliest-signed log | [`0x235281E05c1F155068A73BF48B43ac1C79a9c855`](https://arbiscan.io/address/0x235281E05c1F155068A73BF48B43ac1C79a9c855) |
+| `src/apartments/GoogleAlertParser.sol` | Strict extraction from the signed email | Library in the oracle |
+| `src/CoverToken.sol` | Soulbound claim units | [`0x67214a5dA4C99aA11Bd709cf22aAAF98972C5471`](https://arbiscan.io/address/0x67214a5dA4C99aA11Bd709cf22aAAF98972C5471) |
+
+The oracle source is exempt from `forge fmt` so the repo stays byte-identical to the verified
+deployment.
 
 ## How a policy works
 

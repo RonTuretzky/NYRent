@@ -63,22 +63,28 @@ export default async function globalSetup(): Promise<void> {
     }
     await rpc("anvil_setBalance", [USDC_WHALE, "0x8ac7230489e80000"]);
 
-    // 2. Test-key oracle + token + pool.
-    const modulusHex = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "fixtures/testkey/meta.json"), "utf8")).modulus_hex as string;
-    run("forge", [
-      "script", "script/DeployApartmentsFork.s.sol:DeployApartmentsFork", "--rpc-url", FORK_RPC_URL, "--broadcast", "--unlocked", "--sender", DEPLOYER,
-    ], {
-      env: { ...process.env, MODULUS: modulusHex, CURRENCY: USDC, DEPLOYER, FORK_RPC_URL, FOUNDRY_OUT: "out-policies", FOUNDRY_CACHE_PATH: "cache-policies" },
-    });
-    const runFile = path.join(REPO_ROOT, "broadcast", "DeployApartmentsFork.s.sol", "42161", "run-latest.json");
-    const byName: Record<string, `0x${string}`> = {};
-    for (const tx of JSON.parse(fs.readFileSync(runFile, "utf8")).transactions ?? []) {
-      if (tx.transactionType === "CREATE" && tx.contractName) byName[tx.contractName] = tx.contractAddress;
+    // 2. POLICIES_LIVE=1 drives the deployed contracts on the fork; otherwise a
+    //    test-key oracle + token + pool. Live mode cannot record synthetic emails,
+    //    so it runs the specs before 03; test/apartments/LiveArbitrumFork.t.sol
+    //    settles the live contracts with a real email.
+    let { oracle, token, pool } = JSON.parse(fs.readFileSync(APARTMENTS_DEPLOYMENT_PATH, "utf8")) as Record<string, `0x${string}`>;
+    if (process.env.POLICIES_LIVE !== "1") {
+      const modulusHex = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "fixtures/testkey/meta.json"), "utf8")).modulus_hex as string;
+      run("forge", [
+        "script", "script/DeployApartmentsFork.s.sol:DeployApartmentsFork", "--rpc-url", FORK_RPC_URL, "--broadcast", "--unlocked", "--sender", DEPLOYER,
+      ], {
+        env: { ...process.env, MODULUS: modulusHex, CURRENCY: USDC, DEPLOYER, FORK_RPC_URL, FOUNDRY_OUT: "out-policies", FOUNDRY_CACHE_PATH: "cache-policies" },
+      });
+      const runFile = path.join(REPO_ROOT, "broadcast", "DeployApartmentsFork.s.sol", "42161", "run-latest.json");
+      const byName: Record<string, `0x${string}`> = {};
+      for (const tx of JSON.parse(fs.readFileSync(runFile, "utf8")).transactions ?? []) {
+        if (tx.transactionType === "CREATE" && tx.contractName) byName[tx.contractName] = tx.contractAddress;
+      }
+      const need = (n: string) => { const a = byName[n]; if (!a) throw new Error(`broadcast has no CREATE for ${n}`); return a; };
+      oracle = need("ApartmentsRentOracle");
+      token = need("CoverToken");
+      pool = need("ApartmentsCoverPool");
     }
-    const need = (n: string) => { const a = byName[n]; if (!a) throw new Error(`broadcast has no CREATE for ${n}`); return a; };
-    const oracle = need("ApartmentsRentOracle");
-    const token = need("CoverToken");
-    const pool = need("ApartmentsCoverPool");
 
     // 3. Funds: USDC from the whale, ETH already set (BROKE keeps zero ETH).
     await fundUsdc(CREATOR, parseUnits("1000", 6));

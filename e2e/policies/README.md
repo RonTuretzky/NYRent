@@ -56,3 +56,10 @@ gitignored) and no mailbox address appears in code.
   to claim, cancel, claims closed, creator withdraws.
 - `04-responsive.spec.ts`: no horizontal scroll, 44 px tap targets, labelled inputs,
   keyboard focus, screenshots per width.
+
+## Live contracts
+
+`POLICIES_LIVE=1 npx playwright test -c policies/playwright.config.ts policies/01 policies/02 policies/04`
+drives the deployed addresses on the fork. Spec 03 needs the test key. Settlement of the live
+contracts with a real email is `test/apartments/LiveArbitrumFork.t.sol`, which needs
+`ARBITRUM_FORK_RPC` and `fixtures/private`.
