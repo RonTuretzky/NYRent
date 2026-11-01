@@ -35,7 +35,7 @@ export function PolicyList() {
     <div className="max-w-4xl mx-auto space-y-6 pb-12 min-w-0">
       <div>
         <p className="font-parkBody font-bold">Permissionless rent protection on {networkName}</p>
-        <h1 className="font-parkHeading text-3xl sm:text-4xl mt-2">Neighborhood rent policies</h1>
+        <h1 className="font-parkDisplay font-bold text-3xl sm:text-4xl mt-2">Neighborhood rent policies</h1>
         <p className="font-parkBody mt-4 leading-relaxed">
           Each policy names an Apartments.com neighborhood page and a month. Someone escrows {symbol} and sets a premium; renters
           buy protection; the first Google-signed alert of that month sets the headline rent, and the rent decides who gets paid.
@@ -75,7 +75,7 @@ export function PolicyList() {
               <li key={String(id)} className="min-w-0">
                 <Link to={`/policies/${id}`} data-testid={`policy-${id}`} className="block h-full rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-core-green">
                   <Card className="hover:border-core-green h-full">
-                    <p className="font-parkHeading text-xl break-words">{neighborhood(slug)?.geography ?? slug}</p>
+                    <p className="font-parkDisplay font-bold text-xl break-words">{neighborhood(slug)?.geography ?? slug}</p>
                     <p className="font-parkBody text-sm mb-2">
                       {monthLabel(series.obsMonth)} · <span className="font-bold" data-testid="policy-status">{status.label}</span>
                     </p>

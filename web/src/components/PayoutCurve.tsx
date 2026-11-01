@@ -11,6 +11,8 @@ export function PayoutCurve({
   settledCents,
   ratioWad,
   yoyBaseCents,
+  caption = "CRE Daily \u00b7 Manhattan Rent Index \u00b7 Avg Effective $/SF",
+  width = 560,
 }: {
   lowCents: number;
   highCents: number;
@@ -19,8 +21,12 @@ export function PayoutCurve({
   /** When set, each strike also shows its year-over-year growth vs this
    * base — the same axis in a second unit ($/SF ↔ YoY %). */
   yoyBaseCents?: number;
+  /** What the x-axis measures. Defaults to the office market's index. */
+  caption?: string;
+  /** viewBox width: a smaller value keeps labels readable in narrow columns. */
+  width?: number;
 }) {
-  const W = 560;
+  const W = width;
   const H = yoyBaseCents ? 256 : 240;
   const pad = { left: 52, right: 24, top: 22, bottom: yoyBaseCents ? 56 : 40 };
   const yoyLabel = (cents: number) =>
@@ -146,7 +152,7 @@ export function PayoutCurve({
         fill="var(--color-surface-grey)"
         fontFamily="var(--font-parkBody)"
       >
-        CRE Daily · Manhattan Rent Index · Avg Effective $/SF
+        {caption}
       </text>
 
       {/* settled point */}

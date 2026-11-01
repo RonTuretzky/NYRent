@@ -99,7 +99,7 @@ export function SubmitAlert() {
     <div className="max-w-2xl mx-auto space-y-6 pb-12 min-w-0">
       <div>
         <p className="font-parkBody font-bold">For anyone</p>
-        <h1 className="font-parkHeading text-3xl sm:text-4xl mt-2">Record a month's rent</h1>
+        <h1 className="font-parkDisplay font-bold text-3xl sm:text-4xl mt-2">Record a month's rent</h1>
         <p className="font-parkBody text-sm mt-2 leading-relaxed">
           Upload the original Google Alert email (.eml) for an Apartments.com neighborhood page. Your browser reads it here first and shows what the contract would record; nothing leaves your computer until you click publish. <PrimaryLink to="/policies/guide?tab=record">Set up the alert and download the .eml</PrimaryLink>.
         </p>
@@ -107,7 +107,7 @@ export function SubmitAlert() {
       {resumed.node}
       <Card><StepBar steps={RECORDER_STEPS} view={view} title="Record a rent" /></Card>
       <Card>
-        <h2 className="font-parkHeading text-2xl mb-3">Upload the .eml</h2>
+        <h2 className="font-parkDisplay font-bold text-2xl mb-3">Upload the .eml</h2>
         <label className="block font-parkBody">
           Original alert email from Gmail
           <input ref={input} className={`${inputClass} file:mr-3 file:rounded-md file:border-0 file:bg-paper-1 file:px-3 file:py-1.5 file:font-parkBody`} type="file" accept=".eml,message/rfc822" onChange={(e) => void load(e.target.files?.[0])} data-testid="alert-file" aria-describedby="file-help" />
@@ -118,7 +118,7 @@ export function SubmitAlert() {
       </Card>
       {prepared && (
         <Card data-testid="preview-card">
-          <h2 className="font-parkHeading text-2xl mb-2 break-words">{prepared.fileName}</h2>
+          <h2 className="font-parkDisplay font-bold text-2xl mb-2 break-words">{prepared.fileName}</h2>
           <StatRow label="Signed by Google" value={formatTimestamp(BigInt(prepared.signedAt))} />
           {qualifying.length === 0 ? (
             <div className="mt-3 space-y-2">

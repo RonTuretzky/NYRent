@@ -94,7 +94,7 @@ export function MarketOverview() {
 
       <section className="max-w-3xl mx-auto" data-testid="home-policies">
         <div className="bg-paper-0 border-2 border-core-green rounded-2xl p-5 sm:p-6">
-          <Chip size="small">New</Chip>
+          <div className="flex"><Chip size="small">New</Chip></div>
           <h2 className="font-parkDisplay font-bold text-2xl sm:text-3xl text-text-standard mt-3">
             Protection for your neighborhood's rent
           </h2>

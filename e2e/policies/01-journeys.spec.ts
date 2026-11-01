@@ -25,6 +25,9 @@ async function createViaUi(page: Page, opts: { slugLabel: string; low: string; h
   await expect(example).toContainText("Best case for you");
   await expect(example).toContainText("Worst case for you");
   await expect(example).toContainText("No qualifying email");
+  // The chart describes the residential source, never the office index.
+  await expect(page.getByTestId("payout-preview")).toContainText("Apartments.com headline rent");
+  await expect(page.getByTestId("payout-preview")).not.toContainText("CRE Daily");
   await expect(page.getByTestId("risk-notice")).toContainText("unaudited");
   await expect(page.getByTestId("risk-notice")).toContainText("not pay based on your own lease");
   await expect(page.getByTestId("key-dates")).toContainText("Claims close");
