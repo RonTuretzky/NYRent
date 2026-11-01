@@ -268,15 +268,16 @@ export function RiskNotice({ side }: { side: "buy" | "create" }) {
 
 export function KeyDates({ series, now }: { series: Pick<PolicyRow, "saleEnd" | "finalizeAt" | "redeemEnd" | "obsMonth">; now: bigint }) {
   return (
-    <ol className="space-y-2" data-testid="key-dates">
+    <ol className="ml-1.5 space-y-4 border-l-2 border-paper-2" data-testid="key-dates">
       {policyDates(series).map((d) => (
-        <li key={d.label} className="grid grid-cols-[auto_1fr] gap-x-3 items-baseline">
-          <span className="font-parkBody text-sm font-bold whitespace-nowrap">{d.label}</span>
-          <span className="font-parkBody text-sm break-words">
+        <li key={d.label} className="relative min-w-0 pl-5">
+          <span aria-hidden="true" className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-core-green" />
+          <p className="font-parkBody text-sm font-bold">{d.label}</p>
+          <p className="font-parkBody text-sm break-words">
             {d.from !== undefined ? <>{formatTimestamp(d.from)} <span className="text-surface-grey-2">({humanDelta(d.from, now)})</span> until </> : null}
             {formatTimestamp(d.at)} <span className="text-surface-grey-2">({humanDelta(d.at, now)})</span>
-          </span>
-          <span className="col-start-2 font-parkBody text-xs text-surface-grey-2 leading-relaxed">{d.note}</span>
+          </p>
+          <p className="font-parkBody text-xs text-surface-grey-2 leading-relaxed">{d.note}</p>
         </li>
       ))}
     </ol>

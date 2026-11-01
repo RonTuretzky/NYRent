@@ -29,7 +29,7 @@ function Steps({ steps }: { steps: JourneyStep[] }) {
 }
 
 function H2({ id, children }: { id: string; children: ReactNode }) {
-  return <h2 id={id} className="font-parkHeading text-2xl scroll-mt-24">{children}</h2>;
+  return <h2 id={id} className="font-parkDisplay font-bold text-2xl scroll-mt-24">{children}</h2>;
 }
 
 export function PolicyGuide() {
@@ -40,7 +40,7 @@ export function PolicyGuide() {
     <div className="max-w-3xl mx-auto space-y-8 pb-12 min-w-0 [&_p]:leading-relaxed [&_li]:leading-relaxed">
       <header>
         <p className="font-parkBody font-bold">Step by step</p>
-        <h1 className="font-parkHeading text-3xl sm:text-4xl mt-2">How neighborhood policies work</h1>
+        <h1 className="font-parkDisplay font-bold text-3xl sm:text-4xl mt-2">How neighborhood policies work</h1>
         <p className="font-parkBody mt-3">
           Three roles, each a short checklist. Every page in the app shows which step you are on and what happens next; this page explains the pieces a first-timer meets along the way.
         </p>
@@ -65,7 +65,7 @@ export function PolicyGuide() {
       {TABS.map((t) => (
         <section key={t.id} role="tabpanel" id={`panel-${t.id}`} aria-labelledby={`tab-${t.id}`} hidden={tab !== t.id}>
           <Card>
-            <h2 className="font-parkHeading text-2xl mb-4">{t.label}</h2>
+            <h2 className="font-parkDisplay font-bold text-2xl mb-4">{t.label}</h2>
             <Steps steps={t.steps} />
             <div className="mt-4 flex flex-wrap gap-x-5 font-parkBody text-sm font-bold text-core-green">
               {t.id === "renter" && <Link className="inline-flex min-h-11 items-center underline" to="/policies">Browse policies →</Link>}

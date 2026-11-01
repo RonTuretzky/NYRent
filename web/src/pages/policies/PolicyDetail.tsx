@@ -126,7 +126,7 @@ export function PolicyDetail() {
     <div className="max-w-2xl mx-auto space-y-6 pb-12 min-w-0">
       <div className="min-w-0">
         <p className="font-parkBody font-bold">Policy #{String(id)} · <span data-testid="policy-status">{status.label}</span></p>
-        <h1 className="font-parkHeading text-3xl sm:text-4xl mt-2 break-words">{entry?.geography ?? slug}, {monthLabel(series.obsMonth)}</h1>
+        <h1 className="font-parkDisplay font-bold text-3xl sm:text-4xl mt-2 break-words">{entry?.geography ?? slug}, {monthLabel(series.obsMonth)}</h1>
         <p className="font-parkBody text-sm mt-2 leading-relaxed" data-testid="status-next"><span className="font-bold">What happens next:</span> {status.next}</p>
         <a className="underline font-parkBody text-sm break-all inline-flex min-h-11 items-center" href={pageUrl(slug)} target="_blank" rel="noreferrer">{pageUrl(slug)}</a>
         {!entry && <Notice tone="warn">This page is not in the app's list of known neighborhoods. Open the link above and make sure it is the page you expect before buying.</Notice>}
@@ -136,7 +136,7 @@ export function PolicyDetail() {
       <Card><StepBar steps={RENTER_STEPS} view={step} title="Buy protection" /></Card>
 
       <Card>
-        <h2 className="font-parkHeading text-2xl mb-2">Terms</h2>
+        <h2 className="font-parkDisplay font-bold text-2xl mb-2">Terms</h2>
         <StatRow label="Payout starts above" value={`${formatCents(series.strikeLowCents)}/mo`} />
         <StatRow label="Full payout at" value={`${formatCents(series.strikeHighCents)}/mo`} />
         <StatRow label="Premium" value={`${series.premiumRateBps / 100}% of max payout`} />
@@ -152,7 +152,7 @@ export function PolicyDetail() {
 
       {onSale && bought && (
         <Card data-testid="buy-card">
-          <h2 className="font-parkHeading text-2xl mb-3">Bought</h2>
+          <h2 className="font-parkDisplay font-bold text-2xl mb-3">Bought</h2>
           <Notice tone="ok" testId="bought-ok">
             <p className="font-bold">Done. You bought {money(bought.maxClaim)} of protection for {money(bought.premium)}.</p>
             <p className="mt-1">It is listed under "Your protection" below. Nothing else to do until {formatDate(series.finalizeAt)}, when claims open.</p>
@@ -167,7 +167,7 @@ export function PolicyDetail() {
       )}
       {onSale && !bought && (
         <Card data-testid="buy-card">
-          <h2 className="font-parkHeading text-2xl mb-3">Buy protection</h2>
+          <h2 className="font-parkDisplay font-bold text-2xl mb-3">Buy protection</h2>
           <label className="block font-parkBody mb-2">
             Maximum payout you want ({symbol})
             <input className={inputClass} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} data-testid="buy-amount" aria-invalid={!amountValid} aria-describedby="buy-help" />
@@ -236,7 +236,7 @@ export function PolicyDetail() {
 
       {received !== undefined && (
         <Card data-testid="claim-card">
-          <h2 className="font-parkHeading text-2xl mb-2">{series.voided ? "Refunded" : "Claimed"}</h2>
+          <h2 className="font-parkDisplay font-bold text-2xl mb-2">{series.voided ? "Refunded" : "Claimed"}</h2>
           <Notice tone="ok" testId="claimed-ok">
             <p className="font-bold">You received {money(received)}{series.voided ? " as a refund of your premium" : " as a claim on the recorded rent"}.</p>
             <p className="mt-1">
@@ -258,7 +258,7 @@ export function PolicyDetail() {
 
       {held > 0n && received === undefined && (
         <Card data-testid="claim-card">
-          <h2 className="font-parkHeading text-2xl mb-2">Your protection</h2>
+          <h2 className="font-parkDisplay font-bold text-2xl mb-2">Your protection</h2>
           <StatRow label="Maximum payout you hold" value={money(held)} />
           {finalized && <StatRow label={series.voided ? "Refund (your premium back)" : "Your claim"} value={money(payoutPreview)} />}
           {claimWindow ? (
@@ -287,7 +287,7 @@ export function PolicyDetail() {
 
       {!finalized && !series.cancelled && claimWindow && held === 0n && (
         <Card>
-          <h2 className="font-parkHeading text-2xl mb-2">Finalize</h2>
+          <h2 className="font-parkDisplay font-bold text-2xl mb-2">Finalize</h2>
           <p className="font-parkBody text-sm mb-3">Anyone can lock in the result now. It costs only a network fee and lets every holder claim.</p>
           <WalletGate why="to finalize">
             <Button data-testid="finalize" disabled={busy} isLoading={txBusy(action.state)} showChildrenWhenLoading onClick={() => void run("finalize", [id])}>{txBusy(action.state) ? "Finalizing…" : "Finalize policy"}</Button>
@@ -303,7 +303,7 @@ export function PolicyDetail() {
 
       {isCreator && (
         <Card data-testid="creator-card">
-          <h2 className="font-parkHeading text-2xl mb-3">You created this policy</h2>
+          <h2 className="font-parkDisplay font-bold text-2xl mb-3">You created this policy</h2>
           {series.residualWithdrawn ? (
             <p className="font-parkBody text-sm">{series.cancelled ? "You cancelled it and the escrow came back." : "You withdrew the remaining funds. Nothing is left here."}</p>
           ) : (

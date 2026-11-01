@@ -85,6 +85,15 @@ test("every invalid buy amount is explained before any button appears", async ({
   await shot(page, "e-buy-validation");
 });
 
+test("an escrow above the wallet balance is flagged before the checkbox and can be fixed in one tap", async ({ page }) => {
+  await openAs(page, BROKE, "/policies/new");
+  await page.getByTestId("policy-capacity").fill("500");
+  await expect(page.getByTestId("wallet-balance")).toContainText("50 USDC");
+  await page.getByTestId("use-balance").click();
+  await expect(page.getByTestId("policy-capacity")).toHaveValue("50");
+  await expect(page.getByTestId("escrow-over-balance")).toHaveCount(0);
+});
+
 test("every invalid create input is explained and blocks the button", async ({ page }) => {
   await openAs(page, CREATOR, "/policies/new");
   const set = async (id: string, v: string) => page.getByTestId(id).fill(v);
