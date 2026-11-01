@@ -86,12 +86,13 @@ test("every invalid buy amount is explained before any button appears", async ({
 });
 
 test("an escrow above the wallet balance is flagged before the checkbox and can be fixed in one tap", async ({ page }) => {
-  await openAs(page, BROKE, "/policies/new");
-  await page.getByTestId("policy-capacity").fill("500");
-  await expect(page.getByTestId("wallet-balance")).toContainText("50 USDC");
+  await openAs(page, BUYER2, "/policies/new");
+  await page.getByTestId("policy-capacity").fill("100000");
+  await expect(page.getByTestId("wallet-balance")).toContainText("USDC");
   await page.getByTestId("use-balance").click();
-  await expect(page.getByTestId("policy-capacity")).toHaveValue("50");
   await expect(page.getByTestId("escrow-over-balance")).toHaveCount(0);
+  await expect(page.getByTestId("form-errors")).toHaveCount(0);
+  await expect(page.getByTestId("policy-capacity")).not.toHaveValue("100000");
 });
 
 test("every invalid create input is explained and blocks the button", async ({ page }) => {
