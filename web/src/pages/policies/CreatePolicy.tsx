@@ -363,7 +363,7 @@ export function CreatePolicy() {
               </div>
               {funds.stage === "noFunds" && (funds.balance ?? 0n) > 0n && (
                 <Notice tone="warn" testId="escrow-over-balance">
-                  <p>Your escrow is more than this wallet holds.</p>
+                  {!accepted && <p>Your escrow is more than this wallet holds.</p>}
                   <button
                     type="button" className="min-h-11 font-bold underline" data-testid="use-balance"
                     onClick={() => edit(setCapacity)(formatUnits(funds.balance ?? 0n, CURRENCY_DECIMALS))}
