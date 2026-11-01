@@ -44,7 +44,8 @@ test("buyer pays with USDC.e: real QuoterV2 quote, one router swap-and-buy, cove
   const quote = page.getByTestId("swap-quote");
   await expect(quote).toBeVisible();
   await expect(quote).toContainText("via Uniswap v3");
-  await expect(quote).toContainText(/0\.285\d* USDC\.e/);
+  // A live pool price: near the premium, but it moves with the market.
+  await expect(quote).toContainText(/0\.28\d* USDC\.e/);
 
   // The plain-language protection summary precedes the confirm buttons.
   await expect(page.getByTestId("protection-summary")).toBeVisible();

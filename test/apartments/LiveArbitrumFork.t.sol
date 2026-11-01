@@ -65,7 +65,8 @@ contract LiveArbitrumForkTest is Test {
             uint256 n = vm.parseJsonUint(manifest, string.concat(e, ".resultCount"));
             for (uint256 j = 0; j < n; ++j) {
                 string memory r = string.concat(e, ".results[", vm.toString(j), "]");
-                if (keccak256(bytes(vm.parseJsonString(manifest, string.concat(r, ".slug")))) == keccak256(bytes(SLUG))) {
+                if (keccak256(bytes(vm.parseJsonString(manifest, string.concat(r, ".slug")))) == keccak256(bytes(SLUG)))
+                {
                     return (
                         i,
                         uint64(vm.parseJsonUint(manifest, string.concat(e, ".t"))),
