@@ -95,6 +95,14 @@ test("an escrow above the wallet balance is flagged before the checkbox and can 
   await expect(page.getByTestId("policy-capacity")).not.toHaveValue("100000");
 });
 
+test("a neighborhood with no October rent never keeps the previous strikes", async ({ page }) => {
+  await openAs(page, CREATOR, "/policies/new");
+  await page.getByTestId("policy-slug").selectOption({ label: "Financial District" });
+  await expect(page.getByTestId("policy-low")).toHaveValue("");
+  await expect(page.getByTestId("policy-high")).toHaveValue("");
+  await expect(page.getByTestId("form-errors")).toBeVisible();
+});
+
 test("every invalid create input is explained and blocks the button", async ({ page }) => {
   await openAs(page, CREATOR, "/policies/new");
   const set = async (id: string, v: string) => page.getByTestId(id).fill(v);

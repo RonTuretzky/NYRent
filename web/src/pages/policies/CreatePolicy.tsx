@@ -44,6 +44,11 @@ function rent(cents: number) {
   return `$${(cents / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
+/** A strike in whole dollars, `pct` percent above a rent in cents. */
+function strikeFrom(cents: number, pct: number) {
+  return String(Math.round((cents * (100 + pct)) / 10_000));
+}
+
 function signedMoney(value: bigint) {
   return value < 0n ? `\u2212${money(-value)}` : `+${money(value)}`;
 }
@@ -52,7 +57,7 @@ function Section({ n, title, hint, children }: { n: number; title: string; hint?
   return (
     <Card>
       <div className="flex items-start gap-3 mb-5">
-        <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-core-green font-parkBody font-bold text-white">{n}</span>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-1 font-parkBody font-bold text-white"><span className="sr-only">Step </span>{n}</span>
         <div className="min-w-0">
           <h2 className="font-parkDisplay font-bold text-xl sm:text-2xl leading-tight">{title}</h2>
           {hint && <p className="font-parkBody text-sm text-surface-grey-2 mt-1">{hint}</p>}
@@ -119,7 +124,7 @@ function Preset({ active, label, onClick, children }: { active: boolean; label: 
 }
 
 function Outcome({ title, rentLine, value, tone, note }: { title: string; rentLine: string; value: string; tone: "good" | "mid" | "bad"; note: string }) {
-  const color = tone === "good" ? "text-core-green" : tone === "bad" ? "text-system-red" : "text-text-standard";
+  const color = tone === "good" ? "text-green-1" : tone === "bad" ? "text-system-red" : "text-text-standard";
   return (
     <div className="min-w-0 rounded-xl border-2 border-paper-2 bg-paper-main p-4">
       <p className="font-parkBody text-sm font-bold">{title}</p>
@@ -146,11 +151,10 @@ export function CreatePolicy() {
   const lock = useLock();
   const options = useMemo(() => monthOptions(now), [now]);
   const first = catalog.series[0] as Entry;
-  const baseline = (c?: number) => Math.round((c ?? 0) / 100);
   const [slug, setSlug] = useState(first.slug);
   const [month, setMonth] = useState(() => defaultMonth(monthOptions(nowSec())));
-  const [low, setLow] = useState(String(Math.round(baseline(first.october2026Cents) * 1.03)));
-  const [high, setHigh] = useState(String(Math.round(baseline(first.october2026Cents) * 1.1)));
+  const [low, setLow] = useState(strikeFrom(first.october2026Cents ?? 0, 3));
+  const [high, setHigh] = useState(strikeFrom(first.october2026Cents ?? 0, 10));
   const [premium, setPremium] = useState("10");
   const [capacity, setCapacity] = useState("100");
   const [accepted, setAccepted] = useState(false);
@@ -201,10 +205,8 @@ export function CreatePolicy() {
   function pick(next: string) {
     setSlug(next);
     const cents = (neighborhood(next) as Entry | undefined)?.october2026Cents;
-    if (cents) {
-      setLow(String(Math.round(baseline(cents) * 1.03)));
-      setHigh(String(Math.round(baseline(cents) * 1.1)));
-    }
+    setLow(cents ? strikeFrom(cents, 3) : "");
+    setHigh(cents ? strikeFrom(cents, 10) : "");
   }
 
   async function create() {
@@ -231,13 +233,13 @@ export function CreatePolicy() {
     const pct = (cents / october - 1) * 100;
     return `${Math.abs(pct).toFixed(1)}% ${pct < 0 ? "below" : "above"} the October rent`;
   };
-  const strike = (pct: number) => String(Math.round(((october ?? 0) * (100 + pct)) / 10_000));
+  const strike = (pct: number) => strikeFrom(october ?? 0, pct);
   const lowCents = lowP.ok ? lowP.value : undefined;
   const highCents = highP.ok ? highP.value : undefined;
   return (
     <div className="space-y-6 pb-12 min-w-0">
       <header className="max-w-3xl">
-        <Chip size="small">For underwriters</Chip>
+        <div className="flex"><Chip size="small">For underwriters</Chip></div>
         <h1 className="font-parkDisplay font-bold text-4xl sm:text-5xl tracking-tight mt-3">Create a rent policy</h1>
         <p className="font-parkBody text-surface-grey-2 mt-3">
           Put up the money renters can claim, and earn a premium on every sale. <PrimaryLink to="/policies/guide?tab=creator">Read the creator guide</PrimaryLink>
@@ -262,7 +264,7 @@ export function CreatePolicy() {
                 <p className="font-parkBody text-xs text-surface-grey-2">{october ? "October 2026 headline rent" : "Headline rent"}</p>
                 <p className="font-parkDisplay font-bold text-2xl">{october ? <>{rent(october)}<span className="font-parkBody text-sm font-normal text-surface-grey-2">/mo</span></> : "Not received yet"}</p>
               </div>
-              <a className="inline-flex min-h-11 items-center gap-1.5 font-parkBody text-sm font-bold text-core-green underline" href={pageUrl(slug)} target="_blank" rel="noreferrer">
+              <a className="inline-flex min-h-11 items-center gap-1.5 font-parkBody text-sm font-bold text-green-1 underline" href={pageUrl(slug)} target="_blank" rel="noreferrer">
                 View on Apartments.com<ArrowSquareOutIcon aria-hidden="true" size={16} />
               </a>
             </div>
@@ -280,12 +282,12 @@ export function CreatePolicy() {
             <div className="grid gap-5 sm:grid-cols-2">
               <AmountField label="Payout starts above" value={low} onChange={edit(setLow)} valid={lowP.ok} prefix="$" suffix="/mo" hint={fromOctober(lowCents)} testId="policy-low">
                 {october && LOW_PRESETS.map((pct) => (
-                  <Preset key={pct} active={low === strike(pct)} label={`Start payouts ${pct}% above the October rent`} onClick={() => edit(setLow)(strike(pct))}>+{pct}%</Preset>
+                  <Preset key={pct} active={low === strike(pct)} label={`+${pct}%: start payouts ${pct}% above the October rent`} onClick={() => edit(setLow)(strike(pct))}>+{pct}%</Preset>
                 ))}
               </AmountField>
               <AmountField label="Full payout at" value={high} onChange={edit(setHigh)} valid={highP.ok} prefix="$" suffix="/mo" hint={fromOctober(highCents)} testId="policy-high">
                 {october && HIGH_PRESETS.map((pct) => (
-                  <Preset key={pct} active={high === strike(pct)} label={`Reach full payout ${pct}% above the October rent`} onClick={() => edit(setHigh)(strike(pct))}>+{pct}%</Preset>
+                  <Preset key={pct} active={high === strike(pct)} label={`+${pct}%: reach full payout ${pct}% above the October rent`} onClick={() => edit(setHigh)(strike(pct))}>+{pct}%</Preset>
                 ))}
               </AmountField>
             </div>
@@ -321,9 +323,9 @@ export function CreatePolicy() {
                   </p>
                 )}
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <Outcome title="Best case for you" rentLine={`Rent at or below ${rent(lowP.value)}`} value={signedMoney(creator.bestCase)} tone="good" note="Buyers claim $0. Your whole escrow comes back." />
-                  <Outcome title="In between" rentLine={`Rent of ${rent(example.midCents)}`} value={signedMoney(example.premium - example.midPayout)} tone="mid" note={`Buyers claim ${money(example.midPayout)}. The rest comes back to you.`} />
-                  <Outcome title="Worst case for you" rentLine={`Rent at or above ${rent(highP.value)}`} value={signedMoney(creator.worstCase)} tone="bad" note={`Buyers claim the full ${money(capacityWei)}.`} />
+                  <Outcome title="Best case for you" rentLine={`Rent at or below ${rent(lowP.value)}`} value={signedMoney(creator.bestCase)} tone={creator.bestCase > 0n ? "good" : "mid"} note="Buyers claim $0. Your whole escrow comes back." />
+                  <Outcome title="In between" rentLine={`Rent of ${rent(example.midCents)}`} value={signedMoney(example.premium - example.midPayout)} tone={example.premium < example.midPayout ? "bad" : example.premium > example.midPayout ? "good" : "mid"} note={`Buyers claim ${money(example.midPayout)}. The rest comes back to you.`} />
+                  <Outcome title="Worst case for you" rentLine={`Rent at or above ${rent(highP.value)}`} value={signedMoney(creator.worstCase)} tone={creator.worstCase < 0n ? "bad" : "mid"} note={`Buyers claim the full ${money(capacityWei)}.`} />
                 </div>
                 <p className="font-parkBody text-sm rounded-xl border-2 border-paper-1 px-4 py-3">
                   <strong>No qualifying email:</strong> the policy voids. Buyers take their premiums back and you take your escrow back.
@@ -337,11 +339,15 @@ export function CreatePolicy() {
               <p className="font-parkBody text-xs text-surface-grey-2 mt-3">Times are UTC. Your escrow is locked until claims close if anything sells.</p>
             </div>
           </Section>
+
+          <Section n={4} title="Read this before you escrow">
+            <RiskNotice side="create" />
+          </Section>
         </div>
 
-        <aside aria-label="Your policy" className="min-w-0 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto rounded-2xl">
+        <aside aria-label="Your policy" className="min-w-0 lg:sticky lg:top-6">
           <div className="overflow-hidden rounded-2xl border-2 border-core-green bg-paper-0">
-            <div className="bg-core-green px-5 py-4 text-white">
+            <div className="bg-green-1 px-5 py-4 text-white">
               <p className="font-parkBody text-xs font-bold">Your policy</p>
               <p className="font-parkDisplay font-bold text-2xl leading-tight mt-0.5 break-words">{entry?.geography ?? slug}</p>
               <p className="font-parkBody text-sm">{monthLabel(obsMonth)}</p>
@@ -349,13 +355,13 @@ export function CreatePolicy() {
             <div className="p-5 space-y-4">
               <div>
                 <SummaryRow label="You escrow" value={capP.ok ? money(capacityWei) : "\u2014"} />
-                <SummaryRow label="You can earn" value={<span className="text-core-green">{creator ? signedMoney(creator.bestCase) : "\u2014"}</span>} />
-                <SummaryRow label="You can lose" value={<span className="text-system-red">{creator ? signedMoney(creator.worstCase) : "\u2014"}</span>} />
+                <SummaryRow label="You can earn" value={<span className="text-green-1">{creator ? signedMoney(creator.bestCase) : "\u2014"}</span>} />
+                <SummaryRow label="You can lose" value={<span className="text-system-red">{creator ? money(creator.worstCase < 0n ? -creator.worstCase : 0n) : "\u2014"}</span>} />
                 <SummaryRow label="Payout range" value={lowCents && highCents ? `${rent(lowCents)} to ${rent(highCents)}` : "\u2014"} />
                 <SummaryRow label="Claims close" value={formatDate(terms.redeemEnd)} />
                 {funds.balance !== undefined && <SummaryRow label="In your wallet" value={<span data-testid="wallet-balance">{money(funds.balance)}</span>} />}
               </div>
-              {funds.stage === "noFunds" && !accepted && (funds.balance ?? 0n) > 0n && (
+              {funds.stage === "noFunds" && (funds.balance ?? 0n) > 0n && (
                 <Notice tone="warn" testId="escrow-over-balance">
                   <p>Your escrow is more than this wallet holds.</p>
                   <button
@@ -366,9 +372,8 @@ export function CreatePolicy() {
                   </button>
                 </Notice>
               )}
-              <RiskNotice side="create" />
               <label className="flex gap-3 font-parkBody text-sm min-h-11 items-start">
-                <input type="checkbox" className="h-5 w-5 mt-0.5 shrink-0 accent-[#16a34a]" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} data-testid="policy-accept" />
+                <input type="checkbox" className="h-5 w-5 mt-0.5 shrink-0 accent-core-green" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} data-testid="policy-accept" />
                 <span>I understand these terms never change, that I can lose the whole escrow, and that the contracts are unaudited.</span>
               </label>
               <WalletGate why={`to escrow ${symbol} on ${networkName}`}>
