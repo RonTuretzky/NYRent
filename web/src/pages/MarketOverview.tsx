@@ -92,6 +92,24 @@ export function MarketOverview() {
         </p>
       </section>
 
+      <section className="max-w-3xl mx-auto" data-testid="home-policies">
+        <div className="bg-paper-0 border-2 border-core-green rounded-2xl p-5 sm:p-6">
+          <Chip size="small">New</Chip>
+          <h2 className="font-parkDisplay font-bold text-2xl sm:text-3xl text-text-standard mt-3">
+            Protection for your neighborhood's rent
+          </h2>
+          <p className="font-parkBody text-surface-grey-2 mt-3">
+            Pick an Apartments.com neighborhood and a month, then buy protection against a rise in its
+            published headline rent. Or fund a policy and earn the premium. It pays on that published
+            figure, not on your own lease, and it is not insurance.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link to="/policies"><LiftedButton>See neighborhood policies</LiftedButton></Link>
+            <Link to="/policies/guide"><LiftedButton preset="secondary">How it works</LiftedButton></Link>
+          </div>
+        </div>
+      </section>
+
       <section id="roles" className="max-w-5xl mx-auto scroll-mt-28">
         <h2 className="font-parkDisplay font-bold text-3xl text-text-standard text-center mb-6">
           Three roles, one fully backed market

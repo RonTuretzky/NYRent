@@ -51,6 +51,16 @@ const contractErrorsAbi = parseAbi([
   "error RedeemWindowOpen()",
   "error AlreadySold()",
   "error ResidualAlreadyWithdrawn()",
+  // ApartmentsCoverPool / ApartmentsRentOracle / GoogleAlertParser / YearMonth
+  "error AlreadyFinalized()",
+  "error TooEarly()",
+  "error NoQualifyingResult()",
+  "error MissingBoundary()",
+  "error BadMimeLayout()",
+  "error BadQuotedPrintable()",
+  "error MissingMarkup()",
+  "error MalformedJson()",
+  "error BadMonth(uint32 yyyymm)",
   // SwapAndBuyRouter
   "error InvalidPath(string what)",
   "error NativeInputNotWeth()",

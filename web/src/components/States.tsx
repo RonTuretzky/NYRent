@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CloudSlashIcon, TrayIcon } from "@phosphor-icons/react";
 import { Button } from "@decentralpark/ui";
 import { chainById } from "../chain/wagmi";
-import { useActiveDeployment } from "../chain/registry";
+import { DEPLOYMENTS, useActiveDeployment } from "../chain/registry";
 
 export function LoadingSkeleton({
   lines = 3,
@@ -59,9 +59,12 @@ export function EmptyState({
  * reached, which is NOT the same as "no data exists". Rendered by pages when a
  * read hook reports `rpcError`. Names the ACTIVE chain's endpoint.
  */
-export function RpcDownState({ onRetry }: { onRetry?: () => void }) {
+export function RpcDownState({ onRetry, chainId }: { onRetry?: () => void; chainId?: number }) {
   const queryClient = useQueryClient();
-  const { deployment } = useActiveDeployment();
+  const active = useActiveDeployment();
+  // Pages pinned to one chain (neighborhood policies) name that chain, not
+  // whatever the header switcher currently points at.
+  const deployment = (chainId !== undefined && DEPLOYMENTS[chainId]) || active.deployment;
   let host = "the RPC endpoint";
   try {
     const url = chainById(deployment.chainId)?.rpcUrls.default.http[0];

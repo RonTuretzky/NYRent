@@ -1,6 +1,8 @@
 # Apartments.com snapshot pilot
 
-Status: research prototype, 2026-10-26. **Zero settlement-enabled markets.**
+Status: research prototype, 2026-10-26. The live contracts are described in
+[docs/APARTMENTS.md](../../docs/APARTMENTS.md) and use an earliest-signed rule rather than
+the agreement rule proposed below.
 
 The proposed product tracks a specified Apartments.com page's published headline
 rent, relayed in a Google-signed result block. It is a rolling snapshot index, not

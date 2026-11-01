@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.26;
+
+/// @notice RSA-2048 modulus of `20251104._domainkey.google.com`, read from DNS on 2026-10-31.
+library GoogleAlertKey {
+    bytes internal constant MODULUS =
+        hex"c27bf3fd16d3980cc70ce1b558d7660fa31afdbf57f7d686580ba38fdb267930120503bb59e07e8a72f1dc0c479710c74bd37cc4d431019cfc33e11b495c04995547a13f83d26a4f3af52a2e67985810ba5bf890e98fa9ce488f2852f802d6d218c364c515f343f33e9bcbecb2bfe7a9af34a5addaffd7b5a2af7d86f84f1e836c8e2eedcc1f06ec6bddcb62bb1caf1ff304282a6ccaf9fb74fa79faafe23280e5ac43165ab25a00958158271b746971e034563f802cd4308950be1c8f66f8aa5568ae9e88cc993b4791cef35f613ef8cce56e20869d02fbd8547db6e28671b07c7bbb18abdcd826d6dc147bef749c028a37a29194ce0b28785b693603c65fa5";
+}

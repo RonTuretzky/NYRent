@@ -60,6 +60,9 @@ assumes, and the Integrate phase must reconcile:
 - Broadcast output stays etherform-compatible (`broadcast/Deploy.s.sol/31337/run-latest.json`
   with `contractName`/`contractAddress` on CREATE transactions).
 
+The neighborhood-policy pages have their own Arbitrum-fork suite in `policies/`
+(`npm run e2e:policies`, ports 8551/5177, test-key oracle; see `policies/README.md`).
+
 Suite-internal ports: 8547/5174 (local suite), 8549/5175 (Gnosis fork suite, `fork/`),
 8550/5176 (Arbitrum fork suite, `fork-arb/` — builds with a temporary 42161-shaped
 `deployment.json` so `VITE_RPC_URL` pins the app's Arbitrum transport to the fork, restored in

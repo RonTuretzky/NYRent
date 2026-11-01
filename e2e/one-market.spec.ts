@@ -73,3 +73,12 @@ test("forecast discloses clipped payout and mobile views fit", async ({ page }) 
   await expect(page).toHaveURL(/#\/redeem$/);
   await expect(page.getByRole("dialog", {name: "Navigation menu"})).not.toBeVisible();
 });
+
+test("the home page leads to neighborhood policies", async ({ page }) => {
+  await page.goto("/#/");
+  const promo = page.getByTestId("home-policies");
+  await expect(promo).toBeVisible();
+  await expect(promo.getByRole("link", { name: /See neighborhood policies/ })).toHaveAttribute("href", "#/policies");
+  await expect(promo.getByRole("link", { name: /How it works/ })).toHaveAttribute("href", "#/policies/guide");
+  await expect(promo).toContainText("not on your own lease");
+});

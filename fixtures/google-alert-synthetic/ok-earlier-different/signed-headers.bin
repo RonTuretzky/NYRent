@@ -1,0 +1,6 @@
+content-type:multipart/alternative; boundary="000000000000a9a270065d52604d"
+to:synthetic@example.com
+from:Google Alerts <googlealerts-noreply@google.com>
+subject:Google Alert - rent
+date:Mon, 02 Nov 2026 12:00:00 +0000
+dkim-signature:v=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=20251104; t=1793534400; x=1794139200; h=content-type:to:from:subject:date; bh=tdct+H0yUnXuVdfxJ6yS/GaAavuWSzaHA/5YeNS5HLg=; b=

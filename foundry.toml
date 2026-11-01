@@ -24,6 +24,9 @@ line_length = 120
 tab_width = 4
 bracket_spacing = false
 int_types = "long"
+# Deployed on Arbitrum One and verified on Sourcify: formatting would change its source hash.
+ignore = ["src/apartments/ApartmentsRentOracle.sol"]
 
 [rpc_endpoints]
 gnosis = "${GNOSIS_RPC_URL}"
+arbitrum = "https://arb1.arbitrum.io/rpc"

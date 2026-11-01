@@ -2,6 +2,7 @@ import { WarningIcon, PlugsIcon } from "@phosphor-icons/react";
 import { useAccount, useSwitchChain } from "wagmi";
 import { Button } from "@decentralpark/ui";
 import {
+  DEPLOYMENTS,
   TEST_DEPLOYMENT,
   isLiveDeployment,
   useActiveDeployment,
@@ -48,8 +49,11 @@ export function NotDeployedBanner() {
  * (the chain the header switcher selected) and offers a one-click
  * switchChain to it.
  */
-export function WrongNetworkBanner() {
-  const { deployment } = useActiveDeployment();
+export function WrongNetworkBanner({ chainId: pinned }: { chainId?: number } = {}) {
+  const active = useActiveDeployment();
+  // Pages pinned to one chain (neighborhood policies) compare against that
+  // chain, whatever the header switcher last pointed at elsewhere.
+  const deployment = (pinned !== undefined && DEPLOYMENTS[pinned]) || active.deployment;
   const { isConnected, chainId } = useAccount();
   const { switchChain, isPending, error } = useSwitchChain();
 

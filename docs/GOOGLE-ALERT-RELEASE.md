@@ -1,5 +1,7 @@
 # Market creation release — 26 October 2026
 
+> Superseded for residential policies by [APARTMENTS.md](APARTMENTS.md).
+
 The `/create` route exposes permissionless creation through the existing Polygon and
 Arbitrum v4 factories. It does not deploy a new Google Alert oracle or modify existing
 markets. Live factory calls were simulated from an arbitrary address on both chains;

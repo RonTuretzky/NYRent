@@ -56,6 +56,26 @@ async function rpc<T>(method: string, params: unknown[] = []): Promise<T> {
   return json.result as T;
 }
 
+/**
+ * Freezes what the page knows. The app refetches fast enough to leave a stale
+ * screen on its own, so a race needs the tab to keep rendering what it last read.
+ * Only the simulation of `selectors` reaches the node; background reads fail and
+ * the app keeps its last good data.
+ */
+const BUY_SELECTORS = ["479c1e34", "4993833d"];
+const REDEEM_SELECTORS = ["7cbc2373"];
+
+async function freezeReads(page: Page, selectors: string[]): Promise<void> {
+  await page.route(`${RPC_URL}/**`, (route) => {
+    const body = route.request().postData() ?? "";
+    return selectors.some((s) => body.includes(s)) ? route.continue() : route.abort();
+  });
+  await page.route(RPC_URL, (route) => {
+    const body = route.request().postData() ?? "";
+    return selectors.some((s) => body.includes(s)) ? route.continue() : route.abort();
+  });
+}
+
 /** Send a write from one of anvil's unlocked dev accounts and wait for it. */
 async function write(
   account: `0x${string}`,
@@ -153,6 +173,7 @@ test("buy raced by the creator pausing sales shows the decoded paused copy", asy
 
   // Race: the series creator pauses ITS sales AFTER the page rendered an open
   // sale (there is no global pause on the permissionless pool).
+  await freezeReads(page, BUY_SELECTORS);
   await write(CREATOR, deployment().pool, poolWriteAbi, "setSeriesPaused", [
     BigInt(seriesId),
     true,
@@ -165,6 +186,7 @@ test("buy raced by the creator pausing sales shows the decoded paused copy", asy
     "Sales are currently paused by the market creator",
   );
 
+  await page.unrouteAll();
   // A fresh render of the same page shows the dedicated paused empty state.
   await page.reload();
   const empty = page.getByTestId("empty-state");
@@ -180,6 +202,7 @@ test("buy raced by the creator cancelling shows the decoded cancelled copy", asy
 
   // Race: nothing has sold yet, so the creator can still cancel and take the
   // escrow back — mid-flow, under the armed buy form.
+  await freezeReads(page, BUY_SELECTORS);
   await write(CREATOR, deployment().pool, poolWriteAbi, "cancelSeries", [
     BigInt(seriesId),
   ]);
@@ -189,6 +212,7 @@ test("buy raced by the creator cancelling shows the decoded cancelled copy", asy
   const error = page.getByTestId("tx-reverted");
   await expect(error).toContainText("cancelled by its creator");
 
+  await page.unrouteAll();
   await page.reload();
   const empty = page.getByTestId("empty-state");
   await expect(empty).toBeVisible();
@@ -209,6 +233,7 @@ test("redeem raced by a redeem in another tab shows the balance-changed copy", a
   });
 
   // Race: the full remaining balance is redeemed from "another tab" (direct RPC).
+  await freezeReads(page, REDEEM_SELECTORS);
   await write(BUYER, deployment().pool, poolWriteAbi, "redeem", [
     SERIES_0,
     HELD_COVER,
@@ -231,6 +256,7 @@ test("buy raced by the sale window closing shows the decoded closed copy", async
 
   // Race: the chain clock passes saleEnd while the page still shows the sale
   // it rendered a moment ago.
+  await freezeReads(page, BUY_SELECTORS);
   await warpTo(saleEnd + 60n);
   await page.getByTestId("buy-button").click();
 
@@ -240,6 +266,7 @@ test("buy raced by the sale window closing shows the decoded closed copy", async
 
   // Let the BROWSER clock catch up with the warp, then a fresh render shows
   // the dedicated sale-closed empty state.
+  await page.unrouteAll();
   await page.clock.fastForward(2 * 3_600 * 1000);
   await page.reload();
   const empty = page.getByTestId("empty-state");

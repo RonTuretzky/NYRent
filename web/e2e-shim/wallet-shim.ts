@@ -28,6 +28,9 @@ export interface TestWalletOptions {
   chainId: number;
   /** Chain ids wallet_switchEthereumChain will accept (default: any). */
   knownChainIds?: number[];
+  /** Answer eth_accounts before any eth_requestAccounts, like a wallet that
+   * already authorised the site: wagmi then reconnects on every reload. */
+  preauthorized?: boolean;
 }
 
 // Serializable top-level function: everything it needs comes in via `options`
@@ -36,7 +39,7 @@ export function installTestWallet(options: TestWalletOptions): void {
   const state = {
     accounts: [options.address],
     chainId: options.chainId,
-    connected: false,
+    connected: options.preauthorized === true,
     nextId: 1,
   };
 
