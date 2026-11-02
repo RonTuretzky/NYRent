@@ -52,6 +52,14 @@ test("the list starts empty with a way forward", async ({ page }) => {
   await shot(page, "00-list-empty");
 });
 
+test("the home page starts with an empty preview and a way forward", async ({ page }) => {
+  await openAs(page, null, "/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("rent climbs");
+  await expect(page.getByTestId("home-preview-empty")).toContainText("No policies yet");
+  await expect(page.getByTestId("home-preview-empty").getByRole("link", { name: "Create the first one" })).toBeVisible();
+  await shot(page, "00-home-empty");
+});
+
 test("the guide explains both journeys and the shared step", async ({ page }) => {
   await openAs(page, null, "/policies/guide");
   await expect(page.getByRole("tabpanel").getByTestId("guide-steps")).toContainText("Approve, then buy");
@@ -102,9 +110,8 @@ test("Journey A: a renter buys protection (approve, then buy; a double-click sen
   // Funds in place, approval still needed: that is step 4, "Approve, then buy".
   await expect(page.getByTestId("step-bar")).toContainText("Step 4 of 6");
   await expect(page.getByTestId("key-dates")).toContainText("until");
-  // The header is pinned to the policy chain and the office gallery is gone.
-  await expect(page.getByTestId("chain-switcher").first()).toHaveValue("42161");
-  await expect(page.getByTestId("chain-switcher").first()).toBeDisabled();
+  // Arbitrum One is the only chain: no header switcher, and the office gallery is gone.
+  await expect(page.getByTestId("chain-switcher")).toHaveCount(0);
   await expect(page.getByRole("region", { name: /newsletters/i })).toHaveCount(0);
   await page.getByTestId("buy-amount").fill("20");
   await expect(page.getByText("You pay now (premium)").locator("..")).toContainText("2 USDC");

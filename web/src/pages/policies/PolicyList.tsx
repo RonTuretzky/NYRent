@@ -1,36 +1,14 @@
-import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useReadContract, useReadContracts } from "wagmi";
 import { Button } from "@decentralpark/ui";
-import { APARTMENTS_POOL } from "../../chain/apartments";
-import { apartmentsPoolAbi } from "../../chain/apartmentsAbi";
-import { formatCents } from "../../chain/format";
-import { Card, EmptyState, LoadingSkeleton, RpcDownState, RpcStaleBanner, StatRow } from "../../components/States";
-import { monthLabel } from "../../lib/googleAlert";
-import { policyStatus, type PolicyRow } from "../../lib/policy";
-import { NotDeployed, REFETCH_MS, chainId, isTransportFailure, money, neighborhood, networkName, pool, symbol, useLastGood, useNow } from "./shared";
+import { POOLS } from "../../chain/apartments";
+import { Card, EmptyState, LoadingSkeleton, RpcDownState, RpcStaleBanner } from "../../components/States";
+import { NotDeployed, networkName, symbol, useNow } from "./shared";
+import { EarlierRulesChip, PolicyCard, cardTestId, usePolicyRows } from "./listing";
 
 export function PolicyList() {
-  const count = useReadContract({
-    address: pool, abi: apartmentsPoolAbi, chainId, functionName: "seriesCount",
-    query: { enabled: Boolean(APARTMENTS_POOL), refetchInterval: REFETCH_MS },
-  });
-  const ids = useMemo(() => Array.from({ length: Number(count.data ?? 0n) }, (_, i) => BigInt(i)).reverse(), [count.data]);
-  const rows = useReadContracts({
-    contracts: ids.flatMap((id) => [
-      { address: pool, abi: apartmentsPoolAbi, chainId, functionName: "series", args: [id] } as const,
-      { address: pool, abi: apartmentsPoolAbi, chainId, functionName: "seriesSlug", args: [id] } as const,
-      { address: pool, abi: apartmentsPoolAbi, chainId, functionName: "seriesPaused", args: [id] } as const,
-    ]),
-    query: { enabled: ids.length > 0, refetchInterval: REFETCH_MS },
-  });
+  const { items, isLoading, rpcDown, stale, refetch } = usePolicyRows();
   const now = useNow();
-  // A transport outage turns every multicall row into a failure; keep the last good set.
-  const rowsFailed = rows.isError || Boolean(rows.data?.some((r) => isTransportFailure(r)));
-  const goodRows = useLastGood(rowsFailed ? undefined : rows.data);
-  if (!APARTMENTS_POOL) return <NotDeployed />;
-  const rpcDown = count.isError && count.data === undefined;
-  const stale = (count.isError && count.data !== undefined) || (rowsFailed && goodRows !== undefined);
+  if (POOLS.length === 0) return <NotDeployed />;
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12 min-w-0">
       <div>
@@ -54,42 +32,30 @@ export function PolicyList() {
         </p>
       </Card>
       {stale && <RpcStaleBanner />}
-      {rpcDown ? <RpcDownState chainId={chainId} onRetry={() => void count.refetch()} /> : count.isLoading ? (
+      {rpcDown ? <RpcDownState onRetry={() => void refetch()} /> : isLoading ? (
         <div className="grid sm:grid-cols-2 gap-4" aria-busy="true">
           {[0, 1].map((i) => <Card key={i}><LoadingSkeleton lines={5} /></Card>)}
         </div>
-      ) : ids.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState title="No policies yet">
           <p>Nobody has opened a policy on {networkName}. <Link className="underline font-bold text-core-green" to="/policies/new">Create the first one</Link> or read the <Link className="underline font-bold text-core-green" to="/policies/guide">guide</Link>.</p>
         </EmptyState>
       ) : (
         <ul className="grid sm:grid-cols-2 gap-4 list-none p-0 m-0">
-          {ids.map((id, i) => {
-            const series = goodRows?.[i * 3]?.result as unknown as PolicyRow | undefined;
-            const slug = goodRows?.[i * 3 + 1]?.result as string | undefined;
-            const paused = Boolean(goodRows?.[i * 3 + 2]?.result);
-            if (!series || !slug) return <li key={String(id)}><Card><LoadingSkeleton lines={5} /></Card></li>;
-            const status = policyStatus(series, now, paused);
-            const left = series.escrow - series.sold;
-            return (
-              <li key={String(id)} className="min-w-0">
-                <Link to={`/policies/${id}`} data-testid={`policy-${id}`} className="block h-full rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-core-green">
-                  <Card className="hover:border-core-green h-full">
-                    <p className="font-parkDisplay font-bold text-xl break-words">{neighborhood(slug)?.geography ?? slug}</p>
-                    <p className="font-parkBody text-sm mb-2">
-                      {monthLabel(series.obsMonth)} · <span className="font-bold" data-testid="policy-status">{status.label}</span>
-                    </p>
-                    <StatRow label="Pays from" value={`${formatCents(series.strikeLowCents)}/mo`} />
-                    <StatRow label="Full payout at" value={`${formatCents(series.strikeHighCents)}/mo`} />
-                    <StatRow label="Premium" value={`${series.premiumRateBps / 100}% of max payout`} />
-                    <StatRow label="Still available" value={status.phase === "cancelled" ? "—" : money(left)} />
-                    <p className="font-parkBody text-xs text-surface-grey-2 mt-2 leading-relaxed">{status.next}</p>
-                  </Card>
-                </Link>
-              </li>
-            );
-          })}
+          {items.map((item) => (
+            <li key={`${item.version}-${item.id}`} className="min-w-0">
+              <PolicyCard item={item} now={now} testId={cardTestId("policy", item)} />
+            </li>
+          ))}
         </ul>
+      )}
+      {items.some((i) => i.version === "v1") && (
+        <div className="flex flex-wrap items-start gap-3 font-parkBody text-sm text-surface-grey-2" data-testid="v1-explainer">
+          <EarlierRulesChip />
+          <p className="flex-1 min-w-60 leading-relaxed">
+            Policies marked V1 were created on the first pool and keep its rules: sales close when the policy month starts, and claims open seven days after the month ends. New policies use the current pool, where the creator picks when sales close, sales stop once the month's rent is recorded, and claims open two days after the month.
+          </p>
+        </div>
       )}
     </div>
   );

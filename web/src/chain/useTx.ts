@@ -13,11 +13,11 @@ import {
 } from "wagmi/actions";
 import { decodeTxError, type DecodedTxError } from "./errors";
 import { EXPLORER } from "./explorer";
-import { DEPLOYMENTS } from "./registry";
+import { NETWORK } from "./apartments";
 import { pushTxToast, updateTxToast } from "./txToasts";
 
 /** From the moment a hash exists, every state carries the explorer base of
- * the chain the tx was SENT on — links must survive a header chain switch. */
+ * the chain the tx was sent on. */
 export type TxState =
   | { status: "idle" }
   | { status: "simulating" }
@@ -59,16 +59,13 @@ export interface TxRequest {
   functionName: string;
   args?: readonly unknown[];
   account?: Address;
-  /** Native value to attach (payable calls: currency deposit, router native
-   * pay). */
+  /** Native value to attach (payable calls only). */
   value?: bigint;
 }
 
-/** Explorer base for the chain a tx targets, captured at send time (empty
- * local-chain bases fall back to Blockscout so links never break outright). */
+/** Explorer base for the chain a tx targets, captured at send time. */
 function explorerBaseFor(chainId: number): string {
-  const base = DEPLOYMENTS[chainId]?.explorerBase;
-  return base && base.length > 0 ? base : EXPLORER;
+  return chainId === NETWORK.chainId ? NETWORK.explorerBase : EXPLORER;
 }
 
 const RECEIPT_TIMEOUT_MS = 120_000;

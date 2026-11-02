@@ -179,11 +179,17 @@ export function PolicyGuide() {
         <H2 id="dates">Key dates for a policy</H2>
         <p className="font-parkBody mt-3">Every policy page lists these with the exact time. In order:</p>
         <Numbered items={[
-          <><strong>Sales close</strong> at the first second of the policy month. Nobody can buy once that month's rent could already be published.</>,
-          <><strong>Record window</strong>: during the month and for seven days after, anyone can record a qualifying alert. The earliest-signed one wins; a later email can never replace it.</>,
-          <><strong>Claims open</strong> seven days after the month ends. Anyone can finalize; claiming finalizes automatically.</>,
+          <><strong>Sales close</strong> when the creator chose: when the month starts, a few days into it, or at its end at the latest. Sales also stop on their own the moment the month's rent is recorded on-chain, and the creator can pause them any time.</>,
+          <><strong>Record window</strong>: during the month and for two days after, anyone can record a qualifying alert. The earliest-signed one wins; a later email can never replace it.</>,
+          <><strong>Claims open</strong> two days after the month ends. Anyone can finalize; claiming finalizes automatically.</>,
           <><strong>Claims close</strong> 30 days later (the app's default; at least 14). Anything unclaimed returns to the creator, who withdraws it from the policy page.</>,
         ]} />
+        <p className="font-parkBody text-sm mt-3" data-testid="guide-open-sales">
+          <strong>If sales stay open into the month</strong>, buyers may already know the rent: once Google sends the month's alert, anyone who saw it can buy knowing the outcome, until someone records it. Creators price that in, or close sales when the month starts.
+        </p>
+        <p className="font-parkBody text-sm text-surface-grey-2 mt-3" data-testid="guide-v1-rules">
+          Policies marked <strong>V1</strong> were created on the first pool and keep its earlier rules: sales close at the first second of the policy month, and the record window and claims opening run seven days after the month ends instead of two.
+        </p>
       </Card>
 
       <Card>

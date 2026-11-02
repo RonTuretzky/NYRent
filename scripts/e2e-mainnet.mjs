@@ -28,7 +28,7 @@
  *   --claim <units>    max-claim to buy (default 0.0002)
  *
  * Env: DEPLOYER_PRIVATE_KEY, GNOSIS_RPC_URL (.env auto-loaded). Addresses from
- * web/src/deployment.json.
+ * scripts/data/gnosis-deployment.json.
  */
 import { parseAbi, parseEther, formatEther } from "viem";
 import {
@@ -53,7 +53,7 @@ import {
   wxdai,
 } from "./_lib.mjs";
 
-// The Option B pool surface (mirrored from the generated web/src/chain/abi.ts;
+// The Option B pool surface (mirrored from the generated scripts/data/abi.ts;
 // kept inline so this operator script stays self-contained). The series() tuple MUST
 // mirror the CoverPool.Series struct field order exactly.
 const POOL_ABI = parseAbi([

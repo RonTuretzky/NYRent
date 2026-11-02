@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CloudSlashIcon, TrayIcon } from "@phosphor-icons/react";
 import { Button } from "@decentralpark/ui";
-import { chainById } from "../chain/wagmi";
-import { DEPLOYMENTS, useActiveDeployment } from "../chain/registry";
+import { appChain } from "../chain/wagmi";
+import { NETWORK } from "../chain/apartments";
 
 export function LoadingSkeleton({
   lines = 3,
@@ -57,17 +57,13 @@ export function EmptyState({
 /**
  * Distinct state for transport/network read failures — the chain could not be
  * reached, which is NOT the same as "no data exists". Rendered by pages when a
- * read hook reports `rpcError`. Names the ACTIVE chain's endpoint.
+ * read hook reports `rpcError`. Names the network's endpoint.
  */
-export function RpcDownState({ onRetry, chainId }: { onRetry?: () => void; chainId?: number }) {
+export function RpcDownState({ onRetry }: { onRetry?: () => void }) {
   const queryClient = useQueryClient();
-  const active = useActiveDeployment();
-  // Pages pinned to one chain (neighborhood policies) name that chain, not
-  // whatever the header switcher currently points at.
-  const deployment = (chainId !== undefined && DEPLOYMENTS[chainId]) || active.deployment;
   let host = "the RPC endpoint";
   try {
-    const url = chainById(deployment.chainId)?.rpcUrls.default.http[0];
+    const url = appChain.rpcUrls.default.http[0];
     if (url) host = new URL(url).host;
   } catch {
     /* keep the generic label */
@@ -82,7 +78,7 @@ export function RpcDownState({ onRetry, chainId }: { onRetry?: () => void; chain
         <CloudSlashIcon size={40} />
       </div>
       <p className="font-parkDisplay font-bold text-text-standard mt-3">
-        Can't reach the {deployment.name} RPC
+        Can't reach the {NETWORK.name} RPC
       </p>
       <div className="font-parkBody text-sm text-surface-grey-2 mt-1 max-w-md mx-auto">
         On-chain data could not be loaded — {host} may be down, rate-limited,

@@ -1,7 +1,9 @@
 // Shared constants and helpers for the neighborhood-policy browser suite.
 // Everything runs against an anvil fork of Arbitrum One on 127.0.0.1:8551
-// (real chainId 42161) with a TEST-KEY oracle/token/pool deployed on the fork
-// (script/DeployApartmentsFork.s.sol) and a production build on 127.0.0.1:5177.
+// (real chainId 42161) with a TEST-KEY oracle, a V1 pool and token
+// (script/DeployApartmentsFork.s.sol) and a V2 pool and token on that same
+// oracle (deployed by global-setup from forge artifacts), and a production
+// build on 127.0.0.1:5177.
 // The only remote traffic is anvil lazily fetching forked state. No private key
 // is read anywhere: every sender is a fresh address anvil impersonates.
 import fs from "node:fs";
@@ -12,7 +14,6 @@ import { expect, type Page } from "@playwright/test";
 import { createPublicClient, encodeFunctionData, http, keccak256, parseAbi, toBytes } from "viem";
 import { arbitrum } from "viem/chains";
 import { installTestWallet } from "../../web/e2e-shim/wallet-shim";
-import { connectWallet } from "../support/helpers";
 
 export const FORK_PORT = 8551;
 export const FORK_RPC_URL = `http://127.0.0.1:${FORK_PORT}`;
@@ -44,18 +45,21 @@ export const REPO_ROOT = path.resolve(HERE, "..", "..");
 export const ART_DIR = path.join(HERE, ".artifacts");
 export const PIDS_PATH = path.join(ART_DIR, "pids.json");
 export const STATE_PATH = path.join(ART_DIR, "state.json");
-export const LEGACY_DEPLOYMENT_PATH = path.join(REPO_ROOT, "web/src/deployment.json");
-export const LEGACY_DEPLOYMENT_BAK = path.join(ART_DIR, "deployment.json.bak");
 export const APARTMENTS_DEPLOYMENT_PATH = path.join(REPO_ROOT, "web/src/chain/apartments-deployment.json");
 export const APARTMENTS_DEPLOYMENT_BAK = path.join(ART_DIR, "apartments-deployment.json.bak");
 export const SHOT_DIR = process.env.SHOT_DIR;
 export const CREDAILY_EML = path.join(REPO_ROOT, "fixtures/credaily-2026-09-17/credaily-cpace-2026-09-17.eml");
 
+export type Version = "v1" | "v2";
+
 export interface State {
   oracle: `0x${string}`;
+  /** The V2 claim token and pool: every policy created through the UI. */
   token: `0x${string}`;
   pool: `0x${string}`;
-  /** Populated by the specs as they create policies. */
+  /** The V1 pool and token on the same oracle (earlier rules). */
+  v1: { pool: `0x${string}`; token: `0x${string}` };
+  /** Populated by the specs as they create policies (V1 ones are keyed v1*). */
   ids: Record<string, number>;
   /** YYYY-MM of the first selectable policy month at setup time. */
   month: string;
@@ -81,9 +85,13 @@ export const poolAbi = parseAbi([
   "function buyProtection(uint256 seriesId, uint256 maxClaim, uint256 maxPremium)",
   "function setSeriesPaused(uint256 seriesId, bool paused)",
   "function redeem(uint256 seriesId, uint256 amount)",
+  "function SUBMISSION_GRACE() view returns (uint64)",
 ]);
 export const tokenAbi = parseAbi(["function balanceOf(address, uint256) view returns (uint256)"]);
-export const oracleAbi = parseAbi(["function earliest(bytes32, uint32) view returns (uint64, uint32, bytes32)"]);
+export const oracleAbi = parseAbi([
+  "function earliest(bytes32, uint32) view returns (uint64, uint32, bytes32)",
+  "function submitObservation(bytes signedHeaders, bytes canonBody, bytes sig)",
+]);
 
 export const client = createPublicClient({ chain: arbitrum, transport: http(FORK_RPC_URL) });
 
@@ -108,11 +116,13 @@ export async function sendAs(from: `0x${string}`, to: `0x${string}`, data: `0x${
 
 export const usdcBalance = (owner: `0x${string}`) =>
   client.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [owner] });
-export const claimBalance = (owner: `0x${string}`, id: number) =>
-  client.readContract({ address: readState().token, abi: tokenAbi, functionName: "balanceOf", args: [owner, BigInt(id)] });
-export const readSeries = (id: number) =>
-  client.readContract({ address: readState().pool, abi: poolAbi, functionName: "series", args: [BigInt(id)] });
-export const seriesCount = () => client.readContract({ address: readState().pool, abi: poolAbi, functionName: "seriesCount" });
+export const poolOf = (v: Version = "v2") => (v === "v1" ? readState().v1.pool : readState().pool);
+export const tokenOf = (v: Version = "v2") => (v === "v1" ? readState().v1.token : readState().token);
+export const claimBalance = (owner: `0x${string}`, id: number, v: Version = "v2") =>
+  client.readContract({ address: tokenOf(v), abi: tokenAbi, functionName: "balanceOf", args: [owner, BigInt(id)] });
+export const readSeries = (id: number, v: Version = "v2") =>
+  client.readContract({ address: poolOf(v), abi: poolAbi, functionName: "series", args: [BigInt(id)] });
+export const seriesCount = (v: Version = "v2") => client.readContract({ address: poolOf(v), abi: poolAbi, functionName: "seriesCount" });
 export const earliest = (slug: string, yyyymm: number) =>
   client.readContract({ address: readState().oracle, abi: oracleAbi, functionName: "earliest", args: [keccak256(toBytes(slug)), yyyymm] });
 
@@ -134,25 +144,33 @@ export async function fundUsdc(to: `0x${string}`, amount: bigint): Promise<void>
   await rpc("anvil_stopImpersonatingAccount", [USDC_WHALE]);
 }
 
-export async function approveAs(from: `0x${string}`, amount: bigint): Promise<void> {
-  await sendAs(from, USDC, encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [readState().pool, amount] }));
+export async function approveAs(from: `0x${string}`, amount: bigint, v: Version = "v2"): Promise<void> {
+  await sendAs(from, USDC, encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [poolOf(v), amount] }));
 }
 
-export async function buyAs(from: `0x${string}`, id: number, maxClaim: bigint, maxPremium: bigint): Promise<void> {
-  await sendAs(from, readState().pool, encodeFunctionData({ abi: poolAbi, functionName: "buyProtection", args: [BigInt(id), maxClaim, maxPremium] }));
+export async function buyAs(from: `0x${string}`, id: number, maxClaim: bigint, maxPremium: bigint, v: Version = "v2"): Promise<void> {
+  await sendAs(from, poolOf(v), encodeFunctionData({ abi: poolAbi, functionName: "buyProtection", args: [BigInt(id), maxClaim, maxPremium] }));
 }
 
-export async function setPausedAs(from: `0x${string}`, id: number, paused: boolean): Promise<void> {
-  await sendAs(from, readState().pool, encodeFunctionData({ abi: poolAbi, functionName: "setSeriesPaused", args: [BigInt(id), paused] }));
+export async function setPausedAs(from: `0x${string}`, id: number, paused: boolean, v: Version = "v2"): Promise<void> {
+  await sendAs(from, poolOf(v), encodeFunctionData({ abi: poolAbi, functionName: "setSeriesPaused", args: [BigInt(id), paused] }));
+}
+
+/** Records a test-key alert straight on the oracle (written with makeEml's `dumpCanon`). */
+export async function recordAs(from: `0x${string}`, canonPrefix: string): Promise<void> {
+  const hex = (ext: string) => `0x${fs.readFileSync(`${canonPrefix}.${ext}`).toString("hex")}` as `0x${string}`;
+  await sendAs(from, readState().oracle, encodeFunctionData({
+    abi: oracleAbi, functionName: "submitObservation", args: [hex("head"), hex("body"), hex("sig")],
+  }));
 }
 
 /** Creates a policy straight on the contract (for scratch cases the UI does not need to drive). */
 export async function createAs(from: `0x${string}`, args: {
   slug: string; obsMonth: number; low: number; high: number; bps: number; saleEnd: bigint; redeemEnd: bigint; capacity: bigint;
-}): Promise<number> {
-  const id = Number(await seriesCount());
-  await approveAs(from, args.capacity);
-  await sendAs(from, readState().pool, encodeFunctionData({
+}, v: Version = "v2"): Promise<number> {
+  const id = Number(await seriesCount(v));
+  await approveAs(from, args.capacity, v);
+  await sendAs(from, poolOf(v), encodeFunctionData({
     abi: poolAbi, functionName: "createSeries",
     args: [args.slug, args.obsMonth, args.low, args.high, args.bps, args.saleEnd, args.redeemEnd, args.capacity],
   }));
@@ -170,7 +188,7 @@ export const monthLabel = (ym: number) => `${MONTH_NAMES[(ym % 100) - 1]} ${Math
 
 /** Writes a test-key-signed Google Alert .eml into .artifacts and returns its path. */
 export function makeEml(name: string, opts: {
-  slug: string; label: string; dollars: string; month: string; t: bigint; sentenceMonth?: string; bedroom?: boolean;
+  slug: string; label: string; dollars: string; month: string; t: bigint; sentenceMonth?: string; bedroom?: boolean; dumpCanon?: boolean;
 }): string {
   const out = path.join(ART_DIR, `${name}.eml`);
   const args = [
@@ -179,9 +197,31 @@ export function makeEml(name: string, opts: {
   ];
   if (opts.sentenceMonth) args.push("--sentence-month", opts.sentenceMonth);
   if (opts.bedroom) args.push("--bedroom");
+  if (opts.dumpCanon) args.push("--dump-canon", path.join(ART_DIR, name));
   const res = spawnSync("python3", args, { cwd: REPO_ROOT, stdio: "pipe", encoding: "utf8" });
   if (res.status !== 0) throw new Error(`make-google-alert-eml failed: ${res.stderr}`);
   return out;
+}
+
+/**
+ * Waits until the header shows a connected wallet: RainbowKit's account chip,
+ * or its "Wrong network" chip when the shim sits on another chain. Clicks
+ * through the connect modal if auto-connect did not happen.
+ */
+export async function connectWallet(page: Page): Promise<void> {
+  const account = page.locator('[data-testid="rk-account-button"], [data-testid="rk-wrong-network-button"]').first();
+  const autoConnected = await account.waitFor({ state: "visible", timeout: 4000 }).then(() => true).catch(() => false);
+  if (autoConnected) return;
+  const connect = page.getByRole("button", { name: /connect wallet/i }).first();
+  if (await connect.isVisible().catch(() => false)) {
+    // A late auto-connect can detach the button mid-click; the chip below is the real postcondition.
+    await connect.click().catch(() => {});
+    const wallet = page.getByRole("button", { name: /E2E Test Wallet|Injected|Browser/i }).first();
+    if (await wallet.waitFor({ state: "visible", timeout: 3000 }).then(() => true).catch(() => false)) {
+      await wallet.click().catch(() => {});
+    }
+  }
+  await expect(account).toBeVisible({ timeout: 15000 });
 }
 
 /**
@@ -192,7 +232,11 @@ export function makeEml(name: string, opts: {
 export async function openAs(page: Page, address: string | null, hashPath: string, opts: { walletChainId?: number; knownChainIds?: number[]; connect?: boolean } = {}): Promise<void> {
   const offsetMs = Number((await chainNow()) - BigInt(Math.floor(Date.now() / 1000))) * 1000;
   await page.addInitScript((ms) => {
-    const real = Date.now.bind(Date);
+    // Init scripts accumulate across openAs calls on one page: keep the real
+    // clock once, so the latest offset replaces earlier ones instead of stacking.
+    const w = window as unknown as { __realNow?: () => number };
+    w.__realNow ??= Date.now.bind(Date);
+    const real = w.__realNow;
     Date.now = () => real() + ms;
   }, offsetMs);
   if (address) {

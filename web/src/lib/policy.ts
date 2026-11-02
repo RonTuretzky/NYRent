@@ -8,6 +8,54 @@ import { keccak256, toBytes } from "viem";
 import type { DecodedTxError } from "../chain/errors.ts";
 
 export const WAD = 10n ** 18n;
+const DAY = 86_400n;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pools and their rules
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Two pools hold policies. V1 (the first deployment) closes sales by the first
+ * second of the policy month and opens claims seven days after it. V2, where
+ * every new policy goes, lets the creator keep sales open into the month (up
+ * to its last second), stops sales as soon as the month's rent is recorded and
+ * opens claims two days after the month.
+ */
+export type PoolVersion = "v1" | "v2";
+
+export interface PoolRules {
+  version: PoolVersion;
+  /** Seconds between the month's last second and finalize: SUBMISSION_GRACE. */
+  graceSeconds: bigint;
+  /** The grace in words, for copy. */
+  graceWords: string;
+  /** Sales may stay open into the policy month (until a creator-chosen time). */
+  salesIntoMonth: boolean;
+  /** Buying, creating and adding escrow stop once the oracle holds the month's rent. */
+  stopsOnRecord: boolean;
+}
+
+export const V1_RULES: PoolRules = { version: "v1", graceSeconds: 7n * DAY, graceWords: "seven days", salesIntoMonth: false, stopsOnRecord: false };
+export const V2_RULES: PoolRules = { version: "v2", graceSeconds: 2n * DAY, graceWords: "two days", salesIntoMonth: true, stopsOnRecord: true };
+export const POOL_RULES: Record<PoolVersion, PoolRules> = { v1: V1_RULES, v2: V2_RULES };
+
+/** Default claim window the create page offers (the contract's minimum is 14 days). */
+export const CLAIM_WINDOW_SECONDS = 30n * DAY;
+
+/** Detail route for a policy: V2 at /policies/:id, V1 at /policies/v1/:id. */
+export function policyPath(version: PoolVersion, id: bigint | number): string {
+  return version === "v1" ? `/policies/v1/${id}` : `/policies/${id}`;
+}
+
+/** "#12" for V2 and "V1 #0" for the earlier pool: how a policy is named in copy. */
+export function policyLabel(version: PoolVersion, id: bigint | number): string {
+  return version === "v1" ? `V1 #${id}` : `#${id}`;
+}
+
+/** When claims open for a month under a pool's rules. */
+export function finalizeAtFor(obsMonth: number, rules: PoolRules): bigint {
+  return monthBoundsOf(obsMonth).end + 1n + rules.graceSeconds;
+}
 
 /** The on-chain Series struct as the ABI returns it. */
 export interface PolicyRow {
@@ -56,7 +104,17 @@ export interface PolicyStatus {
   next: string;
 }
 
-export function policyStatus(s: PolicyRow, now: bigint, paused = false): PolicyStatus {
+export interface StatusOptions {
+  /** The pool's rules (default: V2, where new policies go). */
+  rules?: PoolRules;
+  /** The oracle already holds this page's rent for the month. */
+  recorded?: boolean;
+}
+
+export function policyStatus(s: PolicyRow, now: bigint, paused = false, opts: StatusOptions = {}): PolicyStatus {
+  const rules = opts.rules ?? V2_RULES;
+  const recorded = Boolean(opts.recorded);
+  const claimsOpen = `Claims open ${rules.graceWords} after the month ends; anyone can finalize then.`;
   if (s.cancelled) {
     return { phase: "cancelled", label: "Cancelled", next: "The creator took the escrow back before anything sold. Nothing more happens here." };
   }
@@ -79,12 +137,31 @@ export function policyStatus(s: PolicyRow, now: bigint, paused = false): PolicyS
   if (now >= s.finalizeAt) {
     return { phase: "readyToFinalize", label: "Ready to finalize", next: "Anyone can finalize now. Claiming finalizes automatically." };
   }
-  if (now < s.saleEnd) {
+  const stoppedByRecord = rules.stopsOnRecord && recorded;
+  if (now < s.saleEnd && !stoppedByRecord) {
+    const closesAtStart = s.saleEnd <= monthBoundsOf(s.obsMonth).start;
     if (paused) return { phase: "paused", label: "Sales paused", next: "The creator paused new sales. Existing protection is unaffected." };
-    if (s.escrow - s.sold === 0n) return { phase: "soldOut", label: "Sold out", next: "All the escrow is spoken for. Sales close anyway when the month starts." };
-    return { phase: "onSale", label: "On sale", next: "Buy protection until the policy month starts; after that the month's first Google Alert sets the rent." };
+    if (s.escrow - s.sold === 0n) {
+      return { phase: "soldOut", label: "Sold out", next: `All the escrow is spoken for. Sales close anyway ${closesAtStart ? "when the month starts" : "when the creator chose"}.` };
+    }
+    return {
+      phase: "onSale",
+      label: "On sale",
+      next: closesAtStart
+        ? "Buy protection until the policy month starts; after that the month's first Google Alert sets the rent."
+        : rules.stopsOnRecord
+          ? "Buy protection until sales close at the time the creator chose, or sooner if the month's rent is recorded first."
+          : "Buy protection until sales close at the time the creator chose.",
+    };
   }
-  return { phase: "awaitingData", label: "Awaiting rent data", next: "Anyone with the month's alert email can record it. Finalizing opens seven days after the month ends." };
+  if (recorded) {
+    return {
+      phase: "awaitingData",
+      label: "Rent recorded",
+      next: `${stoppedByRecord && now < s.saleEnd ? "This month's rent is already recorded, so sales are closed. " : "This month's rent is recorded; an earlier-signed alert can still replace it until claims open. "}${claimsOpen}`,
+    };
+  }
+  return { phase: "awaitingData", label: "Awaiting rent data", next: `Anyone with the month's alert email can record it. ${claimsOpen}` };
 }
 
 export function ratioPercent(ratioWad: bigint): number {
@@ -114,13 +191,16 @@ export interface KeyDate {
   note: string;
 }
 
-/** Every date a buyer or creator needs, in order. */
-export function policyDates(s: Pick<PolicyRow, "saleEnd" | "finalizeAt" | "redeemEnd" | "obsMonth">): KeyDate[] {
+/** Every date a buyer or creator needs, in order, worded for the pool's rules. */
+export function policyDates(s: Pick<PolicyRow, "saleEnd" | "finalizeAt" | "redeemEnd" | "obsMonth">, rules: PoolRules = V2_RULES): KeyDate[] {
   const { start } = monthBoundsOf(s.obsMonth);
+  const salesNote = s.saleEnd <= start
+    ? "Last moment to buy protection. The policy month starts right after."
+    : "Last moment to buy protection, chosen by the creator.";
   return [
-    { label: "Sales close", at: s.saleEnd, note: "Last moment to buy protection. The policy month starts right after." },
+    { label: "Sales close", at: s.saleEnd, note: rules.stopsOnRecord ? `${salesNote} Sales also stop as soon as the month's rent is recorded on-chain.` : salesNote },
     { label: "Record window", from: start, at: s.finalizeAt, note: "Anyone can record the month's alert email between these times. The earliest-signed one counts." },
-    { label: "Claims open", at: s.finalizeAt, note: "From this time anyone can finalize, and buyers can claim." },
+    { label: "Claims open", at: s.finalizeAt, note: `${rules.graceWords[0].toUpperCase()}${rules.graceWords.slice(1)} after the month ends. From this time anyone can finalize, and buyers can claim.` },
     { label: "Claims close", at: s.redeemEnd, note: "Unclaimed money returns to the creator after this." },
   ];
 }
@@ -136,27 +216,89 @@ export interface MonthOption {
   value: string;
   yyyymm: number;
   start: bigint;
-  /** Seconds of sales left at `now`. */
+  /** Last second of the month. */
+  end: bigint;
+  /** The month `now` falls in (only offered when sales may run into the month). */
+  current: boolean;
+  /** Seconds of sales left at `now` if sales close when the month starts (or at month end, for the current month). */
   salesLeft: bigint;
 }
 
 export const WEEK = 7n * 86400n;
 export const TWO_DAYS = 2n * 86400n;
 
-/** The next `count` calendar months whose sales have not closed, from `now`. */
-export function monthOptions(now: bigint, count = 6): MonthOption[] {
-  const d = new Date(Number(now) * 1000);
-  return Array.from({ length: count }, (_, i) => {
-    const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1 + i, 1));
-    const yyyymm = m.getUTCFullYear() * 100 + m.getUTCMonth() + 1;
-    const start = BigInt(m.getTime() / 1000);
-    return { value: `${m.getUTCFullYear()}-${String(m.getUTCMonth() + 1).padStart(2, "0")}`, yyyymm, start, salesLeft: start - now };
-  });
+function monthOption(year: number, monthIndex: number, now: bigint): MonthOption {
+  const m = new Date(Date.UTC(year, monthIndex, 1));
+  const yyyymm = m.getUTCFullYear() * 100 + m.getUTCMonth() + 1;
+  const { start, end } = monthBoundsOf(yyyymm);
+  const current = start <= now;
+  return {
+    value: `${m.getUTCFullYear()}-${String(m.getUTCMonth() + 1).padStart(2, "0")}`,
+    yyyymm, start, end, current,
+    salesLeft: (current ? end : start) - now,
+  };
 }
 
-/** First month with at least a week of sales left, so a policy has time to sell. */
+/**
+ * The months a policy can be created for at `now`: the next `count` calendar
+ * months, plus (with `includeCurrent`, V2 rules) the current month while its
+ * last day has not started.
+ */
+export function monthOptions(now: bigint, count = 6, opts: { includeCurrent?: boolean } = {}): MonthOption[] {
+  const d = new Date(Number(now) * 1000);
+  const next = Array.from({ length: count }, (_, i) => monthOption(d.getUTCFullYear(), d.getUTCMonth() + 1 + i, now));
+  if (!opts.includeCurrent) return next;
+  const current = monthOption(d.getUTCFullYear(), d.getUTCMonth(), now);
+  return now < current.end + 1n - DAY ? [current, ...next] : next;
+}
+
+/** First upcoming month with at least a week before it starts, so a policy has time to sell. */
 export function defaultMonth(options: MonthOption[]): string {
-  return (options.find((o) => o.salesLeft >= WEEK) ?? options[options.length - 1]).value;
+  const upcoming = options.filter((o) => !o.current);
+  return (upcoming.find((o) => o.salesLeft >= WEEK) ?? upcoming[upcoming.length - 1] ?? options[0]).value;
+}
+
+export interface SaleCloseOption {
+  id: string;
+  label: string;
+  /** The saleEnd timestamp: strictly after `now`, at most the month's last second. */
+  at: bigint;
+}
+
+/**
+ * Sales-close choices for a V2 policy month. A future month offers its start
+ * (the default), 1, 3 or 7 days into it, or its end; the current month offers
+ * 1, 3 (the default) or 7 days from now, or its end, each capped at month end.
+ * Every option is strictly after `now` and at most the last second of the month.
+ */
+export function saleCloseOptions(yyyymm: number, now: bigint): { options: SaleCloseOption[]; defaultId: string } {
+  const { start, end } = monthBoundsOf(yyyymm);
+  const raw: SaleCloseOption[] = start > now
+    ? [
+        { id: "start", label: "When the month starts", at: start },
+        { id: "1d", label: "1 day into the month", at: start + DAY },
+        { id: "3d", label: "3 days into the month", at: start + 3n * DAY },
+        { id: "7d", label: "7 days into the month", at: start + 7n * DAY },
+        { id: "end", label: "At month end", at: end },
+      ]
+    : [
+        { id: "1d", label: "In 1 day", at: now + DAY },
+        { id: "3d", label: "In 3 days", at: now + 3n * DAY },
+        { id: "7d", label: "In 7 days", at: now + 7n * DAY },
+        { id: "end", label: "At month end", at: end },
+      ];
+  const seen = new Set<bigint>();
+  const options: SaleCloseOption[] = [];
+  for (const o of raw) {
+    // Anything past month end is the same as "At month end", which comes last.
+    if (o.id !== "end" && o.at >= end) continue;
+    if (o.at <= now || o.at > end || seen.has(o.at)) continue;
+    seen.add(o.at);
+    options.push(o);
+  }
+  const preferred = start > now ? "start" : "3d";
+  const defaultId = options.find((o) => o.id === preferred)?.id ?? options[options.length - 1]?.id ?? "";
+  return { options, defaultId };
 }
 
 /** Why a (capacity, premium) pair cannot be created, or null. */
@@ -310,31 +452,49 @@ export interface JourneyStep {
   detail: string;
 }
 
-export const RENTER_STEPS: JourneyStep[] = [
-  { title: "Pick a policy", detail: "Choose the neighborhood page and month that matter to you, and read what it pays." },
-  { title: "Get USDC and a little ETH", detail: "Both on Arbitrum One: USDC to pay the premium, ETH for network fees." },
-  { title: "Connect your wallet", detail: "On Arbitrum One. The page offers a switch button if your wallet is elsewhere." },
-  { title: "Approve, then buy", detail: "Two confirmations: one lets the contract take your premium, the next buys." },
-  { title: "Wait for the month", detail: "Sales close when the month starts. The first Google-signed alert of the month sets the rent." },
-  { title: "Claim or get refunded", detail: "From seven days after the month ends, claim what the rent earned you, or your premium back if no email arrived." },
-];
+export function renterSteps(rules: PoolRules = V2_RULES): JourneyStep[] {
+  return [
+    { title: "Pick a policy", detail: "Choose the neighborhood page and month that matter to you, and read what it pays." },
+    { title: "Get USDC and a little ETH", detail: "Both on Arbitrum One: USDC to pay the premium, ETH for network fees." },
+    { title: "Connect your wallet", detail: "On Arbitrum One. The page offers a switch button if your wallet is elsewhere." },
+    { title: "Approve, then buy", detail: "Two confirmations: one lets the contract take your premium, the next buys." },
+    {
+      title: "Wait for the month",
+      detail: rules.salesIntoMonth
+        ? "Sales close when the creator chose, or as soon as the month's rent is recorded. The first Google-signed alert of the month sets the rent."
+        : "Sales close when the month starts. The first Google-signed alert of the month sets the rent.",
+    },
+    { title: "Claim or get refunded", detail: `From ${rules.graceWords} after the month ends, claim what the rent earned you, or your premium back if no email arrived.` },
+  ];
+}
 
-export const CREATOR_STEPS: JourneyStep[] = [
-  { title: "Choose the terms", detail: "Neighborhood, month, the rent where payouts start and reach 100%, and the premium." },
-  { title: "Understand the exposure", detail: "You can lose the whole escrow if the rent reaches the full-payout level; you keep every premium either way." },
-  { title: "Get USDC and a little ETH", detail: "Both on Arbitrum One: USDC for the escrow, ETH for network fees." },
-  { title: "Approve, then create", detail: "Two confirmations: one lets the contract take the escrow, the next opens the policy." },
-  { title: "Share the policy", detail: "Send the link. Premiums accrue inside the policy as people buy; cancel any time nothing has sold." },
-  { title: "Collect what remains", detail: "After claims close, withdraw the escrow that was not paid out plus all premiums." },
-];
+export function creatorSteps(rules: PoolRules = V2_RULES): JourneyStep[] {
+  return [
+    { title: "Choose the terms", detail: rules.salesIntoMonth
+      ? "Neighborhood, month, when sales close, the rent where payouts start and reach 100%, and the premium."
+      : "Neighborhood, month, the rent where payouts start and reach 100%, and the premium." },
+    { title: "Understand the exposure", detail: "You can lose the whole escrow if the rent reaches the full-payout level; you keep every premium either way." },
+    { title: "Get USDC and a little ETH", detail: "Both on Arbitrum One: USDC for the escrow, ETH for network fees." },
+    { title: "Approve, then create", detail: "Two confirmations: one lets the contract take the escrow, the next opens the policy." },
+    { title: "Share the policy", detail: "Send the link. Premiums accrue inside the policy as people buy; cancel any time nothing has sold." },
+    { title: "Collect what remains", detail: "After claims close, withdraw the escrow that was not paid out plus all premiums." },
+  ];
+}
 
-export const RECORDER_STEPS: JourneyStep[] = [
-  { title: "Set up the Google Alert", detail: "Use the exact page address as the query, As-it-happens, All results, delivered to a mailbox you dedicate to alerts." },
-  { title: "Download the original email", detail: "In Gmail open the alert, pick \"Download message\" from the three-dot menu, keep the .eml unchanged." },
-  { title: "Upload and preview", detail: "Your browser reads it locally and shows exactly which rent the contract would record." },
-  { title: "Publish and record", detail: "One confirmation. The whole email becomes public forever, so use a dedicated mailbox." },
-  { title: "Finalize", detail: "Seven days after the month ends anyone finalizes; claiming does it automatically." },
-];
+export function recorderSteps(rules: PoolRules = V2_RULES): JourneyStep[] {
+  return [
+    { title: "Set up the Google Alert", detail: "Use the exact page address as the query, As-it-happens, All results, delivered to a mailbox you dedicate to alerts." },
+    { title: "Download the original email", detail: "In Gmail open the alert, pick \"Download message\" from the three-dot menu, keep the .eml unchanged." },
+    { title: "Upload and preview", detail: "Your browser reads it locally and shows exactly which rent the contract would record." },
+    { title: "Publish and record", detail: "One confirmation. The whole email becomes public forever, so use a dedicated mailbox." },
+    { title: "Finalize", detail: `${rules.graceWords[0].toUpperCase()}${rules.graceWords.slice(1)} after the month ends anyone finalizes; claiming does it automatically.` },
+  ];
+}
+
+/** The journeys as they apply to new (V2) policies. */
+export const RENTER_STEPS = renterSteps(V2_RULES);
+export const CREATOR_STEPS = creatorSteps(V2_RULES);
+export const RECORDER_STEPS = recorderSteps(V2_RULES);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Error copy
@@ -354,12 +514,13 @@ export const POLICY_ERROR_COPY: Record<string, string> = {
   PremiumTooHigh: "The premium came out higher than the amount you approved. Refresh the page and try again.",
   PremiumRoundsToZero: "That amount is so small the premium rounds to zero, so the contract refuses it. Enter a slightly larger amount.",
   AlreadyFinalized: "This policy was already finalized. Refresh to see the result and claim.",
-  TooEarly: "Claims open seven days after the policy month ends, so an earlier-signed email can still be recorded. Come back after the date shown.",
+  TooEarly: "Claims are not open yet: an earlier-signed email can still be recorded until the date shown. Come back then.",
   RedeemWindowClosed: "The claim window for this policy has closed. Whatever is left returns to the creator.",
   RedeemWindowOpen: "Buyers can still claim. The remaining funds unlock for you after claims close.",
   NotCreator: "Only the wallet that created this policy can do that.",
   AlreadySold: "Protection has been sold on this policy, so it cannot be cancelled. Your escrow returns after claims close.",
   ResidualAlreadyWithdrawn: "The remaining funds of this policy were already withdrawn.",
+  RentAlreadyRecorded: "This month's rent is already recorded, so sales are closed.",
   // Oracle
   AlreadyRecorded: "This exact email is already recorded. Nothing to do; the policy will use it.",
   NoQualifyingResult: "The contract found no rent sentence it accepts in this email: it needs \"As of <Month> <Year>, the average rent in <Name> was $n/mo.\" for an Apartments.com rent-trends page, signed during that month.",
@@ -472,6 +633,8 @@ export function clearPendingTx(storage: KeyValueStorage, key: string): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface PolicyRef {
+  /** Which pool holds it (default V2). */
+  version?: PoolVersion;
   id: bigint;
   slugHash: `0x${string}`;
   obsMonth: number;
@@ -534,7 +697,7 @@ export function renterStep(input: {
 
 /** The recorder's step on the submit page. */
 export function recorderStep(input: { hasFile: boolean; parseFailed: boolean; qualifying: boolean; consent: boolean; confirmed: boolean }): StepView {
-  if (input.confirmed) return { current: 5, done: "Recorded. Seven days after the month ends anyone can finalize; claiming does it automatically." };
+  if (input.confirmed) return { current: 5, done: "Recorded. Once claims open (two days after the month ends; seven for V1 policies) anyone can finalize; claiming does it automatically." };
   if (!input.hasFile) return { current: 1 };
   if (input.parseFailed || !input.qualifying) return { current: 2 };
   return { current: input.consent ? 4 : 3 };

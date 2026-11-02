@@ -10,7 +10,7 @@ import { createPublicClient, createWalletClient, http, formatEther, decodeErrorR
 import { privateKeyToAccount } from "viem/accounts";
 import { gnosis } from "viem/chains";
 
-import { oracleAbi, poolAbi, coverTokenAbi, erc20Abi, allErrorsAbi } from "../web/src/chain/abi.ts";
+import { oracleAbi, poolAbi, coverTokenAbi, erc20Abi, allErrorsAbi } from "./data/abi.ts";
 
 export * as emailkit from "../web/src/lib/emailkit.ts";
 
@@ -18,7 +18,7 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 export const FIXTURE_EML = path.join(ROOT, "fixtures", "credaily-2026-09-17", "credaily-cpace-2026-09-17.eml");
 // DEPLOYMENT_JSON env var overrides the default path (used by tests/local anvil runs)
 export const DEPLOYMENT_PATH =
-  process.env.DEPLOYMENT_JSON ?? path.join(ROOT, "web", "src", "deployment.json");
+  process.env.DEPLOYMENT_JSON ?? path.join(ROOT, "scripts", "data", "gnosis-deployment.json");
 
 // abi.ts is generated JSON ABI (scripts/gen-abi.mjs) — usable by viem directly.
 export const ORACLE_ABI = oracleAbi;
@@ -56,7 +56,7 @@ export function requireEnv(name) {
 export function readDeployment() {
   if (!existsSync(DEPLOYMENT_PATH)) {
     die(
-      `web/src/deployment.json not found — run the deploy tooling first (script/Deploy.s.sol writes it).\n  expected at: ${DEPLOYMENT_PATH}`,
+      `scripts/data/gnosis-deployment.json not found — run the deploy tooling first (script/Deploy.s.sol writes it).\n  expected at: ${DEPLOYMENT_PATH}`,
     );
   }
   const d = JSON.parse(readFileSync(DEPLOYMENT_PATH, "utf8"));

@@ -9,8 +9,6 @@ playwright-report/
 test-results/
 # e2e runtime artifacts + per-agent foundry dirs
 e2e/.artifacts/
-e2e/fork/.artifacts/
-e2e/fork-arb/.artifacts/
 e2e/policies/.artifacts/
 out-*/
 cache-*/

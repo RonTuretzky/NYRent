@@ -4,7 +4,7 @@
 import { test } from "@playwright/test";
 import { parseUnits } from "viem";
 import {
-  BUYER, BUYER2, CREATOR, DAY, POOR, chainNow, claimBalance, earliest, ensureApproved, expect, makeEml, monthBounds, monthLabel, openAs, readSeries, readState,
+  BUYER, BUYER2, CREATOR, DAY, POOR, chainNow, claimBalance, client, poolAbi, earliest, ensureApproved, expect, makeEml, monthBounds, monthLabel, openAs, readSeries, readState,
   setPausedAs, shot, usdcBalance, warpTo, yyyymm,
 } from "./support";
 
@@ -105,6 +105,27 @@ test("shared step: anyone records the month's alert; a second copy is refused; a
   expect((await earliest("east-harlem-new-york-ny", ym))[1]).toBe(301000);
 });
 
+test("V2 grace is two days: claims stay shut until month end + 2 days, while V1 waits seven", async ({ page }) => {
+  const { ids, month } = readState();
+  const { end } = monthBounds(yyyymm(month));
+  const s = await readSeries(ids.settled);
+  expect(s.finalizeAt).toBe(end + 1n + 2n * DAY);
+  expect(await client.readContract({ address: readState().pool, abi: poolAbi, functionName: "SUBMISSION_GRACE" })).toBe(2n * DAY);
+  await warpTo(s.finalizeAt - 3600n);
+  await openAs(page, BUYER, `/policies/${ids.settled}`);
+  await expect(page.getByTestId("claim-timing")).toContainText("Claims open");
+  await expect(page.getByTestId("key-dates")).toContainText("Two days after the month ends");
+  await expect(page.getByTestId("redeem")).toHaveCount(0);
+  // The V1 policy on the same page and month follows its own seven-day grace.
+  const v1 = await readSeries(ids.v1, "v1");
+  expect(v1.finalizeAt).toBe(end + 1n + 7n * DAY);
+  await openAs(page, BUYER, `/policies/v1/${ids.v1}`);
+  await expect(page.getByTestId("policy-status")).toHaveText("Rent recorded");
+  await expect(page.getByTestId("claim-timing")).toContainText("Claims open");
+  await expect(page.getByTestId("status-next")).toContainText("seven days after the month ends");
+  await shot(page, "09b-v1-grace");
+});
+
 test("Journey A, last step: finalize and claim a settled payout", async ({ page, browser }) => {
   const { ids, month } = readState();
   const s = await readSeries(ids.settled);
@@ -157,6 +178,23 @@ test("void policy: the premium comes back as a refund", async ({ page }) => {
   await shot(page, "12-void-refunded");
 });
 
+test("V1 policy: claims open seven days after the month, then finalize and claim on the V1 pool", async ({ page }) => {
+  const { ids } = readState();
+  const s = await readSeries(ids.v1, "v1");
+  await warpTo(s.finalizeAt + 3600n);
+  const held = await claimBalance(BUYER, ids.v1, "v1");
+  const before = await usdcBalance(BUYER);
+  await openAs(page, BUYER, `/policies/v1/${ids.v1}`);
+  await expect(page.getByTestId("policy-status")).toHaveText("Ready to finalize");
+  await page.getByTestId("redeem").click();
+  await expect(page.getByTestId("policy-status")).toHaveText("Settled");
+  const expected = (held * (WAD * 55n / 100n)) / WAD;
+  await expect(page.getByTestId("claimed-ok")).toContainText(`You received ${Number(expected) / 1e6} USDC as a claim on the recorded rent`);
+  expect(await usdcBalance(BUYER)).toBe(before + expected);
+  expect(await claimBalance(BUYER, ids.v1, "v1")).toBe(0n);
+  await shot(page, "12b-v1-claimed");
+});
+
 test("nothing to claim is said plainly", async ({ page }) => {
   const { ids } = readState();
   await openAs(page, POOR, `/policies/${ids.settled}`);
@@ -190,4 +228,15 @@ test("after claims close: a late holder is told, and the creator withdraws what 
   expect(await usdcBalance(CREATOR)).toBe(before + residual);
   await shot(page2, "14-creator-withdrew");
   expect(await chainNow()).toBeGreaterThan(s.redeemEnd);
+
+  // The V1 creator withdraws from the V1 pool the same way.
+  const v1 = await readSeries(ids.v1, "v1");
+  expect(await chainNow()).toBeGreaterThan(v1.redeemEnd);
+  const v1Residual = v1.escrow + v1.premiumsAccrued - v1.paidOut;
+  const beforeV1 = await usdcBalance(CREATOR);
+  await openAs(page2, CREATOR, `/policies/v1/${ids.v1}`);
+  await expect(page2.getByTestId("withdraw")).toContainText(`Withdraw ${Number(v1Residual) / 1e6} USDC`);
+  await page2.getByTestId("withdraw").click();
+  await expect(page2.getByTestId("creator-card")).toContainText("You withdrew the remaining funds");
+  expect(await usdcBalance(CREATOR)).toBe(beforeV1 + v1Residual);
 });

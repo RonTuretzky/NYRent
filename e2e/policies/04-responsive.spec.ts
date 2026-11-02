@@ -14,15 +14,17 @@ for (const width of WIDTHS) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const page = await context.newPage();
     const pages: [string, string][] = [
+      ["home", "/"],
       ["list", "/policies"],
       ["detail", `/policies/${ids.settled}`],
       ["void", `/policies/${ids.void}`],
+      ["v1", `/policies/v1/${ids.v1}`],
       ["create", "/policies/new"],
       ["submit", "/policies/submit"],
       ["guide", "/policies/guide"],
     ];
     for (const [name, path] of pages) {
-      if (name === "list") await openAs(page, BUYER, path, { connect: false });
+      if (name === "home") await openAs(page, BUYER, path, { connect: false });
       else await page.goto(`/#${path}`);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await expect(page.getByTestId("loading-skeleton")).toHaveCount(0, { timeout: 30000 });

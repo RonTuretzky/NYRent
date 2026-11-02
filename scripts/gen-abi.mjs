@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * gen-abi.mjs — regenerate web/src/chain/abi.ts from the compiled contracts.
+ * gen-abi.mjs — regenerate scripts/data/abi.ts from the compiled contracts.
  *
  *   node scripts/gen-abi.mjs
  *
@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = path.join(ROOT, "web", "src", "chain", "abi.ts");
+const OUT = path.join(ROOT, "scripts", "data", "abi.ts");
 
 const CONTRACTS = [
   ["oracleAbi", "src/CredailyRentOracle.sol:CredailyRentOracle"],

@@ -23,7 +23,11 @@ import {
   isNetworkError,
   isUserRejection,
 } from "../chain/errors.ts";
-import { coverTokenAbi } from "../chain/abi.ts";
+
+/** The claim token's OpenZeppelin ERC-1155 balance error. */
+const claimTokenErrors = parseAbi([
+  "error ERC1155InsufficientBalance(address sender, uint256 balance, uint256 needed, uint256 tokenId)",
+]);
 
 // ---------------------------------------------------------------- rejection
 
@@ -129,9 +133,9 @@ test("revert: raw-data fallback decodes against the combined ABI", () => {
 
 test("revert: ERC1155InsufficientBalance has real copy, not the generic fallback", () => {
   const err = new ContractFunctionRevertedError({
-    abi: coverTokenAbi,
+    abi: claimTokenErrors,
     data: encodeErrorResult({
-      abi: coverTokenAbi,
+      abi: claimTokenErrors,
       errorName: "ERC1155InsufficientBalance",
       args: ["0x0000000000000000000000000000000000000001", 0n, 2n, 0n],
     }),
@@ -157,7 +161,7 @@ test("revert: ReentrancyGuardReentrantCall is decodable via raw selector", () =>
   assert.match(decoded.message, /reentrancy guard/i);
 });
 
-test("revert: empty revert data suggests re-approving (WXDAI allowance race)", () => {
+test("revert: empty revert data suggests re-approving (allowance race)", () => {
   const err = new ContractFunctionRevertedError({
     abi: parseAbi(["error Unrelated()"]),
     functionName: "transferFrom",

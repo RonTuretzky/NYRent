@@ -32,6 +32,13 @@ import {
   policyError,
   policyStatus,
   ratioPercent,
+  V1_RULES,
+  V2_RULES,
+  finalizeAtFor,
+  policyLabel,
+  policyPath,
+  renterSteps,
+  saleCloseOptions,
   type PolicyRow,
 } from "./policy.ts";
 
@@ -165,7 +172,7 @@ test("alert recipe uses the exact page and as-it-happens delivery", () => {
 });
 
 test("every custom error in the deployed ABIs has policy copy", () => {
-  const abi = readFileSync(new URL("../chain/apartmentsAbi.ts", import.meta.url), "utf8");
+  const abi = ["../chain/apartmentsAbi.ts", "../chain/apartmentsV2Abi.ts"].map((f) => readFileSync(new URL(f, import.meta.url), "utf8")).join("\n");
   const names = new Set([...abi.matchAll(/"type":\s*"error",\s*"name":\s*"(\w+)"/g)].map((m) => m[1]));
   assert.ok(names.size >= 30);
   for (const name of names) assert.ok(POLICY_ERROR_COPY[name], `missing copy for ${name}`);
@@ -272,4 +279,98 @@ test("recorder step starts at 1 and only advances when done", () => {
   const done = recorderStep({ hasFile: true, parseFailed: false, qualifying: true, consent: true, confirmed: true });
   assert.equal(done.current, 5);
   assert.ok(done.done);
+});
+
+// ─────────────────────────────────────────────────────────────── two pools
+
+const DAY = 86400n;
+const DEC_START = NOV_END + 1n;
+const DEC_END = 1798761599n; // 2026-12-31T23:59:59Z
+
+test("pool rules: V1 keeps seven days of grace, V2 two", () => {
+  assert.equal(finalizeAtFor(202611, V1_RULES), FINALIZE);
+  assert.equal(finalizeAtFor(202611, V2_RULES), NOV_END + 1n + 2n * DAY);
+  assert.equal(policyPath("v2", 12n), "/policies/12");
+  assert.equal(policyPath("v1", 0n), "/policies/v1/0");
+  assert.equal(policyLabel("v1", 0n), "V1 #0");
+  assert.equal(policyLabel("v2", 3), "#3");
+  assert.match(renterSteps(V1_RULES)[4].detail, /when the month starts/);
+  assert.match(renterSteps(V1_RULES)[5].detail, /seven days/);
+  assert.match(renterSteps(V2_RULES)[4].detail, /creator chose/);
+  assert.match(renterSteps(V2_RULES)[5].detail, /two days/);
+});
+
+test("V2 status: sales into the month, stopped by a recorded rent", () => {
+  const v2: PolicyRow = { ...base, saleEnd: NOV_START + 3n * DAY, finalizeAt: finalizeAtFor(202611, V2_RULES), redeemEnd: finalizeAtFor(202611, V2_RULES) + 30n * DAY };
+  const opts = { rules: V2_RULES };
+  const mid = NOV_START + DAY;
+  assert.equal(policyStatus(v2, mid, false, opts).phase, "onSale");
+  assert.match(policyStatus(v2, mid, false, opts).next, /creator chose/);
+  const stopped = policyStatus(v2, mid, false, { ...opts, recorded: true });
+  assert.equal(stopped.phase, "awaitingData");
+  assert.equal(stopped.label, "Rent recorded");
+  assert.match(stopped.next, /already recorded, so sales are closed/);
+  assert.match(stopped.next, /two days/);
+  // V1 never stops on a record; its copy keeps the earlier rules.
+  assert.equal(policyStatus(base, NOV_START - 1n, false, { rules: V1_RULES, recorded: true }).phase, "onSale");
+  assert.match(policyStatus(base, NOV_START, false, { rules: V1_RULES }).next, /seven days/);
+  assert.match(policyStatus(base, NOV_START - 1n, false, { rules: V1_RULES }).next, /until the policy month starts/);
+});
+
+test("V2 key dates name the creator's close, the record stop and the two-day grace", () => {
+  const terms = { saleEnd: DEC_START + 3n * DAY, finalizeAt: finalizeAtFor(202612, V2_RULES), redeemEnd: finalizeAtFor(202612, V2_RULES) + 30n * DAY, obsMonth: 202612 };
+  const dates = policyDates(terms, V2_RULES);
+  assert.match(dates[0].note, /chosen by the creator/);
+  assert.match(dates[0].note, /stop as soon as the month's rent is recorded/);
+  assert.match(dates[2].note, /^Two days after the month ends/);
+  assert.equal(dates[2].at, DEC_END + 1n + 2n * DAY);
+  assert.match(policyDates(base, V1_RULES)[0].note, /policy month starts right after/);
+});
+
+test("the current month is offered until its last day starts, and never by default", () => {
+  const nov10 = NOV_START + 9n * DAY;
+  const opts = monthOptions(nov10, 3, { includeCurrent: true });
+  assert.deepEqual(opts.map((o) => o.value), ["2026-11", "2026-12", "2027-01", "2027-02"]);
+  assert.equal(opts[0].current, true);
+  assert.equal(opts[0].end, NOV_END);
+  assert.equal(defaultMonth(opts), "2026-12");
+  // From the first second of November 30 the current month is gone.
+  assert.equal(monthOptions(NOV_END + 1n - DAY, 3, { includeCurrent: true })[0].value, "2026-12");
+  assert.equal(monthOptions(NOV_END - DAY, 3, { includeCurrent: true })[0].value, "2026-11");
+  // V1-style lists never include it.
+  assert.equal(monthOptions(nov10, 3)[0].value, "2026-12");
+});
+
+test("sale-close options: future month starts at the month start, all within the month", () => {
+  const nov10 = NOV_START + 9n * DAY;
+  const { options, defaultId } = saleCloseOptions(202612, nov10);
+  assert.deepEqual(options.map((o) => o.id), ["start", "1d", "3d", "7d", "end"]);
+  assert.equal(defaultId, "start");
+  assert.deepEqual(options.map((o) => o.at), [DEC_START, DEC_START + DAY, DEC_START + 3n * DAY, DEC_START + 7n * DAY, DEC_END]);
+});
+
+test("sale-close options: current month counts from now, capped at month end, never past it", () => {
+  const nov10 = NOV_START + 9n * DAY;
+  const early = saleCloseOptions(202611, nov10);
+  assert.deepEqual(early.options.map((o) => o.id), ["1d", "3d", "7d", "end"]);
+  assert.equal(early.defaultId, "3d");
+  assert.equal(early.options[1].at, nov10 + 3n * DAY);
+  // Two and a half days before the end: 3 and 7 days would overshoot, so only 1 day and month end remain.
+  const late = NOV_END - (5n * DAY) / 2n;
+  const near = saleCloseOptions(202611, late);
+  assert.deepEqual(near.options.map((o) => o.id), ["1d", "end"]);
+  assert.equal(near.defaultId, "end");
+  // Every option, at any moment of the month, is strictly after now and at most month end.
+  for (let t = NOV_START; t < NOV_END; t += 7n * 3600n) {
+    for (const o of saleCloseOptions(202611, t).options) {
+      assert.ok(o.at > t, `${o.id} at ${t}`);
+      assert.ok(o.at <= NOV_END, `${o.id} past month end at ${t}`);
+    }
+  }
+  assert.deepEqual(saleCloseOptions(202611, NOV_END).options, []);
+});
+
+test("RentAlreadyRecorded has the agreed copy", () => {
+  assert.equal(POLICY_ERROR_COPY.RentAlreadyRecorded, "This month's rent is already recorded, so sales are closed.");
+  assert.equal(policyError({ name: "RentAlreadyRecorded", kind: "revert", message: "x" }).message, POLICY_ERROR_COPY.RentAlreadyRecorded);
 });

@@ -1,23 +1,22 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { decodeEventLog, formatUnits } from "viem";
+import { decodeEventLog, formatUnits, keccak256, toBytes } from "viem";
 import { Button, Chip } from "@decentralpark/ui";
 import { ArrowSquareOutIcon, CaretDownIcon } from "@phosphor-icons/react";
-import { APARTMENTS_POOL, CURRENCY_DECIMALS } from "../../chain/apartments";
-import { apartmentsPoolAbi } from "../../chain/apartmentsAbi";
+import { CURRENCY_DECIMALS, POOL_V2, policyPoolAbi } from "../../chain/apartments";
 import { formatDate, formatTimestamp, nowSec } from "../../chain/format";
 import { Card } from "../../components/States";
 import { PayoutCurve } from "../../components/PayoutCurve";
 import { TxStatus } from "../../components/TxStatus";
-import { DEFAULT_CLAIM_SECONDS, SUBMISSION_GRACE_SECONDS, monthLabel } from "../../lib/googleAlert";
+import { monthLabel } from "../../lib/googleAlert";
 import {
-  CREATOR_STEPS, TWO_DAYS, buyExample, creatorExample, defaultMonth, humanDelta, monthBoundsOf, monthOptions, pageUrl, parseAmount,
-  parsePremiumPercent, parseRentDollars, premiumProblem,
+  CLAIM_WINDOW_SECONDS, CREATOR_STEPS, TWO_DAYS, V2_RULES, buyExample, creatorExample, defaultMonth, finalizeAtFor, humanDelta, monthOptions,
+  monthBoundsOf, pageUrl, parseAmount, parsePremiumPercent, parseRentDollars, premiumProblem, saleCloseOptions,
 } from "../../lib/policy";
 import catalog from "../../data/apartments-series.json";
 import {
   ActionFailureHint, FundedAction, KeyDates, NotDeployed, Notice, PrimaryLink, RiskNotice, StepBar, WalletGate, chainId, money,
-  neighborhood, networkName, pool, symbol, txBusy, txOpts, useLock, useNow, usePolicyTx, useResumedTxs, useWalletFunds, type ReceiptLike,
+  neighborhood, networkName, symbol, txBusy, txOpts, useEarliest, useLock, useNow, usePolicyTx, useResumedTxs, useWalletFunds, type ReceiptLike,
 } from "./shared";
 
 type Entry = (typeof catalog.series)[number] & { october2026Cents?: number };
@@ -25,7 +24,7 @@ type Entry = (typeof catalog.series)[number] & { october2026Cents?: number };
 function createdId(logs: ReceiptLike["logs"]): bigint | undefined {
   for (const log of logs) {
     try {
-      const event = decodeEventLog({ abi: apartmentsPoolAbi, data: log.data, topics: log.topics as [`0x${string}`] });
+      const event = decodeEventLog({ abi: policyPoolAbi, data: log.data, topics: log.topics as [`0x${string}`] });
       if (event.eventName === "SeriesCreated" && event.args) return (event.args as { seriesId: bigint }).seriesId;
     } catch {
       // not a pool event
@@ -149,10 +148,12 @@ export function CreatePolicy() {
   const now = useNow();
   const tx = usePolicyTx({ label: "Create policy", key: "create" });
   const lock = useLock();
-  const options = useMemo(() => monthOptions(now), [now]);
+  // V2 rules: the current month is offered while its last day has not started.
+  const options = useMemo(() => monthOptions(now, 6, { includeCurrent: true }), [now]);
   const first = catalog.series[0] as Entry;
   const [slug, setSlug] = useState(first.slug);
-  const [month, setMonth] = useState(() => defaultMonth(monthOptions(nowSec())));
+  const [month, setMonth] = useState(() => defaultMonth(monthOptions(nowSec(), 6, { includeCurrent: true })));
+  const [closeId, setCloseId] = useState("");
   const [low, setLow] = useState(strikeFrom(first.october2026Cents ?? 0, 3));
   const [high, setHigh] = useState(strikeFrom(first.october2026Cents ?? 0, 10));
   const [premium, setPremium] = useState("10");
@@ -177,7 +178,11 @@ export function CreatePolicy() {
   const capP = parseAmount(capacity, CURRENCY_DECIMALS, "escrow");
   const selected = options.find((o) => o.value === month) ?? options[0];
   const obsMonth = selected.yyyymm;
-  const { start, end } = monthBoundsOf(obsMonth);
+  const closes = saleCloseOptions(obsMonth, now);
+  const close = closes.options.find((o) => o.id === closeId) ?? closes.options.find((o) => o.id === closes.defaultId);
+  const saleEnd = close?.at ?? 0n;
+  const earliest = useEarliest(keccak256(toBytes(slug)), obsMonth);
+  const alreadyRecorded = Boolean(earliest.data && earliest.data[0] !== 0n);
   const problems: string[] = [];
   if (!lowP.ok) problems.push(lowP.error);
   if (!highP.ok) problems.push(highP.error);
@@ -188,15 +193,16 @@ export function CreatePolicy() {
     const rounding = premiumProblem(capP.value, premP.value);
     if (rounding) problems.push(rounding);
   }
-  if (start <= now) problems.push("That month has already started, so sales could never open. Choose a later month.");
+  if (!close || saleEnd <= now) problems.push("Sales for that month could no longer stay open. Choose a later month.");
+  if (alreadyRecorded) problems.push(`The ${monthLabel(obsMonth)} rent for this page is already recorded, so sales would be closed from the start. Choose a later month.`);
   const valid = problems.length === 0 && lowP.ok && highP.ok && premP.ok && capP.ok;
   const capacityWei = capP.ok ? capP.value : 0n;
   const premiumPct = premP.ok ? premP.value / 100 : 0;
-  const finalizeAt = end + 1n + BigInt(SUBMISSION_GRACE_SECONDS);
-  const terms = { saleEnd: start, finalizeAt, redeemEnd: finalizeAt + BigInt(DEFAULT_CLAIM_SECONDS), obsMonth };
-  const funds = useWalletFunds(valid ? capacityWei : 0n);
+  const finalizeAt = finalizeAtFor(obsMonth, V2_RULES);
+  const terms = { saleEnd, finalizeAt, redeemEnd: finalizeAt + CLAIM_WINDOW_SECONDS, obsMonth };
+  const funds = useWalletFunds(valid ? capacityWei : 0n, POOL_V2?.address);
   const busy = txBusy(tx.state) || resumed.busy;
-  const shortSale = selected.salesLeft < TWO_DAYS;
+  const shortSale = saleEnd > now && saleEnd - now < TWO_DAYS;
 
   const current = !accepted ? (touched ? 2 : 1)
     : funds.stage === "connect" || funds.stage === "network" || funds.stage === "noGas" || funds.stage === "noFunds" ? 3
@@ -211,8 +217,9 @@ export function CreatePolicy() {
 
   async function create() {
     if (!valid || !lowP.ok || !highP.ok || !premP.ok) return;
+    if (!POOL_V2) return;
     const result = await tx.send({
-      abi: apartmentsPoolAbi, address: pool, chainId, account: funds.address, functionName: "createSeries",
+      abi: policyPoolAbi, address: POOL_V2.address, chainId, account: funds.address, functionName: "createSeries",
       args: [slug, obsMonth, lowP.value, highP.value, premP.value, terms.saleEnd, terms.redeemEnd, capacityWei],
     }, txOpts);
     if (result.status !== "confirmed") {
@@ -223,7 +230,7 @@ export function CreatePolicy() {
     if (created !== undefined) navigate(`/policies/${created}`, { state: { created: true } });
   }
 
-  if (!APARTMENTS_POOL) return <NotDeployed />;
+  if (!POOL_V2) return <NotDeployed />;
   const example = lowP.ok && highP.ok && premP.ok ? buyExample(capacityWei, premP.value, lowP.value, highP.value) : undefined;
   const creator = premP.ok ? creatorExample(capacityWei, premP.value) : undefined;
   const october = entry?.october2026Cents;
@@ -250,15 +257,28 @@ export function CreatePolicy() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] items-start">
         <div className="min-w-0 space-y-6">
-          <Section n={1} title="Pick a neighborhood and month" hint="The first Google Alert signed during the month sets the rent.">
+          <Section n={1} title="Pick a neighborhood, month and sales close" hint="The first Google Alert signed during the month sets the rent.">
             <div className="grid gap-4 sm:grid-cols-2">
               <SelectField label="Neighborhood" value={slug} onChange={pick} testId="policy-slug">
                 {catalog.series.map((s) => <option key={s.slug} value={s.slug}>{s.geography}</option>)}
               </SelectField>
-              <SelectField label="Policy month" value={month} onChange={setMonth} testId="policy-month">
-                {options.map((m) => <option key={m.value} value={m.value}>{monthLabel(m.yyyymm)}</option>)}
+              <SelectField label="Policy month" value={month} onChange={(m) => { setMonth(m); setCloseId(""); }} testId="policy-month">
+                {options.map((m) => <option key={m.value} value={m.value}>{monthLabel(m.yyyymm)}{m.current ? " (this month)" : ""}</option>)}
               </SelectField>
             </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 items-start">
+              <SelectField label="Sales close" value={close?.id ?? ""} onChange={setCloseId} testId="policy-sale-close">
+                {closes.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </SelectField>
+              <p className="font-parkBody text-sm sm:pt-7" data-testid="sale-close-at" data-at={close ? String(saleEnd) : ""}>
+                {close ? <>Sales close <strong>{formatTimestamp(saleEnd)}</strong> ({humanDelta(saleEnd, now)}).</> : "No closing time is left in this month."}
+              </p>
+            </div>
+            {close && saleEnd > monthBoundsOf(obsMonth).start && <div className="mt-3">
+              <Notice tone="info" testId="sale-close-explainer">
+                <p><strong>Closing after the month starts is a risk for you.</strong> Once the month's alert is published, anyone who has seen it may buy knowing the rent. Sales stop automatically as soon as a rent is recorded on-chain, and you can pause sales from the policy page at any time.</p>
+              </Notice>
+            </div>}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-xl bg-paper-main border-2 border-paper-1 px-4 py-3">
               <div className="min-w-0">
                 <p className="font-parkBody text-xs text-surface-grey-2">{october ? "October 2026 headline rent" : "Headline rent"}</p>
@@ -268,11 +288,10 @@ export function CreatePolicy() {
                 View on Apartments.com<ArrowSquareOutIcon aria-hidden="true" size={16} />
               </a>
             </div>
-            <p className="font-parkBody text-xs text-surface-grey-2 mt-2">Sales close when the month starts: {formatTimestamp(selected.start)} ({humanDelta(selected.start, now)}).</p>
             {shortSale && (
               <div className="mt-3">
                 <Notice tone="warn" testId="short-sale-warning">
-                  Sales for {monthLabel(obsMonth)} close {humanDelta(selected.start, now)}. Few people may be able to buy before then; a later month gives the policy time to sell.
+                  Sales for {monthLabel(obsMonth)} close {humanDelta(saleEnd, now)}. Few people may be able to buy before then; a later closing time or month gives the policy time to sell.
                 </Notice>
               </div>
             )}
@@ -335,7 +354,7 @@ export function CreatePolicy() {
             ) : <p className="font-parkBody text-sm">Fix the terms above to see what could happen.</p>}
             <div className="mt-6">
               <h3 className="font-parkBody font-bold text-sm mb-3">Key dates</h3>
-              <KeyDates series={terms} now={now} />
+              <KeyDates series={terms} now={now} rules={V2_RULES} />
               <p className="font-parkBody text-xs text-surface-grey-2 mt-3">Times are UTC. Your escrow is locked until claims close if anything sells.</p>
             </div>
           </Section>

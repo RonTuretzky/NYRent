@@ -1,74 +1,54 @@
 # RentSafe
 
+**Live app:** https://rentsafe.nyc/ serves **neighborhood rent policies** only: anyone can
+create and fund rent protection on an Apartments.com neighborhood page for a month, renters
+buy it, and a Google Alerts email verified on-chain (DKIM) sets the headline rent that decides
+the payout. Everything is paid in native USDC on **Arbitrum One**. See
+[docs/APARTMENTS.md](docs/APARTMENTS.md).
+
+The app reads two policy pools on the same oracle (`0x2352…c855`):
+
+| Pool | Address | Claim token | Rules |
+|---|---|---|---|
+| **V2** (every new policy) | [`0xe46d…5a14`](https://arbiscan.io/address/0xe46d0489275FC5C7b536dcef06196cd1aA595a14) | [`0x0aa4…AE00`](https://arbiscan.io/address/0x0aa44da9186514fa378af7AC0574062aF8b6AE00) | The creator picks when sales close, up to the last second of the policy month; sales stop as soon as the month's rent is recorded (`RentAlreadyRecorded`); claims open two days after the month. |
+| **V1** (earlier policies, at `/policies/v1/:id`) | [`0xa59b…F30A`](https://arbiscan.io/address/0xa59b195135D5220c82d2C19270CadC392585F30A) | [`0x6721…5471`](https://arbiscan.io/address/0x67214a5dA4C99aA11Bd709cf22aAAF98972C5471) | Sales close at the first second of the policy month; claims open seven days after it. |
+
+The addresses the app uses live in `web/src/chain/apartments-deployment.json`.
+
+**Retired from the frontend:** the Manhattan office-rent products (the fixed-price CoverPool
+markets on Gnosis and Arbitrum, the Uniswap v4 RENT markets on Polygon and Arbitrum, the CRE
+Daily newsletter settlement flow, the Bankr docs, Story and the recorded walkthroughs) no
+longer have pages in the app; their old routes redirect to the home page. **Their contracts
+remain on-chain and unchanged**, and the sections below document them. Operator tooling for
+them keeps its ABIs and deployment records in `scripts/data/` (moved out of `web/src`); the
+agent and the v4 docs ([docs/V4.md](docs/V4.md), [docs/V4-ROLLOUT.md](docs/V4-ROLLOUT.md))
+are unchanged.
+
+### The office-rent contracts
+
 Fully collateralized, fully permissionless protection against Manhattan office rent staying
 high, settled by an email. The oracle input is CRE Daily's "Market Snapshot" newsletter
 (**Manhattan Office Rent · Avg Effective $/SF**, CompStak data), verified **entirely on-chain**:
 RSA-SHA256 DKIM signature, body hash and template parsing all execute in the EVM against an
 immutable pinned key. No committee, no price feed, no trusted server, no ZK ceremony.
 
-**Live app:** https://rentsafe.nyc/
-
-**Neighborhood policies:** anyone can create and fund rent protection on an Apartments.com
-neighborhood page, settled by Google Alerts emails verified on-chain. See
-[docs/APARTMENTS.md](docs/APARTMENTS.md). The office market below is unchanged.
-
-The one-market UI presents September 2026 → September 2027 Manhattan office rent
-protection as **RENT**, with Platform / Insurer / Renter views.
-
-**New: Uniswap v4 market mode.** The implementation includes transferable backed RENT,
-immutable market terms, a lifecycle hook, a buy/sell + liquidity router, authenticated
-email settlement and escrow recovery. [V4 design and boundaries](docs/V4.md) and
-[rollout evidence](docs/V4-ROLLOUT.md) distinguish build, fork proofs and live deployment.
-Only addresses in `web/src/chain/v4-deployments.json` are treated as configured live v4
-markets. Without a v4 manifest, the app uses a configured fixed-price market or shows that transactions are unavailable.
-
-The live v4 market is on **Polygon (137)**, trading RENT against native USDC.
-The [illustrated Uniswap guide](https://rentsafe.nyc/#/docs/uniswap) explains the
-pool, hook, and separate backing escrow. [Recorded walkthroughs](https://rentsafe.nyc/#/docs/walkthrough)
-show the product and complete contract lifecycle. Settlement recordings use a local
-chain and test-signed future emails; they do not claim that the September 2027
-Polygon market has settled.
-
-Checkout separates the current spot conversion from the executable pool quote,
-shows chain-specific balances, and blocks orders with more than 10% output
-shortfall from spot (including fees). Calculators exclude escrow yield.
-
-[Story](https://rentsafe.nyc/#/story) provides ten read-only presenter screens,
-with keyboard reveals, deep links, fullscreen, speaker notes and a touch layout.
-The closing screen links RentSafe, Decentral Park and both presenters through QR codes.
-Its insurer calculations and price forecast reuse the application's shared math.
-Liquidity provision accepts one RENT amount and calculates the matching USDC;
-the submitted transaction respects the reviewed RENT ceiling and USDC maximum.
-
-The [indexed newsletter sources](https://rentsafe.nyc/#/docs/sources) catalog links
-14 historical editions from seven publications. A logo gallery appears above the
-footer. The catalog preserves publication dates and original source lineage.
-Several newsletters quote the same underlying datasets, so publication count is not independent-feed
-count. Local logo assets retain their origin URLs in
-`web/public/sources/logo-provenance.json`.
-
 ## Preserved fixed-price mode
 
-The following recordings and contract overview describe the existing fixed-price
-deployment. Its features remain available through the hidden legacy routes; its
-nontransferable tokens are distinct from the new v4 RENT ERC-20.
+The following describes the fixed-price deployment. Its nontransferable tokens are distinct
+from the v4 RENT ERC-20. Neither has a page in the app any more.
 
-![Live Gmail-to-redemption walkthrough: download the real CRE Daily email, inspect its $92.88 rent print, buy a tiny claim, pass DKIM preflight, inspect the successful on-chain observation, settle at 61%, and redeem](web/public/docs/live-gmail-settle-redeem.gif)
-
-The walkthrough above was captured against the live Gnosis deployment on 2026-09-19 with
-wallet `0x86213f…112844` and **no mocked steps**: Gmail's freshly downloaded `.eml` was
-byte-for-byte identical to the audited fixture; the buyer minted `0.001` of Series #2 cover;
+The live Gnosis lifecycle was exercised on 2026-09-19 with wallet `0x86213f…112844` and **no
+mocked steps**: Gmail's freshly downloaded `.eml` was byte-for-byte identical to the audited
+fixture; the buyer minted `0.001` of Series #2 cover;
 the already-recorded email was cross-checked against the successful
 [`submitObservation` transaction](https://gnosisscan.io/tx/0x6370f8ad14ec73b4a7b1d7c030fecf6fcc3484eb128d64d89e1b4c41d37cb0c6);
 Series #2 [settled at 61%](https://gnosisscan.io/tx/0x5811678afbd3f3ac2654212535fe1abc87e9c2d294d6f0be68b0889c8881c87c);
 and the holder [burned the claim for `0.00061 WXDAI`](https://gnosisscan.io/tx/0x5096186bfbc7e3d3b6aeabe9259f825fe653bca32ea19680adb0f1524e79a06a).
 Series #2 belongs to the retired v1 demo and allowed sales during its observation window, so
 the purchase was informed by the public result. This proves the mechanics, not fair market
-price discovery; current permissionless pools enforce `saleEnd <= obsStart` on-chain.
-
-Recorded guides for every flow — fund, buy (the pool currency or any routed token via
-Uniswap v3), settle, redeem, withdraw — are on the app's
-[legacy in-app guides](https://rentsafe.nyc/#/legacy/docs).
+price discovery; current permissionless pools enforce `saleEnd <= obsStart` on-chain. (The
+recorded GIF walkthroughs were removed from the app with the office pages; they remain in git
+history.)
 
 - **Anyone underwrites** — there are no roles at all. `createSeries` escrows the creator's own
   capital 1:1 as that series' backing (payout 0 at/below $88.00, 1 at/above $96.00 for the
@@ -112,13 +92,13 @@ Prerequisites: Node 22, Foundry ≥ 1.5.
 # Contracts: real-email settlement, tamper matrix, pool fuzz + invariants
 forge test -vv
 
-# emailkit parity tests against the committed fixture
+# Web app unit tests (policy helpers, Google Alert parsing, emailkit parity)
 npm --prefix web test
 
-# Full browser journey: spawns Anvil, deploys locally (Anvil dev key #0),
-# builds the app, drives fund → buy → settle-by-.eml → redeem in Chromium
+# Neighborhood-policy browser suite: Arbitrum One fork on :8551 with a test-key
+# oracle and V1 + V2 pools, production build on :5177
 npm --prefix e2e install && npm --prefix e2e exec playwright install chromium   # first time
-npm run e2e
+npm --prefix e2e run e2e:policies
 
 # Frontend against your own wallet
 npm --prefix web install && npm --prefix web run dev
@@ -126,8 +106,8 @@ npm --prefix web install && npm --prefix web run dev
 
 Deploy/settlement runbooks (env, gas estimate discipline, Blockscout verification):
 [docs/OPERATIONS.md](docs/OPERATIONS.md). What every suite covers:
-[docs/TESTING.md](docs/TESTING.md). Browser-facing docs: the live app's `/docs` route
-(https://rentsafe.nyc/#/docs).
+[docs/TESTING.md](docs/TESTING.md). The app's own walkthrough is the policy guide
+(https://rentsafe.nyc/#/policies/guide).
 
 ## Fixed-price deployments (permissionless version, 2026-09-19)
 
@@ -194,27 +174,29 @@ And the pay-with-any-token path proven on mainnet (the exact call sequence the a
 
 ## Screens
 
-Hash-routed React app in `web/` (works on static hosting):
+Hash-routed React app in `web/` (works on static hosting), Arbitrum One only:
 
 | Route | What it does |
 |---|---|
-| `/` | Landing with the animated five-step "how it works" flow (sponsor funds → buyer pays premium & mints → email arrives → on-chain DKIM settlement → redeem) |
-| `/series`, `/series/:id` | Series list; detail with lifecycle timeline, capacity/solvency bars, payout-curve SVG (settled point once settled) |
-| `/buy/:id` | Quote and buy protection (client-side validation, slippage bound) |
-| `/settle/:id` | Drag-drop an `.eml` → per-check DKIM preflight → record observation + settle |
-| `/redeem/:id` | Burn cover units for payout |
-| `/sponsor` | Fund / withdraw excess (sponsor wallet; read-only for everyone else) |
+| `/` | Home: what a policy is, the three roles, the newest policies from both pools, how settlement works, the risks |
+| `/policies` | Every policy from both pools (V1 ones badged with the earlier rules) |
+| `/policies/new` | Create a V2 policy: page, month (including the current one), when sales close, strikes, premium, escrow |
+| `/policies/:id`, `/policies/v1/:id` | A V2 or V1 policy: buy, claim or refund, finalize, and the creator's cancel / pause / add escrow / withdraw |
+| `/policies/submit` | Record a month's rent from an original Google Alert `.eml` (parsed locally first), listing matching policies in both pools |
+| `/policies/guide` | Step-by-step guide for renters, creators and recorders |
+
+Any other route (including every retired office-market route) redirects to `/`.
 
 ## Repository map
 
 | Path | Contents |
 |---|---|
 | `src/`, `script/`, `test/` | Foundry contracts (`Dkim` library, oracle, pool, token), deploy script, scenario-matrix tests |
-| `web/` | Vite + React app, `emailkit` DKIM library (`web/src/lib/emailkit.ts`) |
-| `scripts/` | `verify-eml.mjs`, `settle.mjs`, `e2e-mainnet.mjs`, `make-synthetic-eml.mjs` |
-| `e2e/` | Playwright journey + failure suites and the Anvil/deploy/preview orchestration |
+| `web/` | Vite + React app (neighborhood policies), `emailkit` DKIM library (`web/src/lib/emailkit.ts`) |
+| `scripts/` | Operator scripts (`verify-eml.mjs`, `settle.mjs`, `e2e-mainnet.mjs`, v4 launch tooling) and their office-market ABIs and deployment records in `scripts/data/` |
+| `e2e/` | The neighborhood-policy Playwright suite (`e2e/policies`) on an Arbitrum fork |
 | `fixtures/` | The verified 2026-09-17 CRE Daily email (raw + canonical goldens + key evidence), test keypair |
-| `docs/` | Protocol, verification, operations, testing; the browser-facing docs render in the app's `/docs` route |
+| `docs/` | Protocol, verification, operations, testing |
 | `.github/` | Etherform CI (build + test + fmt) and network config |
 
 Never commit private keys or `.env` (the deployer key exists only in local env), and never commit
@@ -255,4 +237,4 @@ sponsor lever (wrap → exact approve → `fundPool` → `createSeries` → `set
 
 ### Permissionless creation UI
 
-Use [Create a market](https://rentsafe.nyc/#/create) for the existing office-rent factories and [Neighborhood policies](https://rentsafe.nyc/#/policies) for residential protection.
+[Create a policy](https://rentsafe.nyc/#/policies/new) opens a neighborhood policy on the V2 pool. The office-rent factories have no creation page any more; create office series directly against their contracts.

@@ -3,10 +3,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { test, type Page } from "@playwright/test";
-import { connectWallet } from "../support/helpers";
 import { parseUnits } from "viem";
 import {
-  ART_DIR, BROKE, BUYER, BUYER2, CREATOR, CREDAILY_EML, DAY, POOR, approveAs, blockRpc, buyAs, ensureApproved, claimBalance, expect, fundUsdc, makeEml, monthBounds, openAs,
+  ART_DIR, BROKE, connectWallet, BUYER, BUYER2, CREATOR, CREDAILY_EML, DAY, POOR, approveAs, blockRpc, buyAs, ensureApproved, claimBalance, expect, fundUsdc, makeEml, monthBounds, openAs,
   readSeries, readState, rejectNextSend, rpc, setPausedAs, shot, usdcBalance, yyyymm,
 } from "./support";
 
@@ -33,7 +32,7 @@ test("wrong network: an inline switch button fixes it", async ({ page }) => {
   const gate = page.getByTestId("wallet-gate-network");
   await expect(gate).toContainText("Policies live on Arbitrum One");
   await expect(page.getByTestId("wrong-network-banner")).toContainText("Arbitrum One");
-  await expect(page.getByTestId("chain-switcher").first()).toHaveValue("42161");
+  await expect(page.getByTestId("chain-switcher")).toHaveCount(0);
   await shot(page, "e-wrong-network");
   await page.getByTestId("switch-network").click();
   await expect(gate).toBeHidden();
@@ -219,18 +218,22 @@ test("a transaction stuck pending is reported as still pending, not failed, and 
   await page.getByTestId("buy-amount").fill("1");
   await ensureApproved(page);
   await rpc("anvil_setAutomine", [false]);
-  await page.getByTestId("buy-submit").click();
-  await expect(page.getByTestId("tx-pending")).toBeVisible();
-  await expect(page.getByTestId("buy-submit")).toBeDisabled();
-  await shot(page, "e-pending");
-  const still = page.getByTestId("tx-still-pending");
-  await expect(still).toBeVisible({ timeout: 150000 });
-  await expect(still).toContainText("may still go through");
-  await expect(still).toHaveAttribute("role", "status");
-  await expect(page.getByTestId("still-pending-hint")).toContainText("Do not send it again");
-  await shot(page, "e-still-pending");
-  await rpc("evm_mine");
-  await rpc("anvil_setAutomine", [true]);
+  // Mining must come back even if an assertion fails, or every later test hangs.
+  try {
+    await page.getByTestId("buy-submit").click();
+    await expect(page.getByTestId("tx-pending")).toBeVisible();
+    await expect(page.getByTestId("buy-submit")).toBeDisabled();
+    await shot(page, "e-pending");
+    const still = page.getByTestId("tx-still-pending");
+    await expect(still).toBeVisible({ timeout: 150000 });
+    await expect(still).toContainText("may still go through");
+    await expect(still).toHaveAttribute("role", "status");
+    await expect(page.getByTestId("still-pending-hint")).toContainText("Do not send it again");
+    await shot(page, "e-still-pending");
+  } finally {
+    await rpc("evm_mine");
+    await rpc("anvil_setAutomine", [true]);
+  }
   await expect.poll(() => claimBalance(BUYER, ids.settled)).toBe(held + parseUnits("1", 6));
   await page.reload();
   await connectWallet(page);
