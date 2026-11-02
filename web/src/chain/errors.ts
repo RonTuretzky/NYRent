@@ -1,152 +1,78 @@
 import {
   BaseError,
   ContractFunctionRevertedError,
+  type Abi,
   HttpRequestError,
   TimeoutError,
   UserRejectedRequestError,
   decodeErrorResult,
   parseAbi,
 } from "viem";
-import { allAbis } from "./contracts.ts";
+import { apartmentsOracleAbi, apartmentsPoolAbi } from "./apartmentsAbi.ts";
 
 /**
- * Error signatures read from the actual contracts (src/*.sol) — kept here as
- * a supplement so custom errors decode even where lib/abi.ts and the deployed
- * bytecode drift (error selectors include parameter types).
+ * Errors the policy contracts can raise that are not in the generated pool and
+ * oracle ABIs (the claim token and inherited OpenZeppelin guards), so raw
+ * revert data still decodes to a name.
  */
-const contractErrorsAbi = parseAbi([
-  // CredailyRentOracle
-  "error BadModulus()",
-  "error AlreadyRecorded()",
-  "error MissingFrom()",
-  "error MissingDkimLine()",
-  "error BadTagPolicy(string tag)",
-  "error BadBodyHash()",
-  "error BadTimestamp()",
-  "error BadSignature()",
-  "error AnchorNotUnique(uint256 count)",
-  "error SnapshotNotFound()",
-  // Dkim lib
-  "error BadLength(string what)",
-  "error DuplicateTag(string tag)",
-  "error MalformedTag()",
-  "error BadTimestampTag()",
-  "error ValueOverflow()",
-  // CoverPool (permissionless — no roles, per-series accounting)
-  "error NotCreator()",
-  "error ZeroAddress()",
-  "error InvalidSeries()",
-  "error InvalidParams(string what)",
-  "error SaleClosed()",
-  "error SalesArePaused()",
-  "error SeriesClosed()",
-  "error ZeroAmount()",
-  "error CapacityExceeded()",
-  "error PremiumTooHigh(uint256 premium, uint256 maxPremium)",
-  "error PremiumRoundsToZero()",
-  "error AlreadySettled()",
-  "error NotSettled()",
-  "error ObservationOutOfWindow(uint64 t)",
-  "error RedeemWindowClosed()",
-  "error RedeemWindowOpen()",
-  "error AlreadySold()",
-  "error ResidualAlreadyWithdrawn()",
-  // ApartmentsCoverPool / ApartmentsRentOracle / GoogleAlertParser / YearMonth
-  "error AlreadyFinalized()",
-  "error TooEarly()",
-  "error NoQualifyingResult()",
-  "error MissingBoundary()",
-  "error BadMimeLayout()",
-  "error BadQuotedPrintable()",
-  "error MissingMarkup()",
-  "error MalformedJson()",
-  "error BadMonth(uint32 yyyymm)",
-  // SwapAndBuyRouter
-  "error InvalidPath(string what)",
-  "error NativeInputNotWeth()",
-  "error NativeValueMismatch(uint256 value, uint256 amountInMaximum)",
-  // CoverToken
+const extraErrorsAbi = parseAbi([
+  // CoverToken (the claim token)
   "error OnlyPool()",
   "error TransfersDisabled()",
+  "error ERC1155InsufficientBalance(address sender, uint256 balance, uint256 needed, uint256 tokenId)",
   // OpenZeppelin 5.x guards inherited by the deployed contracts
   "error ReentrancyGuardReentrantCall()",
+  "error SafeERC20FailedOperation(address token)",
 ]);
 
-const decodeAbis = [...allAbis, ...contractErrorsAbi];
+const decodeAbis: Abi = [...apartmentsPoolAbi, ...apartmentsOracleAbi, ...extraErrorsAbi] as Abi;
 
-/** Human copy for every custom error named in the SPEC, plus likely guards. */
+/**
+ * Plain fallback copy per custom error. The policy pages rewrite most of these
+ * again with policy wording (lib/policy.ts policyError); this is what any other
+ * caller sees.
+ */
 const ERROR_COPY: Record<string, string> = {
   // Oracle
-  AlreadyRecorded:
-    "This exact email is already recorded on-chain — no need to submit it again. You can go straight to settling.",
-  BadSignature:
-    "The DKIM RSA signature did not verify against the pinned CRE Daily key. The email bytes were altered, or it isn't the authentic newsletter.",
-  BadBodyHash:
-    "The canonicalized body hash doesn't match the bh= tag in the DKIM signature — the body was modified after signing.",
-  AnchorNotUnique:
-    "The configured rent-index anchor does not appear exactly once in the email body, so the value can't be extracted unambiguously.",
-  BadTimestamp:
-    "The DKIM t= timestamp is in the future beyond the allowed one-day tolerance.",
-  MissingFrom:
-    "The signed header block lacks the pinned CRE Daily from: address.",
-  MissingDkimLine:
-    "The signed header block doesn't end with a dkim-signature: line.",
-  BadTagPolicy:
-    "A dkim-signature tag violates the pinned policy (v=1, rsa-sha256, relaxed/relaxed, d=newyork.credaily.com, s=b37, no l=, empty b=).",
-  SnapshotNotFound:
-    "The required average-effective rent value ($NN.NN / SF) wasn't found after the configured rent-index anchor in the email body.",
+  AlreadyRecorded: "This exact email is already recorded on-chain, so there is no need to submit it again.",
+  BadSignature: "The email's DKIM signature did not verify against the pinned key. The file was altered, or it is not an original.",
+  BadBodyHash: "The email body does not match its DKIM body hash: it was modified after signing.",
+  BadTimestamp: "The email's signing time is in the future beyond the allowed tolerance.",
+  MissingFrom: "The signed header block lacks the expected sender.",
+  MissingDkimLine: "The signed header block does not end with a dkim-signature line.",
+  BadTagPolicy: "A dkim-signature tag differs from the pinned signing policy.",
   BadModulus: "The pinned RSA modulus is malformed (deployment error).",
   DuplicateTag: "The dkim-signature line contains a duplicated tag.",
   MalformedTag: "The dkim-signature line contains a malformed tag.",
-  BadTimestampTag: "The DKIM t= timestamp tag doesn't parse.",
+  BadTimestampTag: "The DKIM t= timestamp tag does not parse.",
   ValueOverflow: "The extracted rent value overflows the allowed range.",
   BadLength: "An input has the wrong length (signature or modulus).",
-  // Pool (permissionless)
-  SaleClosed: "Buying is closed for this market — the sale window ended or the market has already settled.",
-  SalesArePaused:
-    "Sales are currently paused by the market creator. Existing cover is unaffected.",
-  InvalidSeries: "No market exists at this id.",
-  InvalidParams: "Market parameters are invalid.",
+  // Pool
+  SaleClosed: "Buying is closed for this policy: the sale window ended.",
+  SalesArePaused: "Sales are paused by the policy creator. Existing protection is unaffected.",
+  InvalidSeries: "No policy exists at this id.",
+  InvalidParams: "The policy parameters are invalid.",
   ZeroAmount: "Amount must be greater than zero.",
   ZeroAddress: "The recipient address can't be the zero address.",
-  CapacityExceeded:
-    "That size would exceed the market' remaining capacity.",
-  OnlyPool: "Only the pool contract may mint or burn RENT.",
-  PremiumTooHigh:
-    "The price moved above your maximum — refresh the quote or lower the size.",
-  PremiumRoundsToZero:
-    "That amount is so small its price rounds to zero — nothing would be charged, so the contract rejects it. Enter a slightly larger amount.",
-  NotSettled: "This market has not been settled yet.",
-  AlreadySettled: "This market is already settled (settlement is one-shot).",
-  ObservationOutOfWindow:
-    "That observation's timestamp falls outside this market' observation window.",
-  RedeemWindowClosed:
-    "The claim window has closed; what's left in the market returns to its creator.",
-  RedeemWindowOpen:
-    "The claim window is still open — the creator can only collect the residual after it ends.",
-  NotCreator: "Only this market' creator can perform this action.",
-  SeriesClosed:
-    "This market was cancelled by its creator before anything was sold — it's permanently closed.",
-  AlreadySold:
-    "Cover has already been sold on this market, so it can no longer be cancelled — the escrow releases after the claim window instead.",
-  ResidualAlreadyWithdrawn:
-    "The creator's capital already left this market once (cancel or residual withdrawal) — it can't leave twice.",
-  // SwapAndBuyRouter
-  InvalidPath:
-    "The swap route is malformed — it must run from the pool currency back to the token you're paying with. Refresh and try again.",
-  NativeInputNotWeth:
-    "Paying with the native coin requires routing through the wrapped native token.",
-  NativeValueMismatch:
-    "The native coin amount sent doesn't match the swap's input cap. Refresh the quote and try again.",
-  TransfersDisabled:
-    "RENT are non-transferable (mint and redeem only).",
-  // OpenZeppelin 5.x (inherited by the deployed contracts)
+  CapacityExceeded: "That size would exceed the policy's remaining capacity.",
+  PremiumTooHigh: "The premium came out above your maximum. Refresh and try again.",
+  PremiumRoundsToZero: "That amount is so small its premium rounds to zero, so the contract rejects it. Enter a slightly larger amount.",
+  NotSettled: "This policy has not been settled yet.",
+  AlreadySettled: "This policy is already settled.",
+  RedeemWindowClosed: "The claim window has closed; what is left returns to the creator.",
+  RedeemWindowOpen: "The claim window is still open; the creator can only collect the remainder after it ends.",
+  NotCreator: "Only this policy's creator can do that.",
+  SeriesClosed: "This policy was cancelled by its creator before anything was sold.",
+  AlreadySold: "Protection has already been sold on this policy, so it can no longer be cancelled.",
+  ResidualAlreadyWithdrawn: "The creator's remaining funds already left this policy.",
+  // Token and OpenZeppelin
+  OnlyPool: "Only the pool contract may mint or burn claims.",
+  TransfersDisabled: "Claims are non-transferable.",
   ERC1155InsufficientBalance:
-    "You no longer hold that much cover — your balance changed since this page loaded (e.g. a redeem in another tab). Refresh and try a smaller amount.",
+    "You no longer hold that much protection: your balance changed since this page loaded. Refresh and try a smaller amount.",
   SafeERC20FailedOperation:
-    "The currency transfer failed — your balance or allowance changed since this page loaded. Check both, approve again if needed, and retry.",
-  ReentrancyGuardReentrantCall:
-    "The call re-entered the pool mid-transaction and was blocked by the reentrancy guard.",
+    "The currency transfer failed: your balance or allowance changed since this page loaded. Check both, approve again if needed, and retry.",
+  ReentrancyGuardReentrantCall: "The call re-entered the pool mid-transaction and was blocked by the reentrancy guard.",
 };
 
 export type TxErrorKind = "rejected" | "network" | "revert" | "unknown";
@@ -298,9 +224,9 @@ export function decodeTxError(error: unknown): DecodedTxError {
           detail: revert.shortMessage,
         };
       }
-      // Bare revert with no data at all: WETH9-style tokens (e.g. WXDAI)
-      // revert like this when a transfer exceeds balance or allowance —
-      // usually an allowance that was spent or revoked since the page loaded.
+      // Bare revert with no data at all: some tokens revert like this when a
+      // transfer exceeds balance or allowance, usually an allowance that was
+      // spent or revoked since the page loaded.
       return {
         name: "Reverted",
         kind: "revert",

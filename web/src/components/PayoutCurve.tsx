@@ -1,7 +1,7 @@
 import { formatCents } from "../chain/format";
 
 /**
- * Hand-built payout-curve SVG for a series: ratio = clamp((cents − low) /
+ * Hand-built payout-curve SVG for a policy: ratio = clamp((cents − low) /
  * (high − low), 0, 1). Shows both strikes and, once settled, the observed
  * point on the curve.
  */
@@ -11,7 +11,7 @@ export function PayoutCurve({
   settledCents,
   ratioWad,
   yoyBaseCents,
-  caption = "CRE Daily \u00b7 Manhattan Rent Index \u00b7 Avg Effective $/SF",
+  caption = "Apartments.com headline rent, $ per month",
   width = 560,
 }: {
   lowCents: number;
@@ -21,7 +21,7 @@ export function PayoutCurve({
   /** When set, each strike also shows its year-over-year growth vs this
    * base — the same axis in a second unit ($/SF ↔ YoY %). */
   yoyBaseCents?: number;
-  /** What the x-axis measures. Defaults to the office market's index. */
+  /** What the x-axis measures. */
   caption?: string;
   /** viewBox width: a smaller value keeps labels readable in narrow columns. */
   width?: number;

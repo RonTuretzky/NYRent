@@ -1,7 +1,7 @@
 // Read-only live-chain simulation. Never loads keys or broadcasts transactions.
 import {createPublicClient,http,parseAbi} from '../web/node_modules/viem/_esm/index.js';
 import fs from 'node:fs';
-const configs=JSON.parse(fs.readFileSync(new URL('../web/src/chain/v4-deployments.json',import.meta.url)));
+const configs=JSON.parse(fs.readFileSync(new URL('./data/v4-deployments.json',import.meta.url)));
 const abi=parseAbi(['function oracle() view returns(address)','function createMarket((uint256 baseObservationIndex,uint32 baseRentCents,uint32 strikeLowCents,uint32 strikeHighCents,uint64 saleEnd,uint64 obsStart,uint64 obsEnd,uint64 redeemEnd) terms,uint160 sqrtPriceX96) returns(address)']);
 const results=[];
 for(const [id,url] of [[137,'https://polygon-bor-rpc.publicnode.com'],[42161,'https://arb1.arbitrum.io/rpc']]){

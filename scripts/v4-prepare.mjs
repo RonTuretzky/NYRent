@@ -4,15 +4,23 @@ import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { DEMO_BASE_CENTS, DEMO_STRIKE_LOW_CENTS, DEMO_STRIKE_HIGH_CENTS,
-  DEMO_SALE_END, DEMO_OBS_START, DEMO_OBS_END, DEMO_REDEEM_END } from '../web/src/lib/market.ts';
+
+// Terms of the one office market (formerly web/src/lib/market.ts, retired with the
+// office frontend): base = verified Sept 2026 CRE Daily print, band +3% to +8%.
+const DEMO_BASE_CENTS = 9288;
+const DEMO_STRIKE_LOW_CENTS = Math.round(DEMO_BASE_CENTS * 1.03); // 9567
+const DEMO_STRIKE_HIGH_CENTS = Math.round(DEMO_BASE_CENTS * 1.08); // 10031
+const DEMO_SALE_END = 1_819_756_800n; // 2027-09-01 00:00 UTC
+const DEMO_OBS_START = 1_819_756_800n;
+const DEMO_OBS_END = 1_822_348_740n;
+const DEMO_REDEEM_END = 1_824_940_740n;
 
 export const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const require = createRequire(new URL('../web/package.json', import.meta.url));
 export const viem = require('viem');
 export const accounts = require('viem/accounts');
 export const { arbitrum, polygon } = require('viem/chains');
-export const TARGETS = Object.freeze(JSON.parse(readFileSync(path.join(ROOT, 'web/src/chain/v4-targets.json'))));
+export const TARGETS = Object.freeze(JSON.parse(readFileSync(path.join(ROOT, 'scripts/data/v4-targets.json'))));
 export function targetOf(value = 'arbitrum') {
   const id = { arbitrum: 42161, polygon: 137 }[String(value)] ?? Number(value);
   const target = TARGETS[String(id)];

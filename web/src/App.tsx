@@ -4,47 +4,17 @@ import { RainbowKitProvider, lightTheme } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { wagmiConfig } from "./chain/wagmi";
-import { ActiveDeploymentProvider } from "./chain/registry";
 import { Layout } from "./components/Layout";
 import { Card, LoadingSkeleton } from "./components/States";
-import { MarketOverview } from "./pages/MarketOverview";
-import { MarketView } from "./pages/MarketView";
-import { ActiveMarketAction } from "./components/ActiveMarketAction";
-import { SeriesList } from "./pages/SeriesList";
-import { Buy } from "./pages/Buy";
-import { Redeem } from "./pages/Redeem";
-import { Choose } from "./pages/Choose";
-import { InsurerDashboard } from "./pages/InsurerDashboard";
-import { RenterVisualizer } from "./pages/RenterVisualizer";
+import { Home } from "./pages/Home";
 
-// Heavy routes load on demand: Settle drags in the DKIM/RSA emailkit, Docs and
-// the underwriting console are long pages most visitors never open.
-const CreateMarket = lazy(() => import("./pages/CreateMarket").then(m => ({ default: m.CreateMarket })));
+// The policy pages load on demand as one chunk: Record a rent drags in the
+// DKIM/RSA email parser, which the home page never needs.
 const PolicyList = lazy(() => import("./pages/Policies").then(m => ({ default: m.PolicyList })));
 const CreatePolicy = lazy(() => import("./pages/Policies").then(m => ({ default: m.CreatePolicy })));
 const PolicyDetail = lazy(() => import("./pages/Policies").then(m => ({ default: m.PolicyDetail })));
 const SubmitAlert = lazy(() => import("./pages/Policies").then(m => ({ default: m.SubmitAlert })));
 const PolicyGuide = lazy(() => import("./pages/Policies").then(m => ({ default: m.PolicyGuide })));
-const SeriesDetail = lazy(() =>
-  import("./pages/SeriesDetail").then((m) => ({ default: m.SeriesDetail })),
-);
-const Settle = lazy(() =>
-  import("./pages/Settle").then((m) => ({ default: m.Settle })),
-);
-const SettlePicker = lazy(() =>
-  import("./pages/Settle").then((m) => ({ default: m.SettlePicker })),
-);
-const Underwrite = lazy(() =>
-  import("./pages/Underwrite").then((m) => ({ default: m.Underwrite })),
-);
-const Docs = lazy(() => import("./pages/Docs").then((m) => ({ default: m.Docs })));
-const UniswapGuide = lazy(() => import("./pages/UniswapGuide").then((m) => ({ default: m.UniswapGuide })));
-const Walkthrough = lazy(() => import("./pages/Walkthrough").then((m) => ({ default: m.Walkthrough })));
-const SourcesGuide = lazy(() => import("./pages/SourcesGuide").then((m) => ({ default: m.SourcesGuide })));
-const Story = lazy(() => import("./pages/Story").then((m) => ({ default: m.Story })));
-const BankrDocs = lazy(() => import("./pages/BankrDocs").then((m) => ({ default: m.BankrDocs })));
-const LegacyLanding = lazy(() => import("./pages/Landing").then((m) => ({ default: m.Landing })));
-const LegacyDocs = lazy(() => import("./pages/LegacyDocs").then((m) => ({ default: m.LegacyDocs })));
 
 function RouteFallback() {
   return (
@@ -73,60 +43,20 @@ export default function App() {
             borderRadius: "medium",
           })}
         >
-          <ActiveDeploymentProvider>
-            <HashRouter>
-              <Routes>
-                <Route path="/story" element={suspend(<Story />)} />
-                <Route path="/story/:step" element={suspend(<Story />)} />
-                <Route element={<Layout />}>
-                  <Route path="/" element={<MarketOverview />} />
-                  <Route path="/create" element={suspend(<CreateMarket />)} />
-                  <Route path="/policies" element={suspend(<PolicyList />)} />
-                  <Route path="/policies/new" element={suspend(<CreatePolicy />)} />
-                  <Route path="/policies/submit" element={suspend(<SubmitAlert />)} />
-                  <Route path="/policies/guide" element={suspend(<PolicyGuide />)} />
-                  <Route path="/policies/:id" element={suspend(<PolicyDetail />)} />
-                  <Route path="/insurer" element={<InsurerDashboard />} />
-                  <Route path="/renter" element={<RenterVisualizer />} />
-                  <Route path="/market-view" element={<MarketView />} />
-                  <Route path="/buy" element={<ActiveMarketAction action="buy"><Buy /></ActiveMarketAction>} />
-                  <Route path="/trade" element={<ActiveMarketAction action="buy"><Buy /></ActiveMarketAction>} />
-                  <Route path="/redeem" element={<ActiveMarketAction action="redeem"><Redeem /></ActiveMarketAction>} />
-                  {/* Legacy multi-market pages: registered but out of nav
-                      (VITE_SHOW_LEGACY_ROUTES=1 re-exposes the nav links).
-                      Paths avoid the word "series". */}
-                  <Route path="/markets" element={<SeriesList />} />
-                  <Route
-                    path="/market/:id"
-                    element={suspend(<SeriesDetail />)}
-                  />
-                  <Route path="/buy/:id" element={<Buy />} />
-                  <Route path="/choose" element={<Choose />} />
-                  <Route path="/settle" element={<ActiveMarketAction action="settle">{suspend(<Settle />)}</ActiveMarketAction>} />
-                  <Route path="/legacy/settle" element={suspend(<SettlePicker />)} />
-                  <Route path="/settle/:id" element={suspend(<Settle />)} />
-                  <Route path="/redeem/:id" element={<Redeem />} />
-                  <Route
-                    path="/underwrite"
-                    element={suspend(<Underwrite />)}
-                  />
-                  {/* legacy sponsor-era route */}
-                  <Route
-                    path="/sponsor"
-                    element={<Navigate to="/underwrite" replace />}
-                  />
-                  <Route path="/docs/uniswap" element={suspend(<UniswapGuide />)} />
-                  <Route path="/docs/walkthrough" element={suspend(<Walkthrough />)} />
-                  <Route path="/docs/sources" element={suspend(<SourcesGuide />)} />
-                  <Route path="/docs" element={suspend(<Docs />)} />
-                  <Route path="/docs/bankr" element={suspend(<BankrDocs />)} />
-                  <Route path="/legacy/docs" element={suspend(<LegacyDocs />)} />
-                  <Route path="/legacy/home" element={suspend(<LegacyLanding />)} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Route>
-              </Routes>
-            </HashRouter>
-          </ActiveDeploymentProvider>
+          <HashRouter>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<Home />} />
+                <Route path="/policies" element={suspend(<PolicyList />)} />
+                <Route path="/policies/new" element={suspend(<CreatePolicy />)} />
+                <Route path="/policies/submit" element={suspend(<SubmitAlert />)} />
+                <Route path="/policies/guide" element={suspend(<PolicyGuide />)} />
+                <Route path="/policies/:id" element={suspend(<PolicyDetail />)} />
+                {/* Every retired office-market route (and anything else) lands on the home page. */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Routes>
+          </HashRouter>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

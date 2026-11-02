@@ -6,7 +6,7 @@
  *   node scripts/settle.mjs [--eml path/to/email.eml] [--series <id>]
  *
  * Env: DEPLOYER_PRIVATE_KEY, GNOSIS_RPC_URL (dotenv-loaded from .env if present).
- * Reads web/src/deployment.json for addresses. Idempotent: skips submitObservation
+ * Reads scripts/data/gnosis-deployment.json for addresses. Idempotent: skips submitObservation
  * if the emailId is already recorded, skips settle if the series is settled.
  */
 import {

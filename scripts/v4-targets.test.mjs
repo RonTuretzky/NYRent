@@ -1,19 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { targetOf, chainFor, hasOracle, initialSqrtPrice, liquidityFor, publicClient } from './v4-prepare.mjs';
 import { launch } from './v4-launch.mjs';
 
-test('target chain, transport and USDC identity agree with the frontend', () => {
-  const registry = JSON.parse(readFileSync(new URL('../web/src/chain/deployments.json', import.meta.url)));
+// Native (Circle) USDC per chain. The office markets no longer have a frontend
+// registry to agree with, so the targets are pinned to the canonical tokens.
+const NATIVE_USDC = {
+  42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+  137: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
+};
+
+test('target chain, transport and USDC identity agree with the canonical tokens', () => {
   for (const name of ['arbitrum', 'polygon']) {
     const t = targetOf(name);
     assert.equal(chainFor(t).id, t.chainId);
     assert.equal(publicClient(t.rpc, t).chain.id, t.chainId);
-    assert.equal(t.currency.toLowerCase(), registry[t.chainId].currency.address.toLowerCase());
-    assert.equal(registry[t.chainId].currency.decimals, 6);
+    assert.equal(t.currency.toLowerCase(), NATIVE_USDC[t.chainId].toLowerCase());
   }
   assert.equal(targetOf(137), targetOf('polygon'));
   assert.equal(chainFor(targetOf('polygon')).nativeCurrency.symbol, 'POL');

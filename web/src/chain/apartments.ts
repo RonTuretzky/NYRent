@@ -1,8 +1,23 @@
 import type { Address } from "viem";
 import deployed from "./apartments-deployment.json";
 
+/**
+ * The one network the app serves. Copy (network name, currency and gas token
+ * symbols) and explorer links read from here; wagmi.ts builds its only chain
+ * from the same id.
+ */
+export const NETWORK = {
+  chainId: 42161,
+  name: "Arbitrum One",
+  /** The policy currency. */
+  symbol: "USDC",
+  /** The gas token. */
+  nativeSymbol: "ETH",
+  explorerBase: "https://arbiscan.io",
+} as const;
+
 /** The residential policy pool lives on one chain only. */
-export const APARTMENTS_CHAIN_ID = deployed.chainId;
+export const APARTMENTS_CHAIN_ID: number = NETWORK.chainId;
 export const APARTMENTS_POOL = deployed.pool as Address | null;
 export const APARTMENTS_ORACLE = deployed.oracle as Address | null;
 export const APARTMENTS_TOKEN = deployed.token as Address | null;

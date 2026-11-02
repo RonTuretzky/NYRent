@@ -80,7 +80,7 @@ export function PolicyDetail() {
       </EmptyState>
     );
   }
-  if (rpcDown) return <RpcDownState chainId={chainId} onRetry={() => void refetch()} />;
+  if (rpcDown) return <RpcDownState onRetry={() => void refetch()} />;
   if (isLoading) return <div className="max-w-2xl mx-auto space-y-6" aria-busy="true"><SkeletonCard lines={2} /><SkeletonCard lines={8} /><SkeletonCard lines={4} /></div>;
   if (notFound || !series || !slug) {
     return (

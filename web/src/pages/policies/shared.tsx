@@ -1,6 +1,5 @@
 /**
- * Shared pieces of the neighborhood-policy pages: chain constants from the
- * registry, data hooks that refetch on their own, the wallet gate (connect and
+ * Shared pieces of the neighborhood-policy pages: network constants, data hooks that refetch on their own, the wallet gate (connect and
  * inline network switch), the funded-action step (balance, gas, approve) and
  * the small explanatory components every page repeats.
  */
@@ -16,14 +15,13 @@ import {
   APARTMENTS_POOL,
   APARTMENTS_TOKEN,
   CURRENCY_DECIMALS,
+  NETWORK,
   POLICY_CURRENCY,
   claimTokenAbi,
   policyCurrencyAbi,
 } from "../../chain/apartments";
 import { apartmentsPoolAbi } from "../../chain/apartmentsAbi";
 import { isNetworkError } from "../../chain/errors";
-import { DEPLOYMENTS } from "../../chain/registry";
-import { chainById } from "../../chain/wagmi";
 import { formatCurrency, formatTimestamp, nowSec } from "../../chain/format";
 import { useTx, type TxState } from "../../chain/useTx";
 import { Card, EmptyState, LoadingSkeleton } from "../../components/States";
@@ -37,11 +35,10 @@ import catalog from "../../data/apartments-series.json";
 
 export const chainId = APARTMENTS_CHAIN_ID;
 export const pool = APARTMENTS_POOL as Address;
-const deployment = DEPLOYMENTS[chainId];
-export const symbol = deployment?.currency.symbol ?? "";
-export const networkName = deployment?.name ?? `chain ${chainId}`;
-export const nativeSymbol = chainById(chainId)?.nativeCurrency.symbol ?? "ETH";
-export const explorerBase = deployment?.explorerBase ?? "";
+export const symbol: string = NETWORK.symbol;
+export const networkName: string = NETWORK.name;
+export const nativeSymbol: string = NETWORK.nativeSymbol;
+export const explorerBase: string = NETWORK.explorerBase;
 
 export const inputClass =
   "w-full min-h-11 rounded-lg border-2 border-paper-2 focus:border-core-green focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-core-green px-3 py-2 font-parkBody bg-paper-0 text-base";
