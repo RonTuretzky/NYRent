@@ -16,7 +16,6 @@ import {
   CURRENCY_DECIMALS,
   NETWORK,
   POLICY_CURRENCY,
-  POOL_V1,
   POOL_V2,
   claimTokenAbi,
   policyCurrencyAbi,
@@ -540,9 +539,6 @@ function usePoolRefs(pp: PolicyPool | null) {
 }
 
 export function usePolicyRefs() {
-  const v2 = usePoolRefs(POOL_V2);
-  const v1 = usePoolRefs(POOL_V1);
-  const refs = v2.refs && v1.refs ? [...v2.refs, ...v1.refs] : undefined;
-  const failed = v2.failed || v1.failed;
+  const { refs, failed } = usePoolRefs(POOL_V2);
   return { refs, loading: refs === undefined && !failed, failed: refs === undefined && failed };
 }

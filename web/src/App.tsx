@@ -51,7 +51,6 @@ export default function App() {
                 <Route path="/policies/new" element={suspend(<CreatePolicy />)} />
                 <Route path="/policies/submit" element={suspend(<SubmitAlert />)} />
                 <Route path="/policies/guide" element={suspend(<PolicyGuide />)} />
-                <Route path="/policies/v1/:id" element={suspend(<PolicyDetail version="v1" />)} />
                 <Route path="/policies/:id" element={suspend(<PolicyDetail version="v2" />)} />
                 {/* Every retired office-market route (and anything else) lands on the home page. */}
                 <Route path="*" element={<Navigate to="/" replace />} />

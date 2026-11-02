@@ -28,14 +28,14 @@ const html = readFileSync(path.join(DIST, "index.html"), "utf8");
 const lower = bundle.toLowerCase();
 
 // 1. What must be there.
-for (const route of ["/policies", "/policies/new", "/policies/submit", "/policies/guide", "/policies/:id", "/policies/v1/:id"]) {
+for (const route of ["/policies", "/policies/new", "/policies/submit", "/policies/guide", "/policies/:id"]) {
   if (!bundle.includes(`"${route}"`)) failures.push(`route ${route} is not in the bundle`);
 }
 // Both pools (V2 for new policies, V1 for the earlier ones) and the shared oracle.
 const live = JSON.parse(readFileSync(path.join(WEB, "src/chain/apartments-deployment.json"), "utf8"));
 if (live.chainId !== 42161) failures.push(`apartments-deployment.json chainId is ${live.chainId}, expected 42161`);
 const liveAddresses = {
-  oracle: live.oracle, "v2.pool": live.v2?.pool, "v2.token": live.v2?.token, "v1.pool": live.v1?.pool, "v1.token": live.v1?.token,
+  oracle: live.oracle, "v2.pool": live.v2?.pool, "v2.token": live.v2?.token,
 };
 for (const [key, value] of Object.entries(liveAddresses)) {
   const a = String(value ?? "");

@@ -140,7 +140,7 @@ export default async function globalSetup(): Promise<void> {
     // 4. Build with a temporary deployment file; teardown restores it.
     fs.rmSync(APARTMENTS_DEPLOYMENT_BAK, { force: true });
     fs.copyFileSync(APARTMENTS_DEPLOYMENT_PATH, APARTMENTS_DEPLOYMENT_BAK);
-    fs.writeFileSync(APARTMENTS_DEPLOYMENT_PATH, JSON.stringify({ chainId: 42161, oracle, v2, v1 }, null, 2) + "\n");
+    fs.writeFileSync(APARTMENTS_DEPLOYMENT_PATH, JSON.stringify({ chainId: 42161, oracle, v2 }, null, 2) + "\n");
     if (!fs.existsSync(path.join(REPO_ROOT, "web", "node_modules"))) run("npm", ["--prefix", "web", "install"]);
     run("npm", ["--prefix", "web", "run", "build"], { env: { ...process.env, VITE_RPC_URL: FORK_RPC_URL } });
     // The build has the addresses baked in: put the committed files back now.

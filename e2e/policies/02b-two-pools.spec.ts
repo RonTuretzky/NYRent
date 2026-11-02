@@ -1,7 +1,6 @@
 // V2 rules in the browser (sales into the current month, the sales-close
-// control, sales stopping once a rent is recorded) and a V1 policy on the
-// earlier pool, reachable and working at /policies/v1/:id. Runs before
-// 03-settle.spec.ts warps the clock; 03 then settles the V1 policy too.
+// control, sales stopping once a rent is recorded). Runs before
+// 03-settle.spec.ts warps the clock.
 import path from "node:path";
 import { test, type Page } from "@playwright/test";
 import { parseUnits } from "viem";
@@ -152,62 +151,3 @@ test("a recorded rent stops sales: a buy racing the record gets plain copy; the 
   await expect(creator.getByTestId("form-errors")).toContainText("already recorded");
 });
 
-test("a V1 policy renders and works at /policies/v1/:id, labelled with the earlier rules", async ({ page, browser }) => {
-  const { month } = readState();
-  const { start, end } = monthBounds(yyyymm(month));
-  const finalizeAt = end + 1n + 7n * DAY;
-  const id = await createAs(CREATOR, {
-    slug: "east-harlem-new-york-ny", obsMonth: yyyymm(month), low: 290000, high: 310000, bps: 1000,
-    saleEnd: start, redeemEnd: finalizeAt + 14n * DAY, capacity: parseUnits("20", 6),
-  }, "v1");
-  remember("v1", id);
-  expect((await readSeries(id, "v1")).finalizeAt).toBe(finalizeAt);
-
-  // Listed next to the V2 policies, with its badge and an explanation.
-  await openAs(page, null, "/policies");
-  const card = page.getByTestId(`policy-v1-${id}`);
-  await expect(card).toContainText("V1 · earlier rules");
-  await expect(card).toContainText("East Harlem");
-  await expect(page.getByTestId("v1-explainer")).toContainText("seven days after the month ends");
-  await card.click();
-  await expect(page).toHaveURL(new RegExp(`/policies/v1/${id}$`));
-
-  // The renter buys on the V1 pool (its own approval) from the V1 route.
-  await openAs(page, BUYER, `/policies/v1/${id}`);
-  await expect(page.getByTestId("v1-badge")).toBeVisible();
-  await expect(page.getByTestId("v1-rules")).toContainText("sales close when the policy month starts");
-  await expect(page.getByTestId("policy-status")).toHaveText("On sale");
-  await expect(page.getByTestId("status-next")).toContainText("until the policy month starts");
-  await expect(page.getByTestId("key-dates")).toContainText("Seven days after the month ends");
-  await page.getByTestId("buy-amount").fill("10");
-  await ensureApproved(page);
-  await page.getByTestId("buy-submit").click();
-  await expect(page.getByTestId("bought-ok")).toContainText("You bought 10 USDC of protection");
-  expect(await claimBalance(BUYER, id, "v1")).toBe(parseUnits("10", 6));
-  await shot(page, "18-v1-bought");
-
-  // The creator's controls drive the V1 pool too.
-  const creator = await (await browser.newContext()).newPage();
-  await openAs(creator, CREATOR, `/policies/v1/${id}`);
-  await expect(creator.getByTestId("creator-card")).toContainText("Share the link");
-  await creator.getByTestId("pause").click();
-  await expect(creator.getByTestId("policy-status")).toHaveText("Sales paused");
-  await creator.getByTestId("pause").click();
-  await expect(creator.getByTestId("policy-status")).toHaveText("On sale");
-  await creator.getByTestId("add-amount").fill("5");
-  // The creator's page also shows the buy card with its own approve button: stay inside the escrow card.
-  const escrow = creator.getByTestId("add-escrow-card");
-  await expect(escrow.getByTestId("approve-button").or(escrow.getByTestId("add-escrow"))).toBeVisible();
-  if (await escrow.getByTestId("approve-button").isVisible().catch(() => false)) {
-    await escrow.getByTestId("approve-button").click();
-    await expect(escrow.getByTestId("approved-ok")).toBeVisible();
-  }
-  await escrow.getByTestId("add-escrow").click();
-  await expect(creator.getByTestId("added-ok")).toContainText("Added 5 USDC");
-  expect((await readSeries(id, "v1")).escrow).toBe(parseUnits("25", 6));
-
-  // V1 and V2 ids never collide: an unknown V1 id is "not found", named as V1.
-  await openAs(page, null, "/policies/v1/999999");
-  await expect(page.getByTestId("empty-state")).toContainText("Policy not found");
-  await expect(page.getByTestId("empty-state")).toContainText("V1 #999999");
-});
