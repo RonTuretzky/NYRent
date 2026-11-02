@@ -187,9 +187,6 @@ export function PolicyGuide() {
         <p className="font-parkBody text-sm mt-3" data-testid="guide-open-sales">
           <strong>If sales stay open into the month</strong>, buyers may already know the rent: once Google sends the month's alert, anyone who saw it can buy knowing the outcome, until someone records it. Creators price that in, or close sales when the month starts.
         </p>
-        <p className="font-parkBody text-sm text-surface-grey-2 mt-3" data-testid="guide-v1-rules">
-          Policies marked <strong>V1</strong> were created on the first pool and keep its earlier rules: sales close at the first second of the policy month, and the record window and claims opening run seven days after the month ends instead of two.
-        </p>
       </Card>
 
       <Card>
