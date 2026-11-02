@@ -192,8 +192,14 @@ test("a V1 policy renders and works at /policies/v1/:id, labelled with the earli
   await creator.getByTestId("pause").click();
   await expect(creator.getByTestId("policy-status")).toHaveText("On sale");
   await creator.getByTestId("add-amount").fill("5");
-  await ensureApproved(creator, "add-escrow");
-  await creator.getByTestId("add-escrow").click();
+  // The creator's page also shows the buy card with its own approve button: stay inside the escrow card.
+  const escrow = creator.getByTestId("add-escrow-card");
+  await expect(escrow.getByTestId("approve-button").or(escrow.getByTestId("add-escrow"))).toBeVisible();
+  if (await escrow.getByTestId("approve-button").isVisible().catch(() => false)) {
+    await escrow.getByTestId("approve-button").click();
+    await expect(escrow.getByTestId("approved-ok")).toBeVisible();
+  }
+  await escrow.getByTestId("add-escrow").click();
   await expect(creator.getByTestId("added-ok")).toContainText("Added 5 USDC");
   expect((await readSeries(id, "v1")).escrow).toBe(parseUnits("25", 6));
 

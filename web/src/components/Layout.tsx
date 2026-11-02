@@ -278,7 +278,11 @@ export function Layout() {
   usePageTitle();
   const { pathname } = useLocation();
   // A new page starts at the top (hash routes otherwise keep the old scroll).
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  // Braces matter: newer browsers return a Promise from scrollTo, and React
+  // would call whatever an effect returns as its cleanup.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   return (
     <div className="min-h-screen flex flex-col">
       <WrongNetworkBanner />

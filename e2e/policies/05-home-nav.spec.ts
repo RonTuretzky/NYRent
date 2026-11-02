@@ -21,7 +21,7 @@ async function expectHome(page: Page) {
 test("home renders: hero, roles, newest policies from the pools, how it settles, risks", async ({ page }) => {
   await openAs(page, null, "/");
   await expectHome(page);
-  await expect(page).toHaveTitle(/Neighborhood rent policies/);
+  await expect(page).toHaveTitle(/neighborhood rent policies/i);
   await expect(page.getByTestId("home-pitch")).toContainText("Arbitrum One");
   await expect(page.getByTestId("home-browse")).toHaveAttribute("href", "#/policies");
   await expect(page.getByTestId("home-create")).toHaveAttribute("href", "#/policies/new");

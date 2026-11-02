@@ -232,7 +232,11 @@ export async function connectWallet(page: Page): Promise<void> {
 export async function openAs(page: Page, address: string | null, hashPath: string, opts: { walletChainId?: number; knownChainIds?: number[]; connect?: boolean } = {}): Promise<void> {
   const offsetMs = Number((await chainNow()) - BigInt(Math.floor(Date.now() / 1000))) * 1000;
   await page.addInitScript((ms) => {
-    const real = Date.now.bind(Date);
+    // Init scripts accumulate across openAs calls on one page: keep the real
+    // clock once, so the latest offset replaces earlier ones instead of stacking.
+    const w = window as unknown as { __realNow?: () => number };
+    w.__realNow ??= Date.now.bind(Date);
+    const real = w.__realNow;
     Date.now = () => real() + ms;
   }, offsetMs);
   if (address) {
