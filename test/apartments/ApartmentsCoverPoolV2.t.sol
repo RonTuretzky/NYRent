@@ -121,6 +121,18 @@ contract ApartmentsCoverPoolV2Test is Test {
         pool.buyProtection(id, 1e6, type(uint256).max);
     }
 
+    function test_recordStopsTopUpsButNotCancel() public {
+        uint256 id = _create(NOV_END);
+        oracle.set(SLUG, MONTH, MID_NOV + 1 hours, 310000);
+        vm.startPrank(creator);
+        vm.expectRevert(ApartmentsCoverPoolV2.RentAlreadyRecorded.selector);
+        pool.addCapacity(id, 1e6);
+        pool.cancelSeries(id);
+        vm.stopPrank();
+        assertEq(usdc.balanceOf(creator), 1_000e6);
+        assertEq(usdc.balanceOf(address(pool)), 0);
+    }
+
     function test_settlesTwoDaysAfterMonthEnd() public {
         uint256 id = _create(NOV_END);
         _buy(id, 10e6);
@@ -171,6 +183,124 @@ contract ApartmentsCoverPoolV2Test is Test {
         pool.withdrawResidual(id);
         assertEq(usdc.balanceOf(address(pool)), 0);
         assertEq(usdc.balanceOf(buyer) + usdc.balanceOf(creator), 2_000e6);
+    }
+}
+
+contract V2Handler is Test {
+    ApartmentsCoverPoolV2 internal pool;
+    TestERC20 internal usdc;
+    SlugMonthOracle internal oracle;
+    address internal immutable actor = makeAddr("v2-actor");
+    uint256[] public ids;
+    uint64 internal constant NOV_START = 1793491200;
+    uint64 internal constant NOV_END = 1796083199;
+    uint64 internal constant FINALIZE_AT = NOV_END + 1 + 2 days;
+
+    constructor(ApartmentsCoverPoolV2 pool_, TestERC20 usdc_, SlugMonthOracle oracle_) {
+        pool = pool_;
+        usdc = usdc_;
+        oracle = oracle_;
+        usdc.mint(actor, 1e30);
+        vm.prank(actor);
+        usdc.approve(address(pool), type(uint256).max);
+    }
+
+    function count() external view returns (uint256) {
+        return ids.length;
+    }
+
+    function create(uint128 capacity, uint16 rate, uint32 saleOffset) external {
+        if (block.timestamp >= NOV_END) return;
+        uint64 saleEnd = uint64(bound(saleOffset, block.timestamp + 1, NOV_END));
+        vm.prank(actor);
+        try pool.createSeries(
+            "mott-haven-bronx-ny",
+            202611,
+            100000,
+            200000,
+            uint16(bound(rate, 0, 10000)),
+            saleEnd,
+            FINALIZE_AT + 30 days,
+            uint128(bound(capacity, 1e6, 1e24))
+        ) returns (
+            uint256 id
+        ) {
+            ids.push(id);
+        } catch {}
+    }
+
+    function buy(uint256 seed, uint128 amount) external {
+        if (ids.length == 0) return;
+        uint256 id = ids[seed % ids.length];
+        ApartmentsCoverPoolV2.Series memory s = pool.series(id);
+        if (s.cancelled || s.sold == s.escrow) return;
+        vm.prank(actor);
+        try pool.buyProtection(id, bound(amount, 1, s.escrow - s.sold), type(uint256).max) {} catch {}
+    }
+
+    function topUp(uint256 seed, uint128 amount) external {
+        if (ids.length == 0) return;
+        vm.prank(actor);
+        try pool.addCapacity(ids[seed % ids.length], uint128(bound(amount, 1, 1e24))) {} catch {}
+    }
+
+    function cancel(uint256 seed) external {
+        if (ids.length == 0) return;
+        vm.prank(actor);
+        try pool.cancelSeries(ids[seed % ids.length]) {} catch {}
+    }
+
+    function record(uint32 cents) external {
+        if (block.timestamp < NOV_START || block.timestamp > NOV_END) return;
+        (uint64 t,) = (oracle.ts(keccak256("mott-haven-bronx-ny"), 202611), 0);
+        if (t == 0) {
+            oracle.set("mott-haven-bronx-ny", 202611, uint64(block.timestamp), uint32(bound(cents, 1, 400000)));
+        }
+    }
+
+    function warp(uint32 by) external {
+        vm.warp(block.timestamp + bound(by, 1 hours, 6 days));
+    }
+
+    function redeem(uint256 seed, uint128 amount) external {
+        if (ids.length == 0) return;
+        vm.prank(actor);
+        try pool.redeem(ids[seed % ids.length], bound(amount, 1, 1e24)) {} catch {}
+    }
+
+    function residual(uint256 seed) external {
+        if (ids.length == 0) return;
+        vm.prank(actor);
+        try pool.withdrawResidual(ids[seed % ids.length]) {} catch {}
+    }
+}
+
+contract ApartmentsCoverPoolV2InvariantTest is Test {
+    V2Handler internal handler;
+    ApartmentsCoverPoolV2 internal pool;
+    TestERC20 internal usdc;
+
+    function setUp() public {
+        usdc = new TestERC20();
+        SlugMonthOracle oracle = new SlugMonthOracle();
+        address predicted = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
+        CoverToken token = new CoverToken(predicted, 6);
+        pool = new ApartmentsCoverPoolV2(IERC20(address(usdc)), token, oracle);
+        vm.warp(1793491200 - 3 days);
+        handler = new V2Handler(pool, usdc, oracle);
+        targetContract(address(handler));
+    }
+
+    /// Pool balance equals the sum of open books, and every book stays solvent.
+    function invariant_conservationAndSolvency() public view {
+        uint256 books;
+        for (uint256 i = 0; i < handler.count(); ++i) {
+            ApartmentsCoverPoolV2.Series memory s = pool.series(handler.ids(i));
+            assertLe(s.paidOut, s.sold);
+            if (!s.cancelled) assertLe(s.sold, s.escrow);
+            if (!s.residualWithdrawn) books += uint256(s.escrow) + s.premiumsAccrued - s.paidOut;
+        }
+        assertEq(usdc.balanceOf(address(pool)), books);
     }
 }
 

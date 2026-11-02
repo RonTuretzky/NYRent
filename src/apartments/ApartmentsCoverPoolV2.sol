@@ -250,6 +250,7 @@ contract ApartmentsCoverPoolV2 is ReentrancyGuard {
         if (amount == 0) revert ZeroAmount();
         if (s.cancelled) revert SeriesClosed();
         if (block.timestamp >= s.saleEnd) revert SaleClosed();
+        if (_recorded(s)) revert RentAlreadyRecorded();
         s.escrow += amount;
         currency.safeTransferFrom(msg.sender, address(this), amount);
         emit CapacityAdded(seriesId, msg.sender, amount, s.escrow);

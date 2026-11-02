@@ -22,6 +22,8 @@ contract DeployApartmentsV2 is Script {
         require(pk != 0, "no deployer key");
         address oracle = vm.envOr("ORACLE", ORACLE);
         address currency = vm.envOr("CURRENCY", NATIVE_USDC);
+        // Overrides are for forks only: mainnet always uses the live oracle and native USDC.
+        if (block.chainid == 42161) require(oracle == ORACLE && currency == NATIVE_USDC, "mainnet overrides");
         require(ApartmentsRentOracle(oracle).MODULUS_HASH() == keccak256(GoogleAlertKey.MODULUS), "oracle key");
         address deployer = vm.addr(pk);
 
