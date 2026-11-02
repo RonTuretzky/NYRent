@@ -1,7 +1,7 @@
 # Etherform minimum setup (build + test + fmt) per
 # https://github.com/BreadchainCoop/etherform — see docs/OPERATIONS.md.
-# Deploys are intentionally NOT enabled on PR: Gnosis mainnet deploys are a
-# manual operator action with the key only in local env (SPEC §6, §8).
+# Deploys are intentionally NOT enabled on PR: Arbitrum One deploys are a
+# manual operator action with the key only in local env.
 name: CI/CD
 on: [push, pull_request]
 

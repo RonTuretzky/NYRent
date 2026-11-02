@@ -11,7 +11,7 @@ import { TxStatus } from "../../components/TxStatus";
 import { monthLabel } from "../../lib/googleAlert";
 import {
   CLAIM_WINDOW_SECONDS, CREATOR_STEPS, TWO_DAYS, V2_RULES, buyExample, creatorExample, defaultMonth, finalizeAtFor, humanDelta, monthOptions,
-  pageUrl, parseAmount, parsePremiumPercent, parseRentDollars, premiumProblem, saleCloseOptions,
+  monthBoundsOf, pageUrl, parseAmount, parsePremiumPercent, parseRentDollars, premiumProblem, saleCloseOptions,
 } from "../../lib/policy";
 import catalog from "../../data/apartments-series.json";
 import {
@@ -274,11 +274,11 @@ export function CreatePolicy() {
                 {close ? <>Sales close <strong>{formatTimestamp(saleEnd)}</strong> ({humanDelta(saleEnd, now)}).</> : "No closing time is left in this month."}
               </p>
             </div>
-            <div className="mt-3">
+            {close && saleEnd > monthBoundsOf(obsMonth).start && <div className="mt-3">
               <Notice tone="info" testId="sale-close-explainer">
                 <p><strong>Closing after the month starts is a risk for you.</strong> Once the month's alert is published, anyone who has seen it may buy knowing the rent. Sales stop automatically as soon as a rent is recorded on-chain, and you can pause sales from the policy page at any time.</p>
               </Notice>
-            </div>
+            </div>}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-xl bg-paper-main border-2 border-paper-1 px-4 py-3">
               <div className="min-w-0">
                 <p className="font-parkBody text-xs text-surface-grey-2">{october ? "October 2026 headline rent" : "Headline rent"}</p>

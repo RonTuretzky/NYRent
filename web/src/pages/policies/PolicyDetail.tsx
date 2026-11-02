@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { decodeEventLog, type Address } from "viem";
+import { decodeEventLog, formatUnits, type Address } from "viem";
 import { Button } from "@decentralpark/ui";
 import { CURRENCY_DECIMALS, poolFor, policyPoolAbi } from "../../chain/apartments";
 import { formatCents, formatDate, formatTimestamp, truncateAddress } from "../../chain/format";
@@ -32,6 +32,8 @@ function redeemedPayout(logs: ReceiptLike["logs"]): bigint | undefined {
 }
 
 /** A policy page. V2 policies live at /policies/:id, V1 ones at /policies/v1/:id. */
+const DEFAULT_BUY = 10n * 10n ** BigInt(CURRENCY_DECIMALS);
+
 export function PolicyDetail({ version = "v2" }: { version?: PoolVersion }) {
   const params = useParams();
   const pp = poolFor(version);
@@ -42,7 +44,10 @@ export function PolicyDetail({ version = "v2" }: { version?: PoolVersion }) {
   const { series, slug, paused, notFound, refetch, isLoading, rpcDown, stale } = useSeries(pp, id);
   const claims = useClaims(pp, id);
   const earliest = useEarliest(series?.slugHash, series?.obsMonth);
-  const [amount, setAmount] = useState("10");
+  const [typed, setAmount] = useState<string>();
+  // Until the buyer types, offer 10 USDC, or everything left when less remains.
+  const left = series ? series.escrow - series.sold : 0n;
+  const amount = typed ?? formatUnits(left > 0n && left < DEFAULT_BUY ? left : DEFAULT_BUY, CURRENCY_DECIMALS);
   const [addAmount, setAddAmount] = useState("");
   const [bought, setBought] = useState<{ maxClaim: bigint; premium: bigint }>();
   const [received, setReceived] = useState<bigint>();
@@ -172,7 +177,7 @@ export function PolicyDetail({ version = "v2" }: { version?: PoolVersion }) {
             <TxStatus state={buy.state} />
           </div>
           <div className="mt-3">
-            <Button variant="secondary" data-testid="buy-more" onClick={() => { setBought(undefined); buy.reset(); setAmount("10"); }}>Buy more protection</Button>
+            <Button variant="secondary" data-testid="buy-more" onClick={() => { setBought(undefined); buy.reset(); setAmount(undefined); }}>Buy more protection</Button>
           </div>
         </Card>
       )}
