@@ -697,7 +697,7 @@ export function renterStep(input: {
 
 /** The recorder's step on the submit page. */
 export function recorderStep(input: { hasFile: boolean; parseFailed: boolean; qualifying: boolean; consent: boolean; confirmed: boolean }): StepView {
-  if (input.confirmed) return { current: 5, done: "Recorded. Once claims open (two days after the month ends; seven for V1 policies) anyone can finalize; claiming does it automatically." };
+  if (input.confirmed) return { current: 5, done: "Recorded. Once claims open (two days after the month ends) anyone can finalize; claiming does it automatically." };
   if (!input.hasFile) return { current: 1 };
   if (input.parseFailed || !input.qualifying) return { current: 2 };
   return { current: input.consent ? 4 : 3 };
