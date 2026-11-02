@@ -218,18 +218,22 @@ test("a transaction stuck pending is reported as still pending, not failed, and 
   await page.getByTestId("buy-amount").fill("1");
   await ensureApproved(page);
   await rpc("anvil_setAutomine", [false]);
-  await page.getByTestId("buy-submit").click();
-  await expect(page.getByTestId("tx-pending")).toBeVisible();
-  await expect(page.getByTestId("buy-submit")).toBeDisabled();
-  await shot(page, "e-pending");
-  const still = page.getByTestId("tx-still-pending");
-  await expect(still).toBeVisible({ timeout: 150000 });
-  await expect(still).toContainText("may still go through");
-  await expect(still).toHaveAttribute("role", "status");
-  await expect(page.getByTestId("still-pending-hint")).toContainText("Do not send it again");
-  await shot(page, "e-still-pending");
-  await rpc("evm_mine");
-  await rpc("anvil_setAutomine", [true]);
+  // Mining must come back even if an assertion fails, or every later test hangs.
+  try {
+    await page.getByTestId("buy-submit").click();
+    await expect(page.getByTestId("tx-pending")).toBeVisible();
+    await expect(page.getByTestId("buy-submit")).toBeDisabled();
+    await shot(page, "e-pending");
+    const still = page.getByTestId("tx-still-pending");
+    await expect(still).toBeVisible({ timeout: 150000 });
+    await expect(still).toContainText("may still go through");
+    await expect(still).toHaveAttribute("role", "status");
+    await expect(page.getByTestId("still-pending-hint")).toContainText("Do not send it again");
+    await shot(page, "e-still-pending");
+  } finally {
+    await rpc("evm_mine");
+    await rpc("anvil_setAutomine", [true]);
+  }
   await expect.poll(() => claimBalance(BUYER, ids.settled)).toBe(held + parseUnits("1", 6));
   await page.reload();
   await connectWallet(page);

@@ -46,12 +46,15 @@ test("sale-close options stay inside the month: current month from now, future m
   const nextBounds = monthBounds(yyyymm(next));
   await openAs(page, CREATOR, "/policies/new");
   await expect(page.getByTestId("policy-month").locator(`option[value="${cur.month}"]`)).toContainText("(this month)");
+  // The in-month warning only appears once sales would run past the month start.
+  await page.getByTestId("policy-month").selectOption(cur.month);
   await expect(page.getByTestId("sale-close-explainer")).toContainText("buy knowing the rent");
   await expect(page.getByTestId("sale-close-explainer")).toContainText("stop automatically as soon as a rent is recorded");
   await expect(page.getByTestId("sale-close-explainer")).toContainText("pause sales");
 
   await page.getByTestId("policy-month").selectOption(next);
   await expect(page.getByTestId("policy-sale-close")).toHaveValue("start");
+  await expect(page.getByTestId("sale-close-explainer")).toHaveCount(0);
   const future = await saleCloseChoices(page);
   expect(future.map((o) => o.id)).toEqual(["start", "1d", "3d", "7d", "end"]);
   expect(future[0].at).toBe(nextBounds.start);
