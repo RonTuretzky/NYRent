@@ -1,14 +1,14 @@
 import { Link } from "react-router-dom";
 import { Button } from "@decentralpark/ui";
-import { APARTMENTS_POOL } from "../../chain/apartments";
+import { POOLS } from "../../chain/apartments";
 import { Card, EmptyState, LoadingSkeleton, RpcDownState, RpcStaleBanner } from "../../components/States";
 import { NotDeployed, networkName, symbol, useNow } from "./shared";
-import { PolicyCard, usePolicyRows } from "./listing";
+import { EarlierRulesChip, PolicyCard, cardTestId, usePolicyRows } from "./listing";
 
 export function PolicyList() {
   const { items, isLoading, rpcDown, stale, refetch } = usePolicyRows();
   const now = useNow();
-  if (!APARTMENTS_POOL) return <NotDeployed />;
+  if (POOLS.length === 0) return <NotDeployed />;
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12 min-w-0">
       <div>
@@ -43,11 +43,19 @@ export function PolicyList() {
       ) : (
         <ul className="grid sm:grid-cols-2 gap-4 list-none p-0 m-0">
           {items.map((item) => (
-            <li key={String(item.id)} className="min-w-0">
-              <PolicyCard item={item} now={now} testId={`policy-${item.id}`} />
+            <li key={`${item.version}-${item.id}`} className="min-w-0">
+              <PolicyCard item={item} now={now} testId={cardTestId("policy", item)} />
             </li>
           ))}
         </ul>
+      )}
+      {items.some((i) => i.version === "v1") && (
+        <div className="flex flex-wrap items-start gap-3 font-parkBody text-sm text-surface-grey-2" data-testid="v1-explainer">
+          <EarlierRulesChip />
+          <p className="flex-1 min-w-60 leading-relaxed">
+            Policies marked V1 were created on the first pool and keep its rules: sales closed when the policy month started, and claims open seven days after the month ends. New policies use the current pool, where the creator picks when sales close, sales stop once the month's rent is recorded, and claims open two days after the month.
+          </p>
+        </div>
       )}
     </div>
   );

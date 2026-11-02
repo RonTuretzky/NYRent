@@ -1,18 +1,20 @@
 import { useCallback, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { decodeEventLog, type Address } from "viem";
-import { useReadContract } from "wagmi";
 import { Button } from "@decentralpark/ui";
-import { APARTMENTS_ORACLE, APARTMENTS_POOL, CURRENCY_DECIMALS } from "../../chain/apartments";
-import { apartmentsOracleAbi, apartmentsPoolAbi } from "../../chain/apartmentsAbi";
+import { CURRENCY_DECIMALS, poolFor, policyPoolAbi } from "../../chain/apartments";
 import { formatCents, formatDate, formatTimestamp, truncateAddress } from "../../chain/format";
 import { Card, EmptyState, RpcDownState, RpcStaleBanner, StatRow } from "../../components/States";
 import { TxStatus } from "../../components/TxStatus";
 import { monthLabel } from "../../lib/googleAlert";
-import { RENTER_STEPS, WAD, buyExample, humanDelta, pageUrl, parseAmount, parsePolicyId, policyStatus, ratioPercent, renterStep } from "../../lib/policy";
 import {
-  ActionFailureHint, FundedAction, KeyDates, NotDeployed, Notice, PrimaryLink, REFETCH_MS, RiskNotice, SkeletonCard, StepBar, WalletGate, chainId,
-  explorerBase, inputClass, money, neighborhood, networkName, pool, symbol, txBusy, txOpts, useClaims, useLock, useNow, usePolicyTx, useResumedTxs,
+  WAD, buyExample, humanDelta, pageUrl, parseAmount, parsePolicyId, policyLabel, policyStatus, ratioPercent, renterStep, renterSteps,
+  type PoolVersion,
+} from "../../lib/policy";
+import { EarlierRulesChip } from "./listing";
+import {
+  ActionFailureHint, FundedAction, KeyDates, NotDeployed, Notice, PrimaryLink, RiskNotice, SkeletonCard, StepBar, WalletGate, chainId,
+  explorerBase, inputClass, money, neighborhood, networkName, symbol, txBusy, txOpts, useClaims, useEarliest, useLock, useNow, usePolicyTx, useResumedTxs,
   useSeries, useWalletFunds, type ReceiptLike,
 } from "./shared";
 
@@ -20,7 +22,7 @@ import {
 function redeemedPayout(logs: ReceiptLike["logs"]): bigint | undefined {
   for (const log of logs) {
     try {
-      const event = decodeEventLog({ abi: apartmentsPoolAbi, data: log.data, topics: log.topics as [`0x${string}`] });
+      const event = decodeEventLog({ abi: policyPoolAbi, data: log.data, topics: log.topics as [`0x${string}`] });
       if (event.eventName === "Redeemed" && event.args) return (event.args as { payout: bigint }).payout;
     } catch {
       // not a pool event
@@ -29,18 +31,17 @@ function redeemedPayout(logs: ReceiptLike["logs"]): bigint | undefined {
   return undefined;
 }
 
-export function PolicyDetail() {
+/** A policy page. V2 policies live at /policies/:id, V1 ones at /policies/v1/:id. */
+export function PolicyDetail({ version = "v2" }: { version?: PoolVersion }) {
   const params = useParams();
+  const pp = poolFor(version);
   const id = parsePolicyId(params.id);
-  const idText = String(id ?? 0n);
+  // Pending-transaction keys are per pool: V1 #0 and V2 #0 are different policies.
+  const idText = `${version}:${String(id ?? 0n)}`;
   const now = useNow();
-  const { series, slug, paused, notFound, refetch, isLoading, rpcDown, stale } = useSeries(id);
-  const claims = useClaims(id);
-  const earliest = useReadContract({
-    address: APARTMENTS_ORACLE as Address, abi: apartmentsOracleAbi, chainId, functionName: "earliest",
-    args: series ? [series.slugHash, series.obsMonth] : undefined,
-    query: { enabled: Boolean(series && APARTMENTS_ORACLE), refetchInterval: REFETCH_MS },
-  });
+  const { series, slug, paused, notFound, refetch, isLoading, rpcDown, stale } = useSeries(pp, id);
+  const claims = useClaims(pp, id);
+  const earliest = useEarliest(series?.slugHash, series?.obsMonth);
   const [amount, setAmount] = useState("10");
   const [addAmount, setAddAmount] = useState("");
   const [bought, setBought] = useState<{ maxClaim: bigint; premium: bigint }>();
@@ -54,10 +55,11 @@ export function PolicyDetail() {
   const amountP = parseAmount(amount, CURRENCY_DECIMALS, "payout amount");
   const maxClaim = amountP.ok ? amountP.value : 0n;
   const premium = series ? (maxClaim * BigInt(series.premiumRateBps)) / 10_000n : 0n;
-  const funds = useWalletFunds(premium);
+  const poolAddress = pp?.address as Address;
+  const funds = useWalletFunds(premium, pp?.address);
   const addP = parseAmount(addAmount, CURRENCY_DECIMALS, "escrow amount");
   const addWei = addP.ok ? addP.value : 0n;
-  const addFunds = useWalletFunds(addWei);
+  const addFunds = useWalletFunds(addWei, pp?.address);
 
   const refreshAll = useCallback(
     () => Promise.all([refetch(), claims.refetch(), funds.refetch(), earliest.refetch()]),
@@ -72,11 +74,11 @@ export function PolicyDetail() {
     }
   });
 
-  if (!APARTMENTS_POOL) return <NotDeployed />;
+  if (!pp) return <NotDeployed />;
   if (id === null) {
     return (
       <EmptyState title="That is not a policy link">
-        <p>Policy links look like <code>/policies/12</code>. <PrimaryLink to="/policies">See all policies</PrimaryLink>.</p>
+        <p>Policy links look like <code>/policies/12</code> (or <code>/policies/v1/0</code> for the first pool). <PrimaryLink to="/policies">See all policies</PrimaryLink>.</p>
       </EmptyState>
     );
   }
@@ -85,19 +87,22 @@ export function PolicyDetail() {
   if (notFound || !series || !slug) {
     return (
       <EmptyState title="Policy not found">
-        <p>There is no policy #{String(id)} on {networkName}. The link may be wrong or the policy may be on a newer deployment. <PrimaryLink to="/policies">See all policies</PrimaryLink>.</p>
+        <p>There is no policy {policyLabel(version, id)} on {networkName}. The link may be wrong{version === "v2" ? "; policies from the first pool live at /policies/v1/…" : ""}. <PrimaryLink to="/policies">See all policies</PrimaryLink>.</p>
       </EmptyState>
     );
   }
 
+  const rules = pp.rules;
+  const observed = earliest.data && earliest.data[0] !== 0n ? earliest.data : undefined;
+  const recorded = Boolean(observed);
+  const stoppedByRecord = rules.stopsOnRecord && recorded;
   const entry = neighborhood(slug);
-  const status = policyStatus(series, now, paused);
+  const status = policyStatus(series, now, paused, { rules, recorded });
   const onSale = status.phase === "onSale";
   const held = claims.data ?? 0n;
   const finalized = series.settled || series.voided;
   const claimWindow = now >= series.finalizeAt && now <= series.redeemEnd && !series.cancelled;
   const isCreator = funds.address?.toLowerCase() === series.creator.toLowerCase();
-  const observed = earliest.data && earliest.data[0] !== 0n ? earliest.data : undefined;
   const payoutPreview = series.voided ? (held * BigInt(series.premiumRateBps)) / 10_000n : (held * series.payoutRatioWad) / WAD;
   const available = series.escrow - series.sold;
   const tooMuch = amountP.ok && maxClaim > available;
@@ -105,7 +110,7 @@ export function PolicyDetail() {
   const amountValid = amountP.ok && !tooMuch && !roundsToZero;
   const example = buyExample(amountP.ok ? maxClaim : 0n, series.premiumRateBps, series.strikeLowCents, series.strikeHighCents);
   const busy = txBusy(buy.state) || txBusy(action.state) || txBusy(add.state) || resumed.busy;
-  const salesOpenForCreator = now < series.saleEnd && !series.cancelled;
+  const salesOpenForCreator = now < series.saleEnd && !series.cancelled && !stoppedByRecord;
   const residual = series.escrow + series.premiumsAccrued - series.paidOut;
 
   const step = renterStep({
@@ -114,7 +119,7 @@ export function PolicyDetail() {
   });
 
   const run = (functionName: string, args: readonly unknown[]) => lock(async () => {
-    const result = await action.send({ abi: apartmentsPoolAbi, address: pool, chainId, account: funds.address, functionName, args }, txOpts);
+    const result = await action.send({ abi: policyPoolAbi, address: poolAddress, chainId, account: funds.address, functionName, args }, txOpts);
     if (result.status === "confirmed" && functionName === "redeem") {
       const payout = redeemedPayout(result.receipt.logs);
       setReceived(payout ?? 0n);
@@ -125,15 +130,21 @@ export function PolicyDetail() {
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12 min-w-0">
       <div className="min-w-0">
-        <p className="font-parkBody font-bold">Policy #{String(id)} · <span data-testid="policy-status">{status.label}</span></p>
+        {version === "v1" && <div className="mb-2"><EarlierRulesChip /></div>}
+        <p className="font-parkBody font-bold">Policy {policyLabel(version, id)} · <span data-testid="policy-status">{status.label}</span></p>
         <h1 className="font-parkDisplay font-bold text-3xl sm:text-4xl mt-2 break-words">{entry?.geography ?? slug}, {monthLabel(series.obsMonth)}</h1>
         <p className="font-parkBody text-sm mt-2 leading-relaxed" data-testid="status-next"><span className="font-bold">What happens next:</span> {status.next}</p>
         <a className="underline font-parkBody text-sm break-all inline-flex min-h-11 items-center" href={pageUrl(slug)} target="_blank" rel="noreferrer">{pageUrl(slug)}</a>
+        {version === "v1" && (
+          <Notice tone="info" testId="v1-rules">
+            This policy was created on the first pool and follows its earlier rules: sales closed when the policy month started, and claims open seven days after the month ends. Buying, claiming, finalizing and the creator's controls all work here as usual.
+          </Notice>
+        )}
         {!entry && <Notice tone="warn">This page is not in the app's list of known neighborhoods. Open the link above and make sure it is the page you expect before buying.</Notice>}
       </div>
       {stale && <RpcStaleBanner />}
       {resumed.node}
-      <Card><StepBar steps={RENTER_STEPS} view={step} title="Buy protection" /></Card>
+      <Card><StepBar steps={renterSteps(rules)} view={step} title="Buy protection" /></Card>
 
       <Card>
         <h2 className="font-parkDisplay font-bold text-2xl mb-2">Terms</h2>
@@ -147,7 +158,7 @@ export function PolicyDetail() {
         {observed && <StatRow label="Earliest signed rent so far" value={`${formatCents(observed[1])}/mo`} />}
         {series.settled && <StatRow label="Final payout" value={`${ratioPercent(series.payoutRatioWad)}% of each claim`} />}
         <h3 className="font-parkBody font-bold text-sm mt-4 mb-2">Key dates</h3>
-        <KeyDates series={series} now={now} />
+        <KeyDates series={series} now={now} rules={rules} />
       </Card>
 
       {onSale && bought && (
@@ -204,7 +215,7 @@ export function PolicyDetail() {
                     isLoading={txBusy(buy.state)}
                     showChildrenWhenLoading
                     onClick={() => void lock(async () => {
-                      const result = await buy.send({ abi: apartmentsPoolAbi, address: pool, chainId, account: funds.address, functionName: "buyProtection", args: [id, maxClaim, premium] }, txOpts);
+                      const result = await buy.send({ abi: policyPoolAbi, address: poolAddress, chainId, account: funds.address, functionName: "buyProtection", args: [id, maxClaim, premium] }, txOpts);
                       if (result.status === "confirmed") {
                         setBought({ maxClaim, premium });
                         setAmount("");
@@ -226,6 +237,9 @@ export function PolicyDetail() {
         // The sale state changed under a click: keep the outcome of that click
         // on screen even though the buy card is gone.
         <div className="space-y-2"><TxStatus state={buy.state} /><ActionFailureHint state={buy.state} /></div>
+      )}
+      {stoppedByRecord && now < series.saleEnd && !series.cancelled && (
+        <Notice tone="info" testId="sales-stopped-recorded">This month's rent is already recorded, so sales are closed.</Notice>
       )}
       {status.phase === "paused" && <Notice tone="warn" testId="paused-notice">Sales are paused by the creator, so nothing can be bought right now. Protection already bought is unaffected.</Notice>}
       {status.phase === "soldOut" && (
@@ -344,7 +358,7 @@ export function PolicyDetail() {
                           isLoading={txBusy(add.state)}
                           showChildrenWhenLoading
                           onClick={() => void lock(async () => {
-                            const result = await add.send({ abi: apartmentsPoolAbi, address: pool, chainId, account: funds.address, functionName: "addCapacity", args: [id, addWei] }, txOpts);
+                            const result = await add.send({ abi: policyPoolAbi, address: poolAddress, chainId, account: funds.address, functionName: "addCapacity", args: [id, addWei] }, txOpts);
                             if (result.status === "confirmed") {
                               setAdded(addWei);
                               setAddAmount("");

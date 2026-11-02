@@ -12,15 +12,18 @@ import { Button } from "@decentralpark/ui";
 import { CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import {
   APARTMENTS_CHAIN_ID,
-  APARTMENTS_POOL,
-  APARTMENTS_TOKEN,
+  APARTMENTS_ORACLE,
   CURRENCY_DECIMALS,
   NETWORK,
   POLICY_CURRENCY,
+  POOL_V1,
+  POOL_V2,
   claimTokenAbi,
   policyCurrencyAbi,
+  policyPoolAbi,
+  type PolicyPool,
 } from "../../chain/apartments";
-import { apartmentsPoolAbi } from "../../chain/apartmentsAbi";
+import { apartmentsOracleAbi } from "../../chain/apartmentsAbi";
 import { isNetworkError } from "../../chain/errors";
 import { formatCurrency, formatTimestamp, nowSec } from "../../chain/format";
 import { useTx, type TxState } from "../../chain/useTx";
@@ -28,13 +31,12 @@ import { Card, EmptyState, LoadingSkeleton } from "../../components/States";
 import { TxStatus } from "../../components/TxStatus";
 import {
   clearPendingTx, humanDelta, loadPendingTx, policyDates, policyError, savePendingTx,
-  type JourneyStep, type PendingTx, type PolicyRef, type PolicyRow, type StepView,
+  type JourneyStep, type PoolRules, type PendingTx, type PolicyRef, type PolicyRow, type StepView,
 } from "../../lib/policy";
 import { nowSec as nowSeconds } from "../../chain/format";
 import catalog from "../../data/apartments-series.json";
 
 export const chainId = APARTMENTS_CHAIN_ID;
-export const pool = APARTMENTS_POOL as Address;
 export const symbol: string = NETWORK.symbol;
 export const networkName: string = NETWORK.name;
 export const nativeSymbol: string = NETWORK.nativeSymbol;
@@ -109,14 +111,17 @@ export function isTransportFailure(result: { status: string; error?: unknown } |
   return result?.status === "failure" && isNetworkError((result as ReadFailure).error);
 }
 
-export function useSeries(id: bigint | null) {
+const NO_POOL = "0x0000000000000000000000000000000000000000" as Address;
+
+export function useSeries(pp: PolicyPool | null, id: bigint | null) {
+  const address = pp?.address ?? NO_POOL;
   const read = useReadContracts({
     contracts: [
-      { address: pool, abi: apartmentsPoolAbi, chainId, functionName: "series", args: [id ?? 0n] },
-      { address: pool, abi: apartmentsPoolAbi, chainId, functionName: "seriesSlug", args: [id ?? 0n] },
-      { address: pool, abi: apartmentsPoolAbi, chainId, functionName: "seriesPaused", args: [id ?? 0n] },
+      { address, abi: policyPoolAbi, chainId, functionName: "series", args: [id ?? 0n] },
+      { address, abi: policyPoolAbi, chainId, functionName: "seriesSlug", args: [id ?? 0n] },
+      { address, abi: policyPoolAbi, chainId, functionName: "seriesPaused", args: [id ?? 0n] },
     ],
-    query: { enabled: Boolean(APARTMENTS_POOL) && id !== null, refetchInterval: REFETCH_MS },
+    query: { enabled: Boolean(pp) && id !== null, refetchInterval: REFETCH_MS },
   });
   const row = read.data?.[0];
   const fresh = row?.status === "success"
@@ -141,19 +146,31 @@ export function useSeries(id: bigint | null) {
   };
 }
 
-export function useClaims(id: bigint | null) {
+export function useClaims(pp: PolicyPool | null, id: bigint | null) {
   const { address } = useAccount();
   return useReadContract({
-    address: APARTMENTS_TOKEN as Address, abi: claimTokenAbi, chainId, functionName: "balanceOf",
+    address: pp?.token ?? NO_POOL, abi: claimTokenAbi, chainId, functionName: "balanceOf",
     args: address && id !== null ? [address, id] : undefined,
-    query: { enabled: Boolean(APARTMENTS_TOKEN && address && id !== null), refetchInterval: REFETCH_MS },
+    query: { enabled: Boolean(pp && address && id !== null), refetchInterval: REFETCH_MS },
+  });
+}
+
+/** The oracle's earliest recorded rent for a page and month: [t, cents, emailId], t = 0 when none. */
+export function useEarliest(slugHash: `0x${string}` | undefined, obsMonth: number | undefined) {
+  return useReadContract({
+    address: (APARTMENTS_ORACLE ?? NO_POOL) as Address, abi: apartmentsOracleAbi, chainId, functionName: "earliest",
+    args: slugHash && obsMonth ? [slugHash, obsMonth] : undefined,
+    query: { enabled: Boolean(APARTMENTS_ORACLE && slugHash && obsMonth), refetchInterval: REFETCH_MS },
   });
 }
 
 export type FundsStage = "connect" | "network" | "loading" | "noGas" | "noFunds" | "approve" | "ready";
 
-/** Everything the funded-action step needs, plus which stage the user is on. */
-export function useWalletFunds(need: bigint) {
+/**
+ * Everything the funded-action step needs, plus which stage the user is on.
+ * `spender` is the pool the approval is for (each pool needs its own).
+ */
+export function useWalletFunds(need: bigint, spender: Address | undefined) {
   const account = useAccount();
   const address = account.address;
   const balance = useReadContract({
@@ -161,8 +178,8 @@ export function useWalletFunds(need: bigint) {
     query: { enabled: Boolean(address), refetchInterval: REFETCH_MS },
   });
   const allowance = useReadContract({
-    address: POLICY_CURRENCY, abi: policyCurrencyAbi, chainId, functionName: "allowance", args: address ? [address, pool] : undefined,
-    query: { enabled: Boolean(address), refetchInterval: REFETCH_MS },
+    address: POLICY_CURRENCY, abi: policyCurrencyAbi, chainId, functionName: "allowance", args: address && spender ? [address, spender] : undefined,
+    query: { enabled: Boolean(address && spender), refetchInterval: REFETCH_MS },
   });
   const native = useBalance({ address, chainId, query: { enabled: Boolean(address), refetchInterval: REFETCH_MS } });
   const refetch = useCallback(() => Promise.all([balance.refetch(), allowance.refetch(), native.refetch()]), [balance, allowance, native]);
@@ -170,14 +187,15 @@ export function useWalletFunds(need: bigint) {
   let stage: FundsStage;
   if (!address) stage = "connect";
   else if (account.chainId !== chainId) stage = "network";
-  else if (balance.data === undefined || allowance.data === undefined || native.data === undefined) stage = "loading";
+  else if (balance.data === undefined || (spender && allowance.data === undefined) || native.data === undefined) stage = "loading";
   else if (native.data.value === 0n) stage = "noGas";
   else if (need > 0n && balance.data < need) stage = "noFunds";
-  else if (need > 0n && allowance.data < need) stage = "approve";
+  else if (need > 0n && (allowance.data ?? 0n) < need) stage = "approve";
   else stage = "ready";
 
   return {
     address,
+    spender,
     stage,
     balance: balance.data,
     allowance: allowance.data,
@@ -263,10 +281,10 @@ export function RiskNotice({ side }: { side: "buy" | "create" }) {
   );
 }
 
-export function KeyDates({ series, now }: { series: Pick<PolicyRow, "saleEnd" | "finalizeAt" | "redeemEnd" | "obsMonth">; now: bigint }) {
+export function KeyDates({ series, now, rules }: { series: Pick<PolicyRow, "saleEnd" | "finalizeAt" | "redeemEnd" | "obsMonth">; now: bigint; rules: PoolRules }) {
   return (
     <ol className="ml-1.5 space-y-4 border-l-2 border-paper-2" data-testid="key-dates">
-      {policyDates(series).map((d) => (
+      {policyDates(series, rules).map((d) => (
         <li key={d.label} className="relative min-w-0 pl-5">
           <span aria-hidden="true" className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-core-green" />
           <p className="font-parkBody text-sm font-bold">{d.label}</p>
@@ -365,7 +383,7 @@ export function FundedAction({ need, funds, what, children }: {
           showChildrenWhenLoading
           onClick={() => void lock(async () => {
             const r = await approve.send(
-              { abi: policyCurrencyAbi, address: POLICY_CURRENCY, chainId, functionName: "approve", args: [pool, need], account: funds.address },
+              { abi: policyCurrencyAbi, address: POLICY_CURRENCY, chainId, functionName: "approve", args: [funds.spender as Address, need], account: funds.address },
               txOpts,
             );
             if (r.status === "confirmed") await funds.refetch();
@@ -491,20 +509,22 @@ export function useResumedTxs(keys: string[], onResolved?: (key: string, status:
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Every policy's page and month (for the record page)
+// Every policy's page and month, in both pools (for the record page)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function usePolicyRefs() {
+function usePoolRefs(pp: PolicyPool | null) {
+  const address = pp?.address ?? NO_POOL;
   const count = useReadContract({
-    address: pool, abi: apartmentsPoolAbi, chainId, functionName: "seriesCount",
-    query: { enabled: Boolean(APARTMENTS_POOL), refetchInterval: REFETCH_MS },
+    address, abi: policyPoolAbi, chainId, functionName: "seriesCount",
+    query: { enabled: Boolean(pp), refetchInterval: REFETCH_MS },
   });
   const ids = useMemo(() => Array.from({ length: Number(count.data ?? 0n) }, (_, i) => BigInt(i)), [count.data]);
   const rows = useReadContracts({
-    contracts: ids.map((id) => ({ address: pool, abi: apartmentsPoolAbi, chainId, functionName: "series", args: [id] } as const)),
+    contracts: ids.map((id) => ({ address, abi: policyPoolAbi, chainId, functionName: "series", args: [id] } as const)),
     query: { enabled: ids.length > 0, refetchInterval: REFETCH_MS },
   });
   const refs = useMemo<PolicyRef[] | undefined>(() => {
+    if (!pp) return [];
     if (count.data === undefined) return undefined;
     if (ids.length === 0) return [];
     if (!rows.data) return undefined;
@@ -512,9 +532,17 @@ export function usePolicyRefs() {
     rows.data.forEach((r, i) => {
       if (r.status !== "success") return;
       const row = r.result as unknown as PolicyRow;
-      out.push({ id: ids[i], slugHash: row.slugHash, obsMonth: row.obsMonth });
+      out.push({ version: pp.version, id: ids[i], slugHash: row.slugHash, obsMonth: row.obsMonth });
     });
     return out;
-  }, [count.data, ids, rows.data]);
-  return { refs, loading: refs === undefined && !(count.isError || rows.isError), failed: refs === undefined && (count.isError || rows.isError) };
+  }, [pp, count.data, ids, rows.data]);
+  return { refs, failed: refs === undefined && (count.isError || rows.isError) };
+}
+
+export function usePolicyRefs() {
+  const v2 = usePoolRefs(POOL_V2);
+  const v1 = usePoolRefs(POOL_V1);
+  const refs = v2.refs && v1.refs ? [...v2.refs, ...v1.refs] : undefined;
+  const failed = v2.failed || v1.failed;
+  return { refs, loading: refs === undefined && !failed, failed: refs === undefined && failed };
 }

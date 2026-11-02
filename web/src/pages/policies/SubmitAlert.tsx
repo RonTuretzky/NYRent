@@ -3,14 +3,14 @@ import { Link } from "react-router-dom";
 import { type Address } from "viem";
 import { useReadContract } from "wagmi";
 import { Button } from "@decentralpark/ui";
-import { APARTMENTS_ORACLE, APARTMENTS_POOL } from "../../chain/apartments";
+import { APARTMENTS_ORACLE, POOLS } from "../../chain/apartments";
 import { apartmentsOracleAbi } from "../../chain/apartmentsAbi";
 import { formatCents, formatTimestamp } from "../../chain/format";
 import { Card, StatRow } from "../../components/States";
 import { TxStatus } from "../../components/TxStatus";
 import { parseEmailBytes, toHex } from "../../emailkit/bridge";
 import { extractAlertCandidates, monthLabel, publishedRecipient, signedInsideMonth, type AlertResult } from "../../lib/googleAlert";
-import { RECORDER_STEPS, fileProblem, policiesFor, recorderStep, type PolicyRef } from "../../lib/policy";
+import { RECORDER_STEPS, fileProblem, policiesFor, policyLabel, policyPath, recorderStep, type PolicyRef } from "../../lib/policy";
 import {
   ActionFailureHint, NotDeployed, Notice, PrimaryLink, StepBar, WalletGate, chainId, inputClass, neighborhood, txBusy, txOpts, useLock, useNow,
   usePolicyRefs, usePolicyTx, useResumedTxs, useWalletFunds,
@@ -31,7 +31,7 @@ const RESUME_KEYS = ["record"];
 
 export function SubmitAlert() {
   const now = useNow();
-  const funds = useWalletFunds(0n);
+  const funds = useWalletFunds(0n, undefined);
   const tx = usePolicyTx({ label: "Record rent", key: "record" });
   const lock = useLock();
   const input = useRef<HTMLInputElement>(null);
@@ -82,11 +82,12 @@ export function SubmitAlert() {
   const matches = useMemo(() => {
     if (!policies.refs) return undefined;
     const seen = new Map<string, PolicyRef & { result: AlertResult }>();
-    for (const r of qualifying) for (const p of policiesFor(r, policies.refs)) seen.set(String(p.id), { ...p, result: r });
-    return [...seen.values()].sort((a, b) => Number(a.id - b.id));
+    for (const r of qualifying) for (const p of policiesFor(r, policies.refs)) seen.set(`${p.version ?? "v2"}:${p.id}`, { ...p, result: r });
+    // V2 first (where new policies go), then V1, each by id.
+    return [...seen.values()].sort((a, b) => (a.version === b.version ? Number(a.id - b.id) : a.version === "v1" ? 1 : -1));
   }, [policies.refs, qualifying]);
 
-  if (!APARTMENTS_POOL) return <NotDeployed />;
+  if (POOLS.length === 0) return <NotDeployed />;
   const future = prepared ? prepared.signedAt > Number(now) + 86_400 : false;
   const recorded = already.data === true;
   const confirmed = tx.state.status === "confirmed";
@@ -151,9 +152,13 @@ export function SubmitAlert() {
                     <p className="font-bold">This rent would settle {matches.length === 1 ? "one policy" : `${matches.length} policies`}:</p>
                     <ul className="list-disc pl-5 mt-1">
                       {matches.map((m) => (
-                        <li key={String(m.id)}>
-                          <Link className="underline font-bold inline-flex min-h-11 items-center" to={`/policies/${m.id}`} data-testid={`matching-policy-${m.id}`}>
-                            Policy #{String(m.id)}: {neighborhood(m.result.slug)?.geography ?? m.result.slug}, {monthLabel(m.obsMonth)}
+                        <li key={`${m.version ?? "v2"}-${m.id}`}>
+                          <Link
+                            className="underline font-bold inline-flex min-h-11 items-center"
+                            to={policyPath(m.version ?? "v2", m.id)}
+                            data-testid={m.version === "v1" ? `matching-policy-v1-${m.id}` : `matching-policy-${m.id}`}
+                          >
+                            Policy {policyLabel(m.version ?? "v2", m.id)}: {neighborhood(m.result.slug)?.geography ?? m.result.slug}, {monthLabel(m.obsMonth)}
                           </Link>
                         </li>
                       ))}
@@ -217,7 +222,7 @@ export function SubmitAlert() {
             <TxStatus state={tx.state} />
             <ActionFailureHint state={tx.state} />
             {confirmed && (
-              <Notice tone="ok" testId="recorded-ok">Recorded. If an earlier-signed email for the same page and month exists, that one wins instead. Seven days after the month ends, anyone can finalize from the {matches && matches.length > 0 ? <Link className="underline font-bold" to={`/policies/${matches[0].id}`}>policy page</Link> : <Link className="underline font-bold" to="/policies">policy page</Link>}; claiming finalizes automatically.</Notice>
+              <Notice tone="ok" testId="recorded-ok">Recorded. If an earlier-signed email for the same page and month exists, that one wins instead. Sales on current policies for this page and month stop now. Two days after the month ends (seven for V1 policies), anyone can finalize from the {matches && matches.length > 0 ? <Link className="underline font-bold" to={policyPath(matches[0].version ?? "v2", matches[0].id)}>policy page</Link> : <Link className="underline font-bold" to="/policies">policy page</Link>}; claiming finalizes automatically.</Notice>
             )}
           </div>
         </Card>

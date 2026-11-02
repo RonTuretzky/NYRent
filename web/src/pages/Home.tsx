@@ -10,12 +10,12 @@ import {
   ShieldCheckIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
-import { APARTMENTS_POOL, NETWORK } from "../chain/apartments";
+import { NETWORK, POOLS } from "../chain/apartments";
 import { Card, EmptyState, LoadingSkeleton, RpcDownState, RpcStaleBanner } from "../components/States";
 import { PayoutCurve } from "../components/PayoutCurve";
 import catalog from "../data/apartments-series.json";
 import { NotDeployed, useNow } from "./policies/shared";
-import { PolicyCard, usePolicyRows } from "./policies/listing";
+import { PolicyCard, cardTestId, usePolicyRows } from "./policies/listing";
 
 const PREVIEW_COUNT = 3;
 
@@ -89,7 +89,7 @@ function ExampleCard() {
 function Preview() {
   const { items, total, isLoading, rpcDown, stale, refetch } = usePolicyRows(PREVIEW_COUNT);
   const now = useNow();
-  if (!APARTMENTS_POOL) return <NotDeployed />;
+  if (POOLS.length === 0) return <NotDeployed />;
   return (
     <div className="space-y-4">
       {stale && <RpcStaleBanner />}
@@ -113,8 +113,8 @@ function Preview() {
         <>
           <ul className="grid gap-4 md:grid-cols-3 list-none p-0 m-0" data-testid="home-preview">
             {items.map((item) => (
-              <li key={String(item.id)} className="min-w-0">
-                <PolicyCard item={item} now={now} testId={`home-policy-${item.id}`} />
+              <li key={`${item.version}-${item.id}`} className="min-w-0">
+                <PolicyCard item={item} now={now} testId={cardTestId("home-policy", item)} />
               </li>
             ))}
           </ul>
