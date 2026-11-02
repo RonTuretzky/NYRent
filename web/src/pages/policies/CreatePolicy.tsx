@@ -270,7 +270,7 @@ export function CreatePolicy() {
               <SelectField label="Sales close" value={close?.id ?? ""} onChange={setCloseId} testId="policy-sale-close">
                 {closes.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </SelectField>
-              <p className="font-parkBody text-sm sm:pt-7" data-testid="sale-close-at">
+              <p className="font-parkBody text-sm sm:pt-7" data-testid="sale-close-at" data-at={close ? String(saleEnd) : ""}>
                 {close ? <>Sales close <strong>{formatTimestamp(saleEnd)}</strong> ({humanDelta(saleEnd, now)}).</> : "No closing time is left in this month."}
               </p>
             </div>

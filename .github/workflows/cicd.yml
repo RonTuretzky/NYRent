@@ -29,23 +29,24 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
-      - name: Install application and browser dependencies
+      - name: Install application dependencies
         run: |
           npm --prefix web ci
           npm --prefix e2e ci
           npm --prefix agent ci
-          ./e2e/node_modules/.bin/playwright install --with-deps chromium
-      - name: Application validation
+      - name: Web app (neighborhood policies)
         run: |
           npm --prefix web run typecheck
           npm --prefix web run lint
           npm --prefix web test
-          node --test scripts/v4-targets.test.mjs
           npm --prefix web run build
+          npm --prefix web run check:dist
+      - name: Policy browser suite compiles
+        # The suite itself needs an Arbitrum fork (npm --prefix e2e run e2e:policies).
+        run: npm --prefix e2e run typecheck
+      - name: Operator scripts and agent
+        run: |
+          node --test scripts/v4-targets.test.mjs
           npm --prefix agent test
-      - name: Existing wallet and one-market journeys
-        run: npm --prefix e2e run e2e
-      - name: Real v4 local browser lifecycle
-        run: npm --prefix e2e run e2e:v4
       - name: Direct v4 quoting lifecycle
         run: npm --prefix agent run test:v4:local

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  APARTMENTS_DEPLOYMENT_BAK, APARTMENTS_DEPLOYMENT_PATH, LEGACY_DEPLOYMENT_BAK, LEGACY_DEPLOYMENT_PATH, PIDS_PATH, REPO_ROOT,
+  APARTMENTS_DEPLOYMENT_BAK, APARTMENTS_DEPLOYMENT_PATH, PIDS_PATH, REPO_ROOT,
 } from "./support";
 
 function kill(pid?: number): void {
@@ -18,12 +18,8 @@ function kill(pid?: number): void {
   }
 }
 
-/** Puts back both committed deployment files the setup temporarily replaced. */
+/** Puts back the committed deployment file the setup temporarily replaced. */
 export function restoreFiles(): void {
-  if (fs.existsSync(LEGACY_DEPLOYMENT_BAK)) {
-    fs.copyFileSync(LEGACY_DEPLOYMENT_BAK, LEGACY_DEPLOYMENT_PATH);
-    fs.rmSync(LEGACY_DEPLOYMENT_BAK, { force: true });
-  }
   if (fs.existsSync(APARTMENTS_DEPLOYMENT_BAK)) {
     fs.copyFileSync(APARTMENTS_DEPLOYMENT_BAK, APARTMENTS_DEPLOYMENT_PATH);
     fs.rmSync(APARTMENTS_DEPLOYMENT_BAK, { force: true });

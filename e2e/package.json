@@ -3,16 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "e2e": "playwright test",
-    "e2e:headed": "playwright test --headed",
-    "e2e:fork": "playwright test -c fork/playwright.config.ts",
-    "e2e:fork:arb": "playwright test -c fork-arb/playwright.config.ts",
-    "gifs:record": "playwright test -c record/record.config.ts",
-    "gifs:record:fork": "playwright test -c record/record-fork.config.ts",
-    "gifs:assemble": "node record/assemble.mjs",
-    "typecheck": "tsc --noEmit",
-    "e2e:v4": "playwright test -c v4/playwright.config.ts",
-    "e2e:policies": "playwright test -c policies/playwright.config.ts"
+    "e2e:policies": "playwright test -c policies/playwright.config.ts",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

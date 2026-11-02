@@ -96,7 +96,7 @@ export function usePolicyRows(limit?: number) {
 /** The badge V1 policies carry wherever they are listed. */
 export function EarlierRulesChip() {
   return (
-    <span className="flex" data-testid="v1-badge" title="Created on the first pool: sales closed when the month started and claims open seven days after it ends.">
+    <span className="flex" data-testid="v1-badge" title="Created on the first pool: sales close when the month starts and claims open seven days after it ends.">
       <Chip size="small">V1 · earlier rules</Chip>
     </span>
   );

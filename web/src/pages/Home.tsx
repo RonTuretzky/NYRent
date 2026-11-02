@@ -146,10 +146,10 @@ export function Home() {
             New York neighborhood rises past a level fixed in advance, as recorded from a Google-signed alert email.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-4">
-            <Link to="/policies" data-testid="home-browse" className="rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-core-green">
+            <Link to="/policies" data-testid="home-browse" className="inline-flex rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-core-green">
               <LiftedButton tabIndex={-1} rightIcon={<ArrowRightIcon weight="bold" />}>Browse policies</LiftedButton>
             </Link>
-            <Link to="/policies/new" data-testid="home-create" className="rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-core-green">
+            <Link to="/policies/new" data-testid="home-create" className="inline-flex rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-core-green">
               <LiftedButton tabIndex={-1} preset="secondary">Create a policy</LiftedButton>
             </Link>
           </div>

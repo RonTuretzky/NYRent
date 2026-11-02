@@ -137,7 +137,7 @@ export function PolicyDetail({ version = "v2" }: { version?: PoolVersion }) {
         <a className="underline font-parkBody text-sm break-all inline-flex min-h-11 items-center" href={pageUrl(slug)} target="_blank" rel="noreferrer">{pageUrl(slug)}</a>
         {version === "v1" && (
           <Notice tone="info" testId="v1-rules">
-            This policy was created on the first pool and follows its earlier rules: sales closed when the policy month started, and claims open seven days after the month ends. Buying, claiming, finalizing and the creator's controls all work here as usual.
+            This policy was created on the first pool and follows its earlier rules: sales close when the policy month starts, and claims open seven days after the month ends. Buying, claiming, finalizing and the creator's controls all work here as usual.
           </Notice>
         )}
         {!entry && <Notice tone="warn">This page is not in the app's list of known neighborhoods. Open the link above and make sure it is the page you expect before buying.</Notice>}
