@@ -11,7 +11,6 @@ import {
   WAD, buyExample, humanDelta, pageUrl, parseAmount, parsePolicyId, policyLabel, policyStatus, ratioPercent, renterStep, renterSteps,
   type PoolVersion,
 } from "../../lib/policy";
-import { EarlierRulesChip } from "./listing";
 import {
   ActionFailureHint, FundedAction, KeyDates, NotDeployed, Notice, PrimaryLink, RiskNotice, SkeletonCard, StepBar, WalletGate, chainId,
   explorerBase, inputClass, money, neighborhood, networkName, symbol, txBusy, txOpts, useClaims, useEarliest, useLock, useNow, usePolicyTx, useResumedTxs,
@@ -135,16 +134,10 @@ export function PolicyDetail({ version = "v2" }: { version?: PoolVersion }) {
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12 min-w-0">
       <div className="min-w-0">
-        {version === "v1" && <div className="mb-2"><EarlierRulesChip /></div>}
         <p className="font-parkBody font-bold">Policy {policyLabel(version, id)} · <span data-testid="policy-status">{status.label}</span></p>
         <h1 className="font-parkDisplay font-bold text-3xl sm:text-4xl mt-2 break-words">{entry?.geography ?? slug}, {monthLabel(series.obsMonth)}</h1>
         <p className="font-parkBody text-sm mt-2 leading-relaxed" data-testid="status-next"><span className="font-bold">What happens next:</span> {status.next}</p>
         <a className="underline font-parkBody text-sm break-all inline-flex min-h-11 items-center" href={pageUrl(slug)} target="_blank" rel="noreferrer">{pageUrl(slug)}</a>
-        {version === "v1" && (
-          <Notice tone="info" testId="v1-rules">
-            This policy was created on the first pool and follows its earlier rules: sales close when the policy month starts, and claims open seven days after the month ends. Buying, claiming, finalizing and the creator's controls all work here as usual.
-          </Notice>
-        )}
         {!entry && <Notice tone="warn">This page is not in the app's list of known neighborhoods. Open the link above and make sure it is the page you expect before buying.</Notice>}
       </div>
       {stale && <RpcStaleBanner />}

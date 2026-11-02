@@ -31,9 +31,9 @@ test("the V2 pool ABI is a superset of V1's; the only additions are errors", () 
   assert.deepEqual(added, ["error RentAlreadyRecorded()"]);
 });
 
-test("the committed deployment names both live pools on Arbitrum One", () => {
+test("the committed deployment names the live pool on Arbitrum One", () => {
   const d = JSON.parse(readFileSync(new URL("../chain/apartments-deployment.json", import.meta.url), "utf8"));
   assert.equal(d.chainId, 42161);
-  for (const a of [d.oracle, d.v2.pool, d.v2.token, d.v1.pool, d.v1.token]) assert.match(a, /^0x[0-9a-fA-F]{40}$/);
-  assert.notEqual(d.v1.pool.toLowerCase(), d.v2.pool.toLowerCase());
+  for (const a of [d.oracle, d.v2.pool, d.v2.token]) assert.match(a, /^0x[0-9a-fA-F]{40}$/);
+  assert.equal(d.v1, undefined);
 });

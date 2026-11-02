@@ -18,7 +18,6 @@ for (const width of WIDTHS) {
       ["list", "/policies"],
       ["detail", `/policies/${ids.settled}`],
       ["void", `/policies/${ids.void}`],
-      ["v1", `/policies/v1/${ids.v1}`],
       ["create", "/policies/new"],
       ["submit", "/policies/submit"],
       ["guide", "/policies/guide"],

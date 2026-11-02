@@ -6,8 +6,7 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useReadContract, useReadContracts } from "wagmi";
-import { Chip } from "@decentralpark/ui";
-import { APARTMENTS_ORACLE, POOL_V1, POOL_V2, policyPoolAbi, type PolicyPool } from "../../chain/apartments";
+import { APARTMENTS_ORACLE, POOL_V2, policyPoolAbi, type PolicyPool } from "../../chain/apartments";
 import { apartmentsOracleAbi } from "../../chain/apartmentsAbi";
 import { formatCents } from "../../chain/format";
 import { Card, LoadingSkeleton, StatRow } from "../../components/States";
@@ -78,28 +77,9 @@ function usePoolRows(pp: PolicyPool | null, limit?: number) {
   };
 }
 
-/** The newest `limit` policies across both pools (all of them when omitted), refetching on their own. */
+/** The newest `limit` policies (all of them when omitted), refetching on their own. */
 export function usePolicyRows(limit?: number) {
-  const v2 = usePoolRows(POOL_V2, limit);
-  const v1 = usePoolRows(POOL_V1, limit);
-  const all = [...v2.items, ...v1.items];
-  return {
-    total: v2.total + v1.total,
-    items: limit === undefined ? all : all.slice(0, limit),
-    isLoading: v2.isLoading || v1.isLoading,
-    rpcDown: v2.rpcDown && (v1.rpcDown || !POOL_V1),
-    stale: v2.stale || v1.stale || (v1.rpcDown && !v2.rpcDown),
-    refetch: () => Promise.all([v2.refetch(), v1.refetch()]),
-  };
-}
-
-/** The badge V1 policies carry wherever they are listed. */
-export function EarlierRulesChip() {
-  return (
-    <span className="flex" data-testid="v1-badge" title="Created on the first pool: sales close when the month starts and claims open seven days after it ends.">
-      <Chip size="small">V1 · earlier rules</Chip>
-    </span>
-  );
+  return usePoolRows(POOL_V2, limit);
 }
 
 /** One policy as a linked card; a skeleton until its row has loaded. */
@@ -111,7 +91,6 @@ export function PolicyCard({ item, now, testId }: { item: PolicyItem; now: bigin
   return (
     <Link to={policyPath(version, id)} data-testid={testId} className="block h-full rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-core-green">
       <Card className="hover:border-core-green h-full">
-        {version === "v1" && <div className="mb-2"><EarlierRulesChip /></div>}
         <p className="font-parkDisplay font-bold text-xl break-words">{neighborhood(slug)?.geography ?? slug}</p>
         <p className="font-parkBody text-sm mb-2">
           {monthLabel(series.obsMonth)} · <span className="text-surface-grey-2">Policy {policyLabel(version, id)}</span> · <span className="font-bold" data-testid="policy-status">{status.label}</span>
